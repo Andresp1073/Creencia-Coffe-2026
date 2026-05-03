@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand Colors */
+    --coffee-dark: #3E2723;
+    --coffee-medium: #6D4C41;
+    --coffee-light: #8B7355;
+    --cream: #F5F0E8;
+    --cream-dark: #E8E0D5;
+    --sage: #87A96B;
+    --sage-light: #C4D4B5;
+    --whatsapp: #25D366;
+
+    /* Background Colors */
+    --background: #FAF9F7;
+    --foreground: #1C1917;
+    --card: #FFFFFF;
+    --card-foreground: #1C1917;
+    --popover: #FFFFFF;
+    --popover-foreground: #1C1917;
+    --primary: #3E2723;
+    --primary-foreground: #F5F0E8;
+    --secondary: #F5F0E8;
+    --secondary-foreground: #3E2723;
+    --muted: #F5F5F4;
+    --muted-foreground: #78716C;
+    --accent: #87A96B;
+    --accent-foreground: #F5FAF0;
+    --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
+    --border: #E7E5E4;
+    --input: #E7E5E4;
+    --ring: #6D4C41;
+    
+    --font-fraunces: "Fraunces", serif;
+    --font-inter: "Inter", sans-serif;
+  }
+
+  html {
+    font-family: var(--font-inter);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-fraunces);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-fraunces);
+  }
+
+  /* Brand Colors */
+  .bg-coffee-dark { background-color: var(--coffee-dark); }
+  .bg-coffee-medium { background-color: var(--coffee-medium); }
+  .bg-cream { background-color: var(--cream); }
+  .bg-sage { background-color: var(--sage); }
+  .bg-sage-light { background-color: var(--sage-light); }
+  .bg-whatsapp { background-color: var(--whatsapp); }
+
+  .text-coffee-dark { color: var(--coffee-dark); }
+  .text-coffee-medium { color: var(--coffee-medium); }
+  .text-cream { color: var(--cream); }
+  .text-sage { color: var(--sage); }
+  .text-sage-light { color: var(--sage-light); }
+
+  .border-coffee-dark { border-color: var(--coffee-dark); }
+  .border-coffee-medium { border-color: var(--coffee-medium); }
+  .border-cream { border-color: var(--cream); }
+  .border-sage { border-color: var(--sage); }
+
+  /* Standard Colors */
+  .bg-background { background-color: var(--background); }
+  .text-foreground { color: var(--foreground); }
+  .bg-card { background-color: var(--card); }
+  .text-card-foreground { color: var(--card-foreground); }
+  .bg-muted { background-color: var(--muted); }
+  .text-muted-foreground { color: var(--muted-foreground); }
+  .bg-primary { background-color: var(--primary); }
+  .text-primary-foreground { color: var(--primary-foreground); }
+  .bg-secondary { background-color: var(--secondary); }
+  .text-secondary-foreground { color: var(--secondary-foreground); }
+  .bg-destructive { background-color: var(--destructive); }
+  .text-destructive-foreground { color: var(--destructive-foreground); }
+  .bg-accent { background-color: var(--accent); }
+  .text-accent-foreground { color: var(--accent-foreground); }
+  .border-border { border-color: var(--border); }
+  .bg-input { background-color: var(--input); }
+  .ring-ring { color: var(--ring); }
+
+  /* Gradients */
+  .gradient-warm {
+    background: linear-gradient(135deg, #3E2723 0%, #6D4C41 100%);
+  }
+
+  .gradient-cream {
+    background: linear-gradient(180deg, #FAF9F7 0%, #F5F0E8 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(180deg, rgba(62,39,35,0.3) 0%, rgba(62,39,35,0.7) 100%);
+  }
+
+  /* Shadows */
+  .shadow-soft {
+    box-shadow: 0 4px 20px -8px rgba(62,39,35,0.15);
+  }
+
+  .shadow-warm {
+    box-shadow: 0 12px 40px -16px rgba(62,39,35,0.35);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 20px 60px -20px rgba(62,39,35,0.45);
+  }
+
+  /* Transitions */
+  .transition-smooth {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out both;
+}
