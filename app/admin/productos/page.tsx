@@ -30,7 +30,7 @@ interface Product {
 
 const presentations = ["500g", "250g", "125g"];
 
-const defaultImage = "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=400&fit=crop";
+const defaultImage = "/imagenes/default-producto.jpg";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);

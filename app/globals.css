@@ -60,6 +60,22 @@
     font-family: var(--font-fraunces);
   }
 
+  /* Base Input Styles */
+  .input-base {
+    @apply px-4 py-3 rounded-lg border-2 border-border bg-background text-foreground font-medium;
+    @apply focus:border-coffee-dark focus:outline-none focus:ring-2 focus:ring-coffee-dark/10;
+    @apply hover:border-coffee-dark/50;
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .input-base:focus {
+    @apply ring-2 ring-coffee-dark/10;
+  }
+
+  .input-base:disabled {
+    @apply opacity-50 cursor-not-allowed bg-muted;
+  }
+
   /* Brand Colors */
   .bg-coffee-dark { background-color: var(--coffee-dark); }
   .bg-coffee-medium { background-color: var(--coffee-medium); }

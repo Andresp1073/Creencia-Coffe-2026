@@ -49,7 +49,12 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 export async function getCategories(): Promise<Category[]> {
   try {
-    return await queryMany<Category>("SELECT * FROM categories WHERE active = TRUE");
+    const categories = await queryMany<any>("SELECT * FROM categories");
+    return categories.map(c => ({
+      id: String(c.id),
+      name: c.name,
+      slug: c.slug
+    }));
   } catch {
     return [];
   }
@@ -75,7 +80,7 @@ function transformProduct(p: any): Product {
   
   const imageUrl = p.image?.startsWith("http") 
     ? p.image 
-    : p.image || "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=500&fit=crop";
+    : p.image || "/imagenes/default-producto.jpg";
 
   return {
     id: String(p.id || ""),
@@ -106,7 +111,7 @@ function getLocalProducts(): Product[] {
       category: "Café",
       presentation: "500g",
       price: 25000,
-      image: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=500&fit=crop",
+      image: "/imagenes/default-producto.jpg",
       description: "Café de tueste medio con notas de chocolate y caramelo.",
       featured: true,
     },
@@ -117,7 +122,7 @@ function getLocalProducts(): Product[] {
       category: "Café",
       presentation: "250g",
       price: 15000,
-      image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=500&fit=crop",
+      image: "/imagenes/home-cafe.jpg",
       description: "Café suave ideal para el начало del día.",
       featured: true,
     },
@@ -128,7 +133,7 @@ function getLocalProducts(): Product[] {
       category: "Café",
       presentation: "125g",
       price: 11000,
-      image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&h=500&fit=crop",
+      image: "/imagenes/cafe-artesanal.jpg",
       description: "Café molido listo para preparar.",
       featured: false,
     },

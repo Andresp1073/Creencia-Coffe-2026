@@ -45,7 +45,7 @@ export function ProductDetailClient({ product, related }: Props) {
             <div className="lg:w-1/2">
               <div className="bg-secondary rounded-xl shadow-soft overflow-hidden flex items-start justify-center">
                 <Image
-                  src={product.image || "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=500&fit=crop"}
+                  src={product.image || "/imagenes/default-producto.jpg"}
                   alt={product.name}
                   width={400}
                   height={500}

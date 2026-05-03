@@ -16,11 +16,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Cafe Creencia - Café Artesanal",
+  title: "Café Creencia",
   description: "Café artesanal tostado en lotes pequeños. Para una nueva experiencia en cada taza.",
   keywords: ["café", "artesanal", "tostado", "cafetería", "Colombia"],
+  icons: {
+    icon: "/imagenes/LOGO-CC.png",
+    apple: "/imagenes/LOGO-CC.png",
+  },
   openGraph: {
-    title: "Cafe Creencia - Café Artesanal",
+    title: "Café Creencia",
     description: "Café artesanal tostado en lotes pequeños",
     type: "website",
   },

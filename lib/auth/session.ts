@@ -20,7 +20,7 @@ export async function createToken(payload: Omit<JWTPayload, "iat" | "exp">) {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("24h")
+    .setExpirationTime(process.env.JWT_EXPIRES_IN || "5m")
     .sign(JWT_SECRET);
 }
 
@@ -49,8 +49,7 @@ export async function setSession(payload: Omit<JWTPayload, "iat" | "exp">) {
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24, // 24 hours
+    sameSite: "strict",
     path: "/",
   });
 }

@@ -46,9 +46,11 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- Sales table
 CREATE TABLE IF NOT EXISTS sales (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    customer VARCHAR(100),
     total DECIMAL(10, 2) NOT NULL,
     payment_method ENUM('efectivo', 'transferencia', 'whatsapp') DEFAULT 'whatsapp',
     notes TEXT,
+    items JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

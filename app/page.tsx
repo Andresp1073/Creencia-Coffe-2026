@@ -19,7 +19,7 @@ export default async function HomePage() {
       {/* HERO */}
       <section className="relative min-h-[88vh] flex items-center overflow-hidden">
         <Image
-          src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1920&h=1280&fit=crop"
+          src="/imagenes/Inicio-cafe.jpg"
           alt="Granos de café tostado artesanalmente"
           fill
           className="object-cover"
@@ -137,7 +137,7 @@ export default async function HomePage() {
           <div className="relative">
             <div className="aspect-[4/5] overflow-hidden rounded-3xl shadow-warm">
               <Image
-                src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&h=1000&fit=crop"
+                src="/imagenes/home-cafe.jpg"
                 alt="Manos de tostador con granos de café"
                 fill
                 className="object-cover"
@@ -161,7 +161,7 @@ export default async function HomePage() {
               en pequeñas cantidades para entregarte siempre un producto fresco.
             </p>
             <p className="text-base text-muted-foreground leading-relaxed mb-8">
-              Cada bolsa que sale de nuestro taller lleva nuestro compromiso: transparencia, oficio
+              Cada bolsa que sale lleva nuestro compromiso: transparencia, oficio
               y respeto por el grano.
             </p>
             <a

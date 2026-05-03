@@ -30,9 +30,8 @@ export default async function CatalogPage({ searchParams }: Props) {
           <h1 className="font-display text-5xl sm:text-6xl text-foreground mt-3 mb-4">
             Nuestro café
           </h1>
-          <p className="text-muted-foreground max-w-xl">
-            Cada presentación pensada para un momento. Elige el formato que mejor acompañe tu
-            ritual.
+          <p className="text-muted-foreground">
+            Cada presentación pensada para un momento. Elige la que mejor acompañe tu día.
           </p>
         </div>
       </section>

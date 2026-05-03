@@ -32,6 +32,8 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || "Credenciales incorrectas");
       } else {
+        // Set session marker for this tab
+        sessionStorage.setItem('admin-session-active', 'true');
         router.push("/admin");
       }
     } catch {

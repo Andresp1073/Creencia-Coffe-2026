@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Pencil, Eye, EyeOff, Trash2 } from "lucide-react";
 
 interface Category {
   id: number;
@@ -199,25 +200,32 @@ export default function CategoriasPage() {
                     {cat.active ? "Activa" : "Inactiva"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1 justify-end">
                     <button
                       onClick={() => handleEdit(cat)}
-                      className="text-sage hover:underline text-sm"
+                      className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
+                      title="Editar categoría"
                     >
-                      Editar
+                      <Pencil className="size-4" strokeWidth={1.75} />
                     </button>
                     <button
                       onClick={() => handleToggle(cat)}
-                      className="text-muted-foreground hover:text-foreground text-sm"
+                      className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
+                      title={cat.active ? "Ocultar categoría" : "Mostrar categoría"}
                     >
-                      {cat.active ? "Ocultar" : "Mostrar"}
+                      {cat.active ? (
+                        <EyeOff className="size-4" strokeWidth={1.75} />
+                      ) : (
+                        <Eye className="size-4" strokeWidth={1.75} />
+                      )}
                     </button>
-                    <button
+<button
                       onClick={() => handleDelete(cat.id)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                      className="size-8 rounded-md hover:bg-red-50 flex items-center justify-center text-red-500 transition-smooth"
+                      title="Eliminar categoría"
                     >
-                      Eliminar
+                      <Trash2 className="size-4" strokeWidth={1.75} />
                     </button>
                   </div>
                 </td>

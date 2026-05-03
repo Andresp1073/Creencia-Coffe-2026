@@ -54,6 +54,14 @@ export default function AdminLayout({
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    // Check sessionStorage for tab-specific session
+    if (typeof window !== 'undefined' && !sessionStorage.getItem('admin-session-active')) {
+      // No session in this tab, logout and redirect
+      fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+        router.push('/login');
+      });
+      return;
+    }
     checkAuth();
   }, []);
 
@@ -108,11 +116,11 @@ export default function AdminLayout({
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/admin/notifications/read-all", { method: "PUT" });
-      setNotifications([]);
+      await fetch("/api/admin/notifications/0", { method: "PATCH" });
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch {
-      setNotifications([]);
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     }
   };
@@ -132,6 +140,7 @@ export default function AdminLayout({
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      sessionStorage.removeItem('admin-session-active');
       setIsAuthenticated(false);
       router.push("/login");
     } catch (error) {
