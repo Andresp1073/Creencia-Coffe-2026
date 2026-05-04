@@ -30,21 +30,37 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
     if (qty <= 0) return;
     setSaving(true);
     try {
+      const newStock = type === "entrada" 
+        ? (product.stock || 0) + qty 
+        : Math.max(0, (product.stock || 0) - qty);
+      
       const res = await fetch("/api/admin/products", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           id: product.id,
-          stock: type === "entrada" 
-            ? (product.stock || 0) + qty 
-            : Math.max(0, (product.stock || 0) - qty)
+          stock: newStock
         })
       });
 
       if (res.ok) {
-        const newStock = type === "entrada" 
-          ? (product.stock || 0) + qty 
-          : Math.max(0, (product.stock || 0) - qty);
+        const movementData = {
+          product_id: Number(product.id),
+          type: type,
+          quantity: Number(qty),
+          reason: note || null
+        };
+        console.log("Sending movement data:", movementData);
+        
+        const movementRes = await fetch("/api/admin/inventory-movements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(movementData)
+        });
+        const movementJson = await movementRes.json();
+        console.log("Movement response:", movementRes.status, movementJson);
         
         if (type === "salida" && newStock <= 5) {
           alert(`Movimiento registrado. ⚠️ Alerta: "${product.name}" tiene stock bajo (${newStock} unidades)`);
@@ -122,15 +138,25 @@ export default function AdminInventoryPage() {
 
   const fetchData = async () => {
     try {
-      const productsRes = await fetch("/api/admin/products");
+      const productsRes = await fetch("/api/admin/products", { credentials: "include" });
       const productsData = await productsRes.json();
       setProducts(productsData.products || []);
       
-      setMovements([
-        { id: 1, date: "2026-05-03", product_name: "Café Tostado Medio 500g", type: "entrada", qty: 20, note: "Compra proveedor" },
-        { id: 2, date: "2026-05-02", product_name: "Café Suave 250g", type: "salida", qty: 5, note: "Venta" },
-        { id: 3, date: "2026-05-01", product_name: "Café Molido 125g", type: "entrada", qty: 30, note: "Compra proveedor" },
-      ]);
+      try {
+        const movementsRes = await fetch("/api/admin/inventory-movements", { credentials: "include" });
+        console.log("Movimientos response:", movementsRes.status);
+        if (movementsRes.ok) {
+          const movementsData = await movementsRes.json();
+          console.log("Movimientos data:", movementsData);
+          setMovements(movementsData.movements || []);
+        } else {
+          console.log("Error fetching movements");
+          setMovements([]);
+        }
+      } catch (e) {
+        console.log("Error catch movements:", e);
+        setMovements([]);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

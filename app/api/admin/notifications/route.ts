@@ -1,38 +1,52 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { queryMany, query } from "@/lib/db";
+import { requireApiAuth } from "@/lib/security/api-auth";
 
 interface Notification {
   id: number;
   type: string;
-  product_name: string;
+  title: string;
   message: string;
+  read: boolean;
   created_at: string;
-  is_read: boolean;
 }
 
 // GET all notifications
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const session = await requireApiAuth(request);
+  if (session instanceof NextResponse) {
+    return session;
+  }
+
   try {
-    const notifications = await queryMany<Notification>(
-      `SELECT n.*, p.name as product_name 
-       FROM notifications n 
-       LEFT JOIN products p ON n.product_id = p.id 
-       ORDER BY n.created_at DESC 
+    console.log("Fetching notifications from DB...");
+    const notifications = await queryMany<any>(
+      `SELECT id, type, message, is_read, created_at 
+       FROM notifications 
+       ORDER BY created_at DESC 
        LIMIT 50`
     );
-    return NextResponse.json(notifications);
-  } catch {
-    // Return mock data if table doesn't exist
-    return NextResponse.json([
-      { id: 1, type: "warning", product_name: "Café Suave 250g", message: "Stock bajo: 5 unidades", created_at: new Date().toISOString(), is_read: false },
-      { id: 2, type: "info", product_name: "Nueva venta", message: "Venta registrada", created_at: new Date().toISOString(), is_read: false },
-      { id: 3, type: "success", product_name: "Pedido entregado", message: "El pedido fue entregado", created_at: new Date(Date.now() - 86400000).toISOString(), is_read: true },
-    ]);
+    console.log("Found notifications in DB:", notifications.length, notifications);
+    // Transform to match frontend expected format
+    const formatted = notifications.map(n => ({
+      ...n,
+      title: n.type === 'stock_low' ? 'Stock bajo' : n.type,
+      is_read: Boolean(n.is_read)
+    }));
+    return NextResponse.json(formatted);
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    return NextResponse.json([]);
   }
 }
 
 // DELETE all notifications
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const session = await requireApiAuth(request);
+  if (session instanceof NextResponse) {
+    return session;
+  }
+
   try {
     await query("DELETE FROM notifications");
     return NextResponse.json({ message: "Notificaciones eliminadas" });

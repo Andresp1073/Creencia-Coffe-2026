@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAuth } from "@/lib/security/api-auth";
 
 export async function POST(request: NextRequest) {
+  const session = await requireApiAuth(request);
+  if (session instanceof NextResponse) {
+    return session;
+  }
   try {
     const body = await request.json();
     const { to, subject, message } = body;

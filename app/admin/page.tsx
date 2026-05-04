@@ -4,13 +4,13 @@ import { formatCOP } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard/dashboard.service";
 
 export default async function AdminDashboard() {
-  const { alerts, topProducts } = await getDashboardData();
+  const { alerts, topProducts, stats } = await getDashboardData();
 
-  const stats = [
-    { label: "Ventas hoy", value: "0", hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos hoy", value: "$0", hint: "del día", icon: TrendingUp, color: "text-green-600" },
-    { label: "Ventas del mes", value: "0", hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos del mes", value: "$0", hint: "vs mes anterior", icon: TrendingUp, color: "text-sage" },
+  const statsCards = [
+    { label: "Ventas hoy", value: stats.salesToday, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
+    { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "text-green-600" },
+    { label: "Ventas del mes", value: stats.salesMonth, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
+    { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "vs mes anterior", icon: TrendingUp, color: "text-sage" },
   ];
 
   return (
@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
 
       {/* Stats Grid */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {stats.map((stat) => (
+        {statsCards.map((stat) => (
           <div
             key={stat.label}
             className="p-6 rounded-2xl bg-card shadow-soft border border-border/50"

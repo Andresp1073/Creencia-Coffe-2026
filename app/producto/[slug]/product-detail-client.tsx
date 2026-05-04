@@ -17,15 +17,33 @@ interface Props {
 const WHATSAPP_NUMBER = "3004878385";
 
 export function ProductDetailClient({ product, related }: Props) {
-  const [selectedPresentation, setSelectedPresentation] = useState<"500g" | "250g" | "125g">(product.presentation as "500g" | "250g" | "125g");
+  const [selectedPresentation, setSelectedPresentation] = useState<"500grs" | "250grs" | "125grs">(product.presentation === "500g" ? "500grs" : product.presentation === "250g" ? "250grs" : "125grs");
 
-  type Presentation = "500g" | "250g" | "125g";
+  type Presentation = "500grs" | "250grs" | "125grs";
 
-  const variants: { presentation: Presentation; price: number }[] = [
-    { presentation: "500g", price: product.price_500g || product.price },
-    { presentation: "250g", price: product.price_250g || Math.round((product.price_500g || product.price) * 0.55) },
-    { presentation: "125g", price: product.price_125g || Math.round((product.price_500g || product.price) * 0.3) },
-  ];
+  // Only show presentations that actually exist
+  const availablePresentations = product.availablePresentations || ["500g"];
+  let variants: { presentation: Presentation; price: number }[] = availablePresentations
+    .filter(pres => {
+      switch (pres) {
+        case "500g": return (product.price_500g || 0) > 0;
+        case "250g": return (product.price_250g || 0) > 0;
+        case "125g": return (product.price_125g || 0) > 0;
+        default: return false;
+      }
+    })
+    .map(pres => ({
+      presentation: pres === "500g" ? "500grs" : pres === "250g" ? "250grs" : "125grs",
+      price: pres === "500g" ? product.price_500g! :
+             pres === "250g" ? product.price_250g! :
+             pres === "125g" ? product.price_125g! :
+             product.price
+    }));
+
+  // Fallback: if no variants, try to show 500grs
+  if (variants.length === 0 && product.price_500g && product.price_500g > 0) {
+    variants = [{ presentation: "500grs", price: product.price_500g }];
+  }
 
   const selectedVariant = variants.find((v) => v.presentation === selectedPresentation) || variants[0];
   const message = `Hola Cafe Creencia, quiero más información acerca de este producto:\n\n${product.name}\nPor: ${selectedPresentation}`;

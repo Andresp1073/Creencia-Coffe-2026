@@ -18,6 +18,8 @@ import {
   Menu,
   X,
   Tag,
+  Check,
+  Trash2,
 } from "lucide-react";
 
 const navItems = [
@@ -65,6 +67,16 @@ export default function AdminLayout({
     checkAuth();
   }, []);
 
+  // Poll for notifications every 30 seconds
+  useEffect(() => {
+    if (isAuthenticated) {
+      const interval = setInterval(() => {
+        fetchNotifications();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
   const checkAuth = async () => {
     try {
       const res = await fetch("/api/auth/me");
@@ -86,54 +98,84 @@ export default function AdminLayout({
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/admin/notifications");
+      console.log("Fetching notifications...");
+      const res = await fetch("/api/admin/notifications", { credentials: "include" });
+      console.log("Notifications response:", res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log("Notifications data:", data);
         setNotifications(data || []);
         const unread = data?.filter((n: Notification) => !n.is_read) || [];
         setUnreadCount(unread.length);
       }
-    } catch {
-      // Mock notifications if API fails
-      setNotifications([
-        { id: 1, type: "warning", product_name: "Café Suave 250g", message: "Stock bajo: 5 unidades", created_at: new Date().toISOString(), is_read: false },
-        { id: 2, type: "info", product_name: "Nueva venta", message: "Venta registrada", created_at: new Date().toISOString(), is_read: false },
-      ]);
-      setUnreadCount(2);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
     }
   };
 
   const handleMarkAsRead = async (id: number) => {
     try {
-      await fetch(`/api/admin/notifications/${id}/read`, { method: "PUT" });
-      setNotifications(notifications.filter(n => n.id !== id));
-      setUnreadCount(Math.max(0, unreadCount - 1));
-    } catch {
-      setNotifications(notifications.filter(n => n.id !== id));
-      setUnreadCount(Math.max(0, unreadCount - 1));
+      const res = await fetch(`/api/admin/notifications/${id}`, { 
+        method: "PUT",
+        credentials: "include"
+      });
+      if (res.ok) {
+        setNotifications(notifications.map(n => 
+          n.id === id ? { ...n, is_read: true } : n
+        ));
+        setUnreadCount(Math.max(0, unreadCount - 1));
+      }
+    } catch (err) {
+      console.error("Error marking as read:", err);
     }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/admin/notifications/0", { method: "PATCH" });
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch {
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      const res = await fetch("/api/admin/notifications/read-all", { 
+        method: "PATCH",
+        credentials: "include"
+      });
+      if (res.ok) {
+        setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
+  };
+
+  const handleDeleteOne = async (id: number) => {
+    try {
+      const res = await fetch(`/api/admin/notifications/${id}`, { 
+        method: "DELETE",
+        credentials: "include"
+      });
+      if (res.ok) {
+        setNotifications(notifications.filter(n => n.id !== id));
+        const wasUnread = notifications.find(n => n.id === id && !n.is_read);
+        if (wasUnread) {
+          setUnreadCount(Math.max(0, unreadCount - 1));
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting notification:", err);
     }
   };
 
   const handleDeleteAll = async () => {
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
     try {
-      await fetch("/api/admin/notifications", { method: "DELETE" });
-      setNotifications([]);
-      setUnreadCount(0);
-    } catch {
-      setNotifications([]);
-      setUnreadCount(0);
+      const res = await fetch("/api/admin/notifications", { 
+        method: "DELETE",
+        credentials: "include"
+      });
+      if (res.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Error deleting all:", err);
     }
   };
 
@@ -297,7 +339,7 @@ export default function AdminLayout({
                           <div
                             key={notif.id}
                             className={cn(
-                              "flex items-start gap-3 rounded-lg p-3 transition-colors",
+                              "flex items-start gap-2 rounded-lg p-3 transition-colors group",
                               notif.is_read ? "bg-gray-50 opacity-60" : "bg-yellow-50 hover:bg-yellow-100"
                             )}
                           >
@@ -306,7 +348,7 @@ export default function AdminLayout({
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-coffee-dark truncate">
-                                {notif.product_name}
+                                {notif.title || notif.product_name}
                               </p>
                               <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                 {notif.message}
@@ -320,14 +362,24 @@ export default function AdminLayout({
                                 })}
                               </p>
                             </div>
-                            {!notif.is_read && (
+                            <div className="flex gap-1">
+                              {!notif.is_read && (
+                                <button
+                                  onClick={() => handleMarkAsRead(notif.id)}
+                                  className="text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Marcar como leído"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleMarkAsRead(notif.id)}
-                                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                                onClick={() => handleDeleteOne(notif.id)}
+                                className="text-gray-400 hover:text-red-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Eliminar"
                               >
-                                <X className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
-                            )}
+                            </div>
                           </div>
                         ))}
                       </div>

@@ -23,7 +23,11 @@ export function CatalogClient({ products, categories, initialPresentation, initi
   const hasActiveFilters = presentation !== "todos" || category !== "todos";
 
   const filtered = products.filter((p) => {
-    const matchesPresentation = presentation === "todos" || p.presentation === presentation;
+    const presentationMap: Record<string, string> = {
+      "500grs": "500g", "250grs": "250g", "125grs": "125g"
+    };
+    const dbPresentation = presentationMap[presentation] || presentation;
+    const matchesPresentation = presentation === "todos" || p.presentation === dbPresentation;
     const matchesCategory = category === "todos" || p.categorySlug === category;
     return matchesPresentation && matchesCategory;
   });
@@ -83,9 +87,9 @@ export function CatalogClient({ products, categories, initialPresentation, initi
                   className="input-base w-full appearance-none cursor-pointer"
                 >
                   <option value="todos">Todas las presentaciones</option>
-                  <option value="500g">500grs</option>
-                  <option value="250g">250grs</option>
-                  <option value="125g">125grs</option>
+                  <option value="500grs">500grs</option>
+                  <option value="250grs">250grs</option>
+                  <option value="125grs">125grs</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">

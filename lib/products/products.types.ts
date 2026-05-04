@@ -14,6 +14,7 @@ export interface Product {
   featured?: boolean;
   active?: boolean;
   stock?: number;
+  availablePresentations?: ("500g" | "250g" | "125g")[];
 }
 
 export interface Category {

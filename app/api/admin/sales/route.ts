@@ -26,17 +26,30 @@ export async function GET(request: NextRequest) {
        ORDER BY id DESC`
     );
     
-    console.log("Orders from DB:", orders);
+    console.log("Orders raw:", orders);
     
-    const parsedOrders = orders.map(o => ({
-      ...o,
-      items: o.items ? JSON.parse(o.items) : []
-    }));
+    const parsedOrders = orders.map(o => {
+      let items = [];
+      try {
+        if (o.items) {
+          items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+        }
+      } catch (e) {
+        console.log("Error parsing items:", e);
+        items = [];
+      }
+      return { 
+        ...o, 
+        items,
+        total: Number(o.total) || 0
+      };
+    });
     
     return NextResponse.json({ sales: parsedOrders });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching sales:", error);
-    return NextResponse.json({ error: String(error), sales: [] });
+    console.error("Error message:", error.message);
+    return NextResponse.json({ error: error.message, sales: [] });
   }
 }
 
@@ -52,22 +65,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
     }
 
+    console.log("POST sale body:", body);
+
     const customer = sanitizeString(body?.customer, 100);
     const total = Number(body?.total) || 0;
     const items = JSON.stringify(body?.items || []);
+
+    console.log("Inserting:", { customer, total, items });
 
     if (!customer) {
       return NextResponse.json({ error: "Cliente es requerido" }, { status: 400 });
     }
 
-    const result = await query(
-      `INSERT INTO orders (customer_name, total, items, status, created_at) VALUES (?, ?, ?, 'completado', NOW())`,
+    // Use exact column names matching the table
+    const result: any = await query(
+      `INSERT INTO orders (customer_name, total, items, status) VALUES (?, ?, ?, 'pending')`,
       [customer, total, items]
     );
     
-    return NextResponse.json({ id: result, message: "Venta registrada" });
-  } catch (error) {
+    console.log("Insert result:", result);
+    
+    return NextResponse.json({ id: result.insertId || Date.now(), message: "Venta registrada" });
+  } catch (error: any) {
     console.error("Error creating sale:", error);
-    return NextResponse.json({ error: "Error al registrar venta" }, { status: 500 });
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
+    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
   }
 }

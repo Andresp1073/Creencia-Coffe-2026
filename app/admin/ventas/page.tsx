@@ -74,13 +74,14 @@ export default function AdminSalesPage() {
   };
 
   const addItem = (product: Product) => {
-    const price = product.price_500g || product.price;
+    const pres = product.presentation || '500g';
+    const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
     setItems([...items, {
       productId: product.id,
       productName: product.name,
       quantity: 1,
-      price,
-      presentation: product.presentation
+      price: product.price,
+      presentation: presLabel
     }]);
   };
 
@@ -116,7 +117,7 @@ export default function AdminSalesPage() {
         presentation: i.presentation
       }));
 
-      await fetch("/api/admin/sales", {
+      const res = await fetch("/api/admin/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -127,8 +128,17 @@ export default function AdminSalesPage() {
         })
       });
 
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Error: " + (err.error || "Error al guardar"));
+        setSaving(false);
+        return;
+      }
+
+      const data = await res.json();
+      
       const newSale: Sale = {
-        id: Date.now(),
+        id: data.id || Date.now(),
         date: new Date().toISOString(),
         customer: customer,
         items: saleItems,
@@ -146,7 +156,7 @@ export default function AdminSalesPage() {
         if (product) {
           const newStock = (product.stock || 0) - item.quantity;
           
-          await fetch("/api/admin/products", {
+          const stockRes = await fetch("/api/admin/products", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -156,31 +166,38 @@ export default function AdminSalesPage() {
             })
           });
 
-          if (newStock < 5) {
-            await fetch("/api/admin/notifications/create", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({
-                product_id: item.productId,
-                type: "warning",
-                message: `Stock bajo: ${product.name} - ${newStock} unidades`
-              })
-            });
-
+          if (newStock > 0 && newStock <= 5) {
+            console.log("Creating notification for:", product.name, "stock:", newStock);
+            
             try {
-              await fetch("/api/admin/notifications/email", {
+              const notifRes = await fetch("/api/admin/notifications/create", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({
-                  to: "andresmauriciopr1073@gmail.com",
-                  subject: `Alerta de Stock - ${product.name}`,
-                  message: `El producto "${product.name}" tiene stock bajo: ${newStock} unidades.`
+                  type: "warning",
+                  title: `Stock bajo: ${product.name}`,
+                  message: `El producto "${product.name}" tiene ${newStock} unidades en stock`
                 })
               });
-            } catch (emailError) {
-              console.log("Email notification failed:", emailError);
+              const notifData = await notifRes.json();
+              console.log("Notification response:", notifRes.status, notifData);
+
+              if (notifRes.ok) {
+                console.log("Notification created successfully!");
+                await fetch("/api/admin/notifications/email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    to: "andresmauriciope1073@gmail.com",
+                    subject: `Alerta de Stock - ${product.name}`,
+                    message: `El producto "${product.name}" tiene stock bajo: ${newStock} unidades.`
+                  })
+                });
+              }
+            } catch (notifError) {
+              console.error("Notification error:", notifError);
             }
           }
         }
@@ -303,23 +320,52 @@ export default function AdminSalesPage() {
                         const product = products.find(p => p.id === Number(e.target.value));
                         if (product) {
                           const newItems = [...items];
+                          const pres = product.presentation || '500g';
+                          const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
                           newItems[idx] = {
                             ...newItems[idx],
                             productId: product.id,
                             productName: product.name,
-                            price: product.price_500g || product.price,
-                            presentation: product.presentation
+                            price: product.price,
+                            presentation: presLabel
                           };
                           setItems(newItems);
                         }
                       }}
                       className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-coffee-medium"
                     >
-                      {products.map((pp) => (
-                        <option key={pp.id} value={pp.id}>
-                          {pp.name} · {pp.presentation} ({pp.stock} disponibles)
-                        </option>
-                      ))}
+                      {products.map((pp) => {
+                        const pres = pp.presentation || '500g';
+                        const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
+                        return (
+                          <option key={pp.id} value={pp.id}>
+                            {pp.name} {presLabel} ({pp.stock} disponibles)
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <select
+                      value={item.presentation}
+                      onChange={(e) => {
+                        const product = products.find(p => p.id === item.productId);
+                        if (product) {
+                          const newItems = [...items];
+                          const pres = e.target.value;
+                          newItems[idx] = {
+                            ...newItems[idx],
+                            presentation: pres,
+                            price: pres === '500grs' ? (product.price_500g || product.price) : 
+                                   pres === '250grs' ? (product.price_250g || product.price) :
+                                   (product.price_125g || product.price)
+                          };
+                          setItems(newItems);
+                        }
+                      }}
+                      className="w-28 px-2 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-coffee-medium"
+                    >
+                      <option value="500grs">500grs</option>
+                      <option value="250grs">250grs</option>
+                      <option value="125grs">125grs</option>
                     </select>
                     <input
                       type="number"
@@ -400,16 +446,20 @@ export default function AdminSalesPage() {
             </div>
             <div className="p-7 space-y-3">
               {showDetail.items.length > 0 ? showDetail.items.map((it: any, i: number) => {
+                const product = products.find(p => String(p.id) === String(it.id));
+                const unitPrice = it.price || product?.price_500g || product?.price || 0;
+                const productName = it.name || product?.name || "Producto";
+                const presentation = it.presentation || product?.presentation || "";
                 return (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <div>
-                      <div className="font-medium">{it.name || "Producto"}</div>
+                      <div className="font-medium">{productName}</div>
                       <div className="text-xs text-muted-foreground">
-                        {it.presentation || ""} · {it.qty} × {formatCOP(it.price || 0)}
+                        {presentation} · {it.qty} × {formatCOP(unitPrice)}
                       </div>
                     </div>
                     <div className="font-medium">
-                      {formatCOP((it.qty || 0) * (it.price || 0))}
+                      {formatCOP((it.qty || 0) * unitPrice)}
                     </div>
                   </div>
                 );

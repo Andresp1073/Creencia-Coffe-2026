@@ -3,15 +3,17 @@ import { Product, Category } from "./products.types";
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const products = await queryMany<Product[]>(
+    const allProducts = await queryMany<any>(
       `SELECT p.*, c.name as category_name, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
        WHERE p.active = TRUE 
-       ORDER BY p.id DESC`
+       ORDER BY p.id ASC`
     );
-    return products.map(transformProduct);
-  } catch {
+    
+    return allProducts.map(p => transformProduct(p));
+  } catch (error) {
+    console.error("Error fetching products:", error);
     return getLocalProducts();
   }
 }
@@ -22,8 +24,8 @@ export async function getFeaturedProducts(): Promise<Product[]> {
       `SELECT p.*, c.name as category_name, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
-       WHERE p.active = TRUE AND p.featured = TRUE 
-       ORDER BY p.id DESC`
+WHERE p.active = TRUE AND p.featured = TRUE 
+        ORDER BY p.id ASC`
     );
     return products.map(transformProduct);
   } catch {
@@ -33,16 +35,47 @@ export async function getFeaturedProducts(): Promise<Product[]> {
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
-    const product = await queryOne<Product>(
+    // Get the base name from slug by removing presentation suffix
+    const baseName = slug.replace(/-500g$/, '').replace(/-250g$/, '').replace(/-125g$/, '');
+    
+    // Find all products with the same base name (different presentations)
+    const products = await queryMany<Product>(
       `SELECT p.*, c.name as category_name, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
-       WHERE p.slug = ? AND p.active = TRUE`,
-      [slug]
+       WHERE p.slug LIKE ? AND p.active = TRUE
+       ORDER BY p.id ASC`,
+      [`${baseName}%`]
     );
-    if (!product) return null;
-    return transformProduct(product);
-  } catch {
+    
+    if (products.length === 0) return null;
+    
+    // Get the first product (oldest/created first) as main product
+    const mainProduct = products[0];
+    const transformed = transformProduct(mainProduct);
+    
+    // Override prices with actual prices from all presentations
+    const prices: Record<string, number> = {};
+    products.forEach(p => {
+      const pres = p.presentation || '500g';
+      prices[pres] = Number(p.price) || 0;
+    });
+    
+    // Use actual prices from DB, fallback to calculated
+    transformed.price_500g = prices['500g'] || transformed.price_500g;
+    transformed.price_250g = prices['250g'] || transformed.price_250g;
+    transformed.price_125g = prices['125g'] || transformed.price_125g;
+    transformed.price = transformed.price;
+    transformed.presentation = mainProduct.presentation as "500g" | "250g" | "125g";
+    
+    // Add available presentations ordered by id ASC (first created first)
+    transformed.availablePresentations = products
+      .map(p => p.presentation as "500g" | "250g" | "125g")
+      .filter(Boolean);
+    
+    return transformed;
+  } catch (error) {
+    console.error("Error fetching product:", error);
     return getLocalProducts().find(p => p.slug === slug) || null;
   }
 }
@@ -64,23 +97,34 @@ function transformProduct(p: any): Product {
   const priceValue = Number(p.price);
   
   let price_500g = priceValue;
-  let price_250g = Math.round(priceValue * 0.55);
-  let price_125g = Math.round(priceValue * 0.3);
+  let price_250g = priceValue;
+  let price_125g = priceValue;
   
   if (p.description && p.description.startsWith('{')) {
     try {
       const prices = JSON.parse(p.description);
       price_500g = prices.price_500g || priceValue;
-      price_250g = prices.price_250g || Math.round(priceValue * 0.55);
-      price_125g = prices.price_125g || Math.round(priceValue * 0.3);
+      price_250g = prices.price_250g || priceValue;
+      price_125g = prices.price_125g || priceValue;
     } catch (e) {
       // Use defaults
     }
   }
   
-  const imageUrl = p.image?.startsWith("http") 
-    ? p.image 
-    : p.image || "/imagenes/default-producto.jpg";
+  const presentation = (p.presentation as "500g" | "250g" | "125g") || "500g";
+  
+  let imageUrl = p.image || "";
+  if (imageUrl.startsWith("data:")) {
+    imageUrl = imageUrl;
+  } else if (imageUrl.startsWith("http")) {
+    imageUrl = imageUrl;
+  } else if (imageUrl) {
+    imageUrl = imageUrl.startsWith("/") ? imageUrl : "/" + imageUrl;
+  } else {
+    imageUrl = "/imagenes/default-producto.jpg";
+  }
+
+  const price = priceValue;
 
   return {
     id: String(p.id || ""),
@@ -88,8 +132,8 @@ function transformProduct(p: any): Product {
     name: p.name || "Producto",
     category: p.category_name || p.category || "Café",
     categorySlug: p.category_slug,
-    presentation: (p.presentation as "500g" | "250g" | "125g") || "500g",
-    price: price_500g,
+    presentation,
+    price,
     price_500g,
     price_250g,
     price_125g,
@@ -98,6 +142,7 @@ function transformProduct(p: any): Product {
     featured: Boolean(p.featured),
     active: Boolean(p.active),
     stock: Number(p.stock || 0),
+    availablePresentations: [presentation],
   };
 }
 

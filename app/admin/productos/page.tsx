@@ -58,8 +58,8 @@ export default function AdminProductsPage() {
   // Load products and categories on mount
   useEffect(() => {
     Promise.all([
-      fetch('/api/admin/products').then(res => res.json()),
-      fetch('/api/admin/categories').then(res => res.json())
+      fetch('/api/admin/products', { credentials: "include" }).then(res => res.json()),
+      fetch('/api/admin/categories', { credentials: "include" }).then(res => res.json())
     ])
       .then(([productsData, categoriesData]) => {
         if (productsData.products) {
@@ -75,21 +75,75 @@ export default function AdminProductsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setForm({ ...form, image: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      // Upload the file to server
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      try {
+        const res = await fetch("/api/admin/upload", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setImagePreview(data.url);
+          setForm({ ...form, image: data.url });
+        } else {
+          // Fallback to base64 if upload fails
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+            setForm({ ...form, image: reader.result as string });
+          };
+          reader.readAsDataURL(file);
+        }
+      } catch (error) {
+        // Fallback to base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+          setForm({ ...form, image: reader.result as string });
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+
+    // Convert base64 to file and upload if needed
+    let imageUrl = form.image || defaultImage;
+    if (imageUrl.startsWith("data:")) {
+      try {
+        // Convert base64 to blob
+        const res = await fetch(imageUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "image.jpg", { type: blob.type });
+        
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        const uploadRes = await fetch("/api/admin/upload", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+        
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          imageUrl = data.url;
+        }
+      } catch (err) {
+        console.log("Error converting base64, keeping original");
+      }
+    }
 
     const slug = form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "producto-" + Date.now();
     
@@ -102,11 +156,11 @@ export default function AdminProductsPage() {
       presentation: form.presentation,
       price: Number(form.price_500g) || Number(form.price) || 0,
       price_500g: Number(form.price_500g) || 0,
-      price_250g: Number(form.price_250g) || Math.round(Number(form.price_500g) * 0.55),
-      price_125g: Number(form.price_125g) || Math.round(Number(form.price_500g) * 0.3),
+      price_250g: 0,
+      price_125g: 0,
       stock: Number(form.stock),
       description: form.description,
-      image: form.image || defaultImage,
+      image: imageUrl,
       featured: form.featured,
       active: true,
     };
@@ -118,6 +172,7 @@ export default function AdminProductsPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
         body: JSON.stringify(productData)
       });
 
@@ -126,8 +181,12 @@ export default function AdminProductsPage() {
       if (editingId) {
         setProducts(products.map(p => p.id === editingId ? { ...p, ...productData } : p));
       } else {
-        const newId = Math.max(...products.map(p => p.id), 0) + 1;
-        setProducts([{ ...productData, id: newId, active: true }, ...products]);
+        // Reload products to get the 3 new ones created
+        const productsRes = await fetch('/api/admin/products', { credentials: "include" });
+        const productsData = await productsRes.json();
+        if (productsData.products) {
+          setProducts(productsData.products);
+        }
       }
       alert(editingId ? "Producto actualizado" : "Producto creado");
       resetForm();
@@ -419,51 +478,26 @@ export default function AdminProductsPage() {
                         onChange={(e) => setForm({ ...form, presentation: e.target.value })}
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
                       >
-                        {presentations.map(p => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
+                        <option value="500g">500g</option>
+                        <option value="250g">250g</option>
+                        <option value="125g">125g</option>
                       </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2 whitespace-nowrap">Precio 500g (COP) *</label>
+                      <label className="block text-sm font-medium mb-2">Precio (COP) *</label>
                       <input
                         type="number"
                         value={form.price_500g}
-                        onChange={(e) => setForm({ ...form, price_500g: e.target.value })}
+                        onChange={(e) => setForm({ ...form, price_500g: e.target.value, price: e.target.value })}
                         placeholder="25000"
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
                         required
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 whitespace-nowrap">Precio 250g (COP)</label>
-                      <input
-                        type="number"
-                        value={form.price_250g}
-                        onChange={(e) => setForm({ ...form, price_250g: e.target.value })}
-                        placeholder="13750"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 whitespace-nowrap">Precio 125g (COP)</label>
-                      <input
-                        type="number"
-                        value={form.price_125g}
-                        onChange={(e) => setForm({ ...form, price_125g: e.target.value })}
-                        placeholder="7500"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Stock *</label>
                       <input
@@ -512,7 +546,7 @@ export default function AdminProductsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !form.name || !form.price || !form.stock}
+                  disabled={saving || !form.name || !form.price_500g || !form.stock}
                   className="px-6 py-2.5 rounded-lg bg-coffee-dark text-cream font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {saving && <Loader2 className="size-4 animate-spin" />}
