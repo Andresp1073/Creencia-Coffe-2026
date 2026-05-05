@@ -1,4 +1,4 @@
-import { queryMany, query } from "@/lib/db";
+import { queryMany, query, queryOne } from "@/lib/db";
 
 export interface DashboardProduct {
   id: number;
@@ -50,27 +50,49 @@ export async function getDashboardData() {
 
     try {
       const today = new Date().toISOString().split('T')[0];
+      const todayColombian = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
       const monthStart = new Date();
       monthStart.setDate(1);
       const monthStartStr = monthStart.toISOString().split('T')[0];
 
-      const todayOrders = await queryMany<{ count: number; total: number }[]>(
-        `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE DATE(created_at) = ?`,
-        [today]
+      console.log("Dashboard - today (UTC):", today, "today (Colombian):", todayColombian);
+
+      const allOrdersToday = await queryMany<any>(
+        `SELECT id, customer_name, total, status, created_at FROM orders WHERE DATE(created_at) = ?`,
+        [todayColombian]
       );
-      if (todayOrders.length > 0) {
-        salesToday = todayOrders[0].count || 0;
-        revenueToday = Number(todayOrders[0].total) || 0;
+      console.log("Dashboard - allOrdersToday:", allOrdersToday);
+
+      const allOrders = await queryMany<any>(`SELECT id, customer_name, total, status, created_at FROM orders`);
+      console.log("Dashboard - allOrders (count):", allOrders.length);
+      if (allOrders.length > 0) {
+        console.log("Dashboard - sample order:", allOrders[0]);
       }
 
-      const monthOrders = await queryMany<{ count: number; total: number }[]>(
+      const todayOrders = await queryOne<{ count: number; total: number }>(
+        `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE DATE(created_at) = ?`,
+        [todayColombian]
+      );
+      console.log("Dashboard - todayOrders:", todayOrders);
+      if (todayOrders) {
+        salesToday = Number(todayOrders.count) || 0;
+        revenueToday = Number(todayOrders.total) || 0;
+      }
+
+      const monthOrders = await queryOne<{ count: number; total: number }>(
         `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE DATE(created_at) >= ?`,
         [monthStartStr]
       );
-      if (monthOrders.length > 0) {
-        salesMonth = monthOrders[0].count || 0;
-        revenueMonth = Number(monthOrders[0].total) || 0;
+      console.log("Dashboard - monthOrders:", monthOrders);
+      if (monthOrders) {
+        salesMonth = Number(monthOrders.count) || 0;
+        revenueMonth = Number(monthOrders.total) || 0;
       }
+
+      salesToday = allOrdersToday.length;
+      revenueToday = allOrdersToday.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+      console.log("Dashboard - FINAL salesToday:", salesToday, "revenueToday:", revenueToday);
     } catch (e) {
       console.log("Error fetching sales stats:", e);
     }

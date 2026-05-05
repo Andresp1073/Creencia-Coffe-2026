@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 interface Notification {
   id: number;
   type: string;
+  title?: string;
   product_name: string;
   message: string;
   created_at: string;
@@ -24,7 +25,7 @@ export default function AdminNotificationsPage() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/notifications");
+      const res = await fetch("/api/admin/notifications", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -42,8 +43,11 @@ export default function AdminNotificationsPage() {
 
   const handleMarkAsRead = async (id: number) => {
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: "PUT" });
+      await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch {
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     }
@@ -51,22 +55,36 @@ export default function AdminNotificationsPage() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/admin/notifications/read-all", { method: "PUT" });
+      await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch {
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
     }
   };
 
   const handleDelete = async (id: number) => {
+    try {
+      await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
+    } catch {
+      // ignore local fallback
+    }
     setNotifications(notifications.filter(n => n.id !== id));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("notifications:update"));
+    }
   };
 
   const handleDeleteAll = async () => {
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
     try {
-      await fetch("/api/admin/notifications", { method: "DELETE" });
+      await fetch("/api/admin/notifications", { method: "DELETE", credentials: "include" });
       setNotifications([]);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch {
       setNotifications([]);
     }
@@ -128,7 +146,7 @@ export default function AdminNotificationsPage() {
                   <Bell className="size-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">{notif.product_name}</p>
+                  <p className="font-medium">{notif.title || notif.product_name}</p>
                   <p className="text-sm text-muted-foreground mt-1">{notif.message}</p>
                   <p className="text-xs text-muted-foreground mt-2">
                     {new Date(notif.created_at).toLocaleDateString("es-ES", {

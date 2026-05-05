@@ -6,7 +6,6 @@ import { ArrowLeft, Check } from "lucide-react";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { ProductCard } from "@/components/site/product-card";
 import { formatCOP } from "@/lib/utils";
-import { useState } from "react";
 import type { Product as ProductType } from "@/lib/products/products.types";
 
 interface Props {
@@ -17,36 +16,17 @@ interface Props {
 const WHATSAPP_NUMBER = "3004878385";
 
 export function ProductDetailClient({ product, related }: Props) {
-  const [selectedPresentation, setSelectedPresentation] = useState<"500grs" | "250grs" | "125grs">(product.presentation === "500g" ? "500grs" : product.presentation === "250g" ? "250grs" : "125grs");
+  const getPresentationLabel = (pres?: string) => {
+    switch (pres) {
+      case "500g": return "500 g";
+      case "250g": return "250 g";
+      case "125g": return "125 g";
+      default: return "500 g";
+    }
+  };
 
-  type Presentation = "500grs" | "250grs" | "125grs";
-
-  // Only show presentations that actually exist
-  const availablePresentations = product.availablePresentations || ["500g"];
-  let variants: { presentation: Presentation; price: number }[] = availablePresentations
-    .filter(pres => {
-      switch (pres) {
-        case "500g": return (product.price_500g || 0) > 0;
-        case "250g": return (product.price_250g || 0) > 0;
-        case "125g": return (product.price_125g || 0) > 0;
-        default: return false;
-      }
-    })
-    .map(pres => ({
-      presentation: pres === "500g" ? "500grs" : pres === "250g" ? "250grs" : "125grs",
-      price: pres === "500g" ? product.price_500g! :
-             pres === "250g" ? product.price_250g! :
-             pres === "125g" ? product.price_125g! :
-             product.price
-    }));
-
-  // Fallback: if no variants, try to show 500grs
-  if (variants.length === 0 && product.price_500g && product.price_500g > 0) {
-    variants = [{ presentation: "500grs", price: product.price_500g }];
-  }
-
-  const selectedVariant = variants.find((v) => v.presentation === selectedPresentation) || variants[0];
-  const message = `Hola Cafe Creencia, quiero más información acerca de este producto:\n\n${product.name}\nPor: ${selectedPresentation}`;
+  const presentationLabel = getPresentationLabel(product.presentation);
+  const message = `Hola Cafe Creencia, quiero más información acerca de este producto:\n\n${product.name}`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -73,31 +53,16 @@ export function ProductDetailClient({ product, related }: Props) {
             </div>
 
             <div className="lg:w-1/2">
-              <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
-                {product.category}
-              </span>
-              <h1 className="font-display text-5xl sm:text-6xl text-foreground mt-3 mb-6 leading-[1.05]">
+              <h1 className="font-display text-5xl sm:text-6xl text-foreground mb-6 leading-[1.05]">
                 {product.name}
               </h1>
 
-              <div className="flex justify-center gap-3 mb-6">
-                {variants.map((v) => (
-                  <button
-                    key={v.presentation}
-                    onClick={() => setSelectedPresentation(v.presentation)}
-                    className={`text-xs font-medium uppercase tracking-[0.15em] px-5 py-2.5 rounded-full transition-smooth border-2 ${
-                      selectedPresentation === v.presentation
-                        ? "bg-sage text-white border-sage"
-                        : "bg-transparent text-muted-foreground border-coffee-dark/20 hover:border-sage/50"
-                    }`}
-                  >
-                    {v.presentation}
-                  </button>
-                ))}
-              </div>
+              <span className="inline-block text-sm font-medium tracking-widest text-foreground/70 mb-[10px]">
+                {presentationLabel}
+              </span>
 
               <div className="font-display text-4xl text-coffee-dark mb-8">
-                {formatCOP(selectedVariant.price)}
+                {formatCOP(product.price)}
               </div>
 
               {product.description ? (
@@ -110,7 +75,6 @@ export function ProductDetailClient({ product, related }: Props) {
                 {[
                   "Tostado reciente, en lotes pequeños",
                   "Empaque sellado que conserva el aroma",
-                  `Presentación de ${selectedPresentation}`,
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-3 text-sm text-foreground/80">
                     <span className="mt-0.5 size-5 rounded-full bg-sage/20 flex items-center justify-center shrink-0">

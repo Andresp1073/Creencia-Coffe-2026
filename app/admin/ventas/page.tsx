@@ -185,6 +185,9 @@ export default function AdminSalesPage() {
 
               if (notifRes.ok) {
                 console.log("Notification created successfully!");
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new Event("notifications:update"));
+                }
                 await fetch("/api/admin/notifications/email", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },

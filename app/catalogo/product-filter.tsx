@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 
 const presentations = [
   { value: "todos", label: "Todos" },
-  { value: "500g", label: "500g" },
-  { value: "250g", label: "250g" },
-  { value: "125g", label: "125g" },
+  { value: "500g", label: "500 GRS" },
+  { value: "250g", label: "250 GRS" },
+  { value: "125g", label: "125 GRS" },
 ];
 
 export function ProductFilter({ active }: { active: string }) {

@@ -87,9 +87,9 @@ export function CatalogClient({ products, categories, initialPresentation, initi
                   className="input-base w-full appearance-none cursor-pointer"
                 >
                   <option value="todos">Todas las presentaciones</option>
-                  <option value="500grs">500grs</option>
-                  <option value="250grs">250grs</option>
-                  <option value="125grs">125grs</option>
+                  <option value="500grs">500 GRS</option>
+                  <option value="250grs">250 GRS</option>
+                  <option value="125grs">125 GRS</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">

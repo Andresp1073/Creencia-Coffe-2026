@@ -33,6 +33,7 @@ const navItems = [
 interface Notification {
   id: number;
   type: string;
+  title?: string;
   product_name: string;
   message: string;
   created_at: string;
@@ -75,6 +76,19 @@ export default function AdminLayout({
       }, 30000);
       return () => clearInterval(interval);
     }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === "undefined") return;
+
+    const handleNotificationUpdate = () => {
+      fetchNotifications();
+    };
+
+    window.addEventListener("notifications:update", handleNotificationUpdate);
+    return () => {
+      window.removeEventListener("notifications:update", handleNotificationUpdate);
+    };
   }, [isAuthenticated]);
 
   const checkAuth = async () => {

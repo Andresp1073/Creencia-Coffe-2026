@@ -35,7 +35,21 @@ WHERE p.active = TRUE AND p.featured = TRUE
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
-    // Get the base name from slug by removing presentation suffix
+    const exactProduct = await queryOne<Product>(
+      `SELECT p.*, c.name as category_name, c.slug as category_slug 
+       FROM products p 
+       LEFT JOIN categories c ON p.category_id = c.id 
+       WHERE p.slug = ? AND p.active = TRUE`,
+      [slug]
+    );
+    
+    if (exactProduct) {
+      const transformed = transformProduct(exactProduct);
+      transformed.availablePresentations = [transformed.presentation];
+      return transformed;
+    }
+    
+    // Fallback: get the base name from slug by removing presentation suffix
     const baseName = slug.replace(/-500g$/, '').replace(/-250g$/, '').replace(/-125g$/, '');
     
     // Find all products with the same base name (different presentations)
