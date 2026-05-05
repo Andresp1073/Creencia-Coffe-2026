@@ -145,51 +145,60 @@ export default function AdminLayout({
   };
 
   const handleMarkAllAsRead = async () => {
+    console.log(">>> CLICK handleMarkAllAsRead");
     try {
-      const res = await fetch("/api/admin/notifications/read-all", { 
+      const url = "/api/admin/notifications/read-all";
+      console.log(">>> Fetching:", url);
+      const res = await fetch(url, { 
         method: "PATCH",
-        credentials: "include"
+        mode: "cors"
       });
+      console.log(">>> Status:", res.status);
+      console.log(">>> OK:", res.ok);
+      const data = await res.json();
+      console.log(">>> Data:", data);
       if (res.ok) {
         setNotifications(notifications.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
       }
     } catch (err) {
-      console.error("Error marking all as read:", err);
+      console.error(">>> Error:", err);
     }
   };
 
   const handleDeleteOne = async (id: number) => {
+    console.log(">>> CLICK handleDeleteOne:", id);
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, { 
         method: "DELETE",
-        credentials: "include"
+        mode: "cors"
       });
+      console.log(">>> Status:", res.status);
       if (res.ok) {
         setNotifications(notifications.filter(n => n.id !== id));
         const wasUnread = notifications.find(n => n.id === id && !n.is_read);
-        if (wasUnread) {
-          setUnreadCount(Math.max(0, unreadCount - 1));
-        }
+        if (wasUnread) setUnreadCount(Math.max(0, unreadCount - 1));
       }
     } catch (err) {
-      console.error("Error deleting notification:", err);
+      console.error(">>> Error:", err);
     }
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
+    console.log(">>> CLICK handleDeleteAll");
+    if (!confirm("¿Eliminar todas las notificaciones?")) return;
     try {
       const res = await fetch("/api/admin/notifications", { 
         method: "DELETE",
-        credentials: "include"
+        mode: "cors"
       });
+      console.log(">>> Status:", res.status);
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
       }
     } catch (err) {
-      console.error("Error deleting all:", err);
+      console.error(">>> Error:", err);
     }
   };
 
@@ -326,19 +335,22 @@ export default function AdminLayout({
                   <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                     <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
                     <div className="flex gap-2">
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={handleMarkAllAsRead}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Leer todo
-                        </button>
-                      )}
                       <button
-                        onClick={handleDeleteAll}
-                        className="text-xs text-red-600 hover:underline"
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); alert("CLICK LEER TODO!"); handleMarkAllAsRead(); }}
+                        disabled={unreadCount === 0}
+                        style={{ cursor: unreadCount === 0 ? 'not-allowed' : 'pointer' }}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600"
                       >
-                        Eliminar todo
+                        ✓ Leer todo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); alert("CLICK ELIMINAR!"); handleDeleteAll(); }}
+                        style={{ cursor: 'pointer' }}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
+                      >
+                        ✗ Eliminar
                       </button>
                     </div>
                   </div>

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const presentation = sanitizeString(body?.presentation, 20) || '500g';
     const price = Number(body?.price_500g) || Number(body?.price) || 0;
     const stock = sanitizeNumericId(body?.stock) || 0;
-    const image = sanitizeString(body?.image, 500);
+    const image = sanitizeString(body?.image, 500000);
     const featured = Boolean(body?.featured);
 
     if (!name || !presentation) {
@@ -144,7 +144,7 @@ export async function PUT(request: NextRequest) {
     const presentation = sanitizeString(body?.presentation, 20) || "500g";
     const price = Number(body?.price_500g) || Number(body?.price) || 0;
     const stock = sanitizeNumericId(body?.stock) || 0;
-    const image = sanitizeString(body?.image, 500) || "";
+    const image = sanitizeString(body?.image, 500000) || "";
     const featured = body?.featured !== undefined ? Boolean(body?.featured) : false;
     const active = body?.active !== undefined ? Boolean(body?.active) : true;
 

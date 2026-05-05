@@ -40,6 +40,7 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [originalImage, setOriginalImage] = useState<string>(defaultImage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "",
@@ -118,32 +119,8 @@ export default function AdminProductsPage() {
     e.preventDefault();
     setSaving(true);
 
-    // Convert base64 to file and upload if needed
-    let imageUrl = form.image || defaultImage;
-    if (imageUrl.startsWith("data:")) {
-      try {
-        // Convert base64 to blob
-        const res = await fetch(imageUrl);
-        const blob = await res.blob();
-        const file = new File([blob], "image.jpg", { type: blob.type });
-        
-        const formData = new FormData();
-        formData.append("file", file);
-        
-        const uploadRes = await fetch("/api/admin/upload", {
-          method: "POST",
-          credentials: "include",
-          body: formData
-        });
-        
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
-          imageUrl = data.url;
-        }
-      } catch (err) {
-        console.log("Error converting base64, keeping original");
-      }
-    }
+    // Usar la imagen directamente del form - ya viene como base64 del handleImageChange
+    const imageUrl = form.image || defaultImage;
 
     const slug = form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "producto-" + Date.now();
     
@@ -201,6 +178,7 @@ export default function AdminProductsPage() {
     setShowForm(false);
     setEditingId(null);
     setImagePreview(null);
+    setOriginalImage(defaultImage);
     setForm({
       name: "",
       category_id: 1,
@@ -232,6 +210,7 @@ export default function AdminProductsPage() {
       featured: product.featured,
     });
     setImagePreview(product.image);
+    setOriginalImage(product.image || defaultImage);
     setEditingId(product.id);
     setShowForm(true);
   };

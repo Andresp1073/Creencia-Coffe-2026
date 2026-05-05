@@ -38,6 +38,7 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "jose": "^5.9.6",

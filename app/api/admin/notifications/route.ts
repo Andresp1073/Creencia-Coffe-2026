@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryMany, query } from "@/lib/db";
 
-// GET all notifications
 export async function GET(request: NextRequest) {
   try {
     const notifications = await queryMany<any>(
@@ -22,12 +21,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE all notifications
 export async function DELETE(request: NextRequest) {
+  console.log("[NOTIF DELETE] DELETE received");
   try {
     await query("DELETE FROM notifications");
+    console.log("[NOTIF DELETE] Deleted OK");
     return NextResponse.json({ message: "Notificaciones eliminadas" });
-  } catch {
+  } catch (error) {
+    console.error("[NOTIF DELETE] Error:", error);
     return NextResponse.json({ message: "Notificaciones eliminadas" });
   }
 }
