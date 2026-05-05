@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
-
-const ADMIN_EMAIL = "andresmauriciope1073@gmail.com";
-const otpStore = new Map<string, { code: string; expires: number; attempts: number }>();
+import { verifyToken, deleteOTP, ADMIN_EMAIL } from "@/lib/otp";
 
 export async function POST(request: NextRequest) {
   try {
-    const { password } = await request.json();
+    const { password, token } = await request.json();
+
+    console.log("[RESET] Starting password reset, token:", token, "admin email:", ADMIN_EMAIL);
 
     if (!password || password.length < 6) {
-      return NextResponse.json(
-        { error: "La contraseña debe tener al menos 6 caracteres" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "La contraseña debe tener al menos 6 caracteres" });
     }
 
-    const stored = otpStore.get(ADMIN_EMAIL);
-    
-    if (!stored || stored.attempts !== -1) {
-      return NextResponse.json(
-        { error: "Primero verifica el código" },
-        { status: 400 }
-      );
+    if (!token || !verifyToken(ADMIN_EMAIL, token)) {
+      console.log("[RESET] Token invalid or missing");
+      return NextResponse.json({ error: "Primero verifica el código" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,17 +25,15 @@ export async function POST(request: NextRequest) {
         "UPDATE admin_users SET password_hash = ? WHERE username = ?",
         [hashedPassword, "creencia"]
       );
-    } catch {
-      // Table might not exist in development, that's ok
+    } catch (e) {
+      console.log("[RESET] DB update error (table may not exist):", e);
     }
 
-    otpStore.delete(ADMIN_EMAIL);
+    deleteOTP(ADMIN_EMAIL);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Error al cambiar la contraseña" },
-      { status: 500 }
-    );
+    console.error("[RESET] Error:", error);
+    return NextResponse.json({ error: "Error al cambiar la contraseña" });
   }
 }

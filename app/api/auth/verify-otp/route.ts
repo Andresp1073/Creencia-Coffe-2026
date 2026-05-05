@@ -1,54 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const ADMIN_EMAIL = "andresmauriciope1073@gmail.com";
-const otpStore = new Map<string, { code: string; expires: number; attempts: number }>();
-const MAX_ATTEMPTS = 3;
+import { verifyOTP, getVerifiedToken, ADMIN_EMAIL } from "@/lib/otp";
 
 export async function POST(request: NextRequest) {
   try {
     const { code } = await request.json();
 
-    const stored = otpStore.get(ADMIN_EMAIL);
+    console.log("[VERIFY] Starting verification, code:", code, "admin email:", ADMIN_EMAIL);
 
-    if (!stored) {
-      return NextResponse.json(
-        { error: "No hay solicitud de recuperación activa" },
-        { status: 400 }
-      );
+    if (!code) {
+      return NextResponse.json({ error: "Código requerido" });
     }
 
-    if (Date.now() > stored.expires) {
-      otpStore.delete(ADMIN_EMAIL);
-      return NextResponse.json(
-        { error: "El código ha expirado. Solicita uno nuevo." },
-        { status: 400 }
-      );
+    const result = verifyOTP(ADMIN_EMAIL, code);
+
+    console.log("[VERIFY] Result:", result);
+
+    if (result.valid) {
+      const token = getVerifiedToken(ADMIN_EMAIL);
+      console.log("[VERIFY] Got token:", token);
+      return NextResponse.json({ verified: true, token });
     }
 
-    if (stored.attempts >= MAX_ATTEMPTS) {
-      otpStore.delete(ADMIN_EMAIL);
-      return NextResponse.json(
-        { error: "Demasiados intentos. Solicita un nuevo código." },
-        { status: 400 }
-      );
-    }
-
-    if (code !== stored.code) {
-      stored.attempts++;
-      return NextResponse.json(
-        { error: `Código incorrecto. Te quedan ${MAX_ATTEMPTS - stored.attempts} intentos.` },
-        { status: 400 }
-      );
-    }
-
-    // Mark as verified
-    stored.attempts = -1; // Special value to indicate verified
-
-    return NextResponse.json({ verified: true });
-  } catch {
-    return NextResponse.json(
-      { error: "Error al verificar el código" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: result.error });
+  } catch (error) {
+    console.error("[VERIFY] Error:", error);
+    return NextResponse.json({ error: "Error al verificar el código" });
   }
 }

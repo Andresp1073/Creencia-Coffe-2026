@@ -156,16 +156,25 @@ export default function AdminSalesPage() {
         if (product) {
           const newStock = (product.stock || 0) - item.quantity;
           
-          const stockRes = await fetch("/api/admin/products", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              id: item.productId,
-              stock: newStock
-            })
-          });
+          console.log("Updating stock for:", product.name, "newStock:", newStock);
+          
+          try {
+            const stockRes = await fetch("/api/admin/products", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                id: item.productId,
+                stock: newStock
+              })
+            });
+            console.log("Stock update response:", stockRes.status);
+          } catch (stockError) {
+            console.error("Stock update error:", stockError);
+          }
 
+          console.log("Checking notification for stock:", newStock, "threshold:", 5);
+          
           if (newStock > 0 && newStock <= 5) {
             console.log("Creating notification for:", product.name, "stock:", newStock);
             

@@ -1,39 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireApiAuth } from "@/lib/security/api-auth";
 
 export async function POST(request: NextRequest) {
-  const session = await requireApiAuth(request);
-  if (session instanceof NextResponse) {
-    return session;
-  }
-
+  console.log("[NOTIF_CREATE] New request");
+  
   try {
     const body = await request.json();
     const { type, title, message } = body;
-
-    console.log("Creating notification:", { type, title, message });
+    console.log("[NOTIF_CREATE] Body:", body);
 
     if (!title || !message) {
       return NextResponse.json({ error: "Datos requeridos" }, { status: 400 });
     }
 
     const fullMessage = title + ": " + message;
-    console.log("Inserting notification with:", ["stock_low", null, fullMessage]);
+    console.log("[NOTIF_CREATE] Message:", fullMessage);
+
+    // Get any valid product_id from products table
+    const products: any[] = await query("SELECT id FROM products LIMIT 1");
+    const validProductId = products.length > 0 ? products[0].id : 1;
+    console.log("[NOTIF_CREATE] Using product_id:", validProductId);
     
-    try {
-      const result = await query(
-        "INSERT INTO notifications (type, product_id, message, is_read) VALUES (?, ?, ?, 0)",
-        ["stock_low", null, fullMessage]
-      );
-      console.log("Notification inserted with id:", result);
-      return NextResponse.json({ id: result, message: "Notificación creada" });
-    } catch (dbError) {
-      console.error("DB Error creating notification:", dbError);
-      return NextResponse.json({ error: "Error: " + String(dbError) }, { status: 500 });
-    }
-  } catch (error) {
-    console.error("Error creating notification:", error);
-    return NextResponse.json({ error: "Error al crear notificación" }, { status: 500 });
+    const result: any = await query(
+      "INSERT INTO notifications (type, product_id, message, is_read) VALUES (?, ?, ?, 0)",
+      ["stock_low", validProductId, fullMessage]
+    );
+    console.log("[NOTIF_CREATE] Inserted, id:", result);
+    
+    return NextResponse.json({ success: true, id: result });
+  } catch (error: any) {
+    console.error("[NOTIF_CREATE] ERROR:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

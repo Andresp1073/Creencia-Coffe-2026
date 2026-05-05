@@ -14,6 +14,7 @@ export default function RecoverPasswordPage() {
   const [step, setStep] = useState<"email" | "otp" | "reset">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,11 +39,13 @@ export default function RecoverPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.message) {
         setSent(true);
         setStep("otp");
       } else {
-        setError("Error al enviar el código");
+        setError(data.error || "Error al enviar el código");
       }
     } catch {
       setError("Error de conexión");
@@ -63,10 +66,13 @@ export default function RecoverPasswordPage() {
         body: JSON.stringify({ code }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (data.verified) {
+        setToken(data.token || "");
         setStep("reset");
       } else {
-        setError("Código incorrecto o expirado");
+        setError(data.error || "Código incorrecto");
       }
     } catch {
       setError("Error de conexión");
@@ -96,13 +102,15 @@ export default function RecoverPasswordPage() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, token }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (data.success) {
         router.push("/login?success=password-reset");
       } else {
-        setError("Error al cambiar la contraseña");
+        setError(data.error || "Error al cambiar la contraseña");
       }
     } catch {
       setError("Error de conexión");
