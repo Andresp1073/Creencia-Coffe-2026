@@ -19,6 +19,7 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("Page loaded, notifications:", notifications.length);
     loadNotifications();
   }, []);
 
@@ -69,7 +70,7 @@ export default function AdminNotificationsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl">Notificaciones</h1>
-          <p className="text-muted-foreground mt-1">Alertas y avisos del sistema</p>
+          <p className="text-muted-foreground mt-1">Alertas y avisos del sistema - {notifications.length} items</p>
         </div>
         <div className="flex gap-3">
           {unreadCount > 0 && (
