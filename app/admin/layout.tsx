@@ -342,14 +342,32 @@ export default function AdminLayout({
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
                         disabled={unreadCount === 0}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500 disabled:active:scale-100"
+                        style={{ 
+                          backgroundColor: '#3B82F6', 
+                          cursor: unreadCount === 0 ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => { if (unreadCount > 0) e.currentTarget.style.backgroundColor = '#2563EB'; }}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+                        onMouseDown={(e) => { if (unreadCount > 0) e.currentTarget.style.transform = 'scale(0.95)'; }}
+                        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white disabled:opacity-50"
                       >
                         ✓ Leer todo
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all duration-200"
+                        style={{ 
+                          backgroundColor: '#EF4444', 
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DC2626'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EF4444'}
+                        onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+                        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white"
                       >
                         ✗ Eliminar
                       </button>
@@ -393,7 +411,12 @@ export default function AdminLayout({
                               {!notif.is_read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
-                                  className="text-gray-400 hover:text-green-600 hover:bg-green-50 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-90"
+                                  style={{ transition: 'all 0.2s ease' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#16A34A'; e.currentTarget.style.backgroundColor = '#DCFCE7'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+                                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100"
                                   title="Marcar como leído"
                                 >
                                   <Check className="h-4 w-4" />
@@ -401,7 +424,12 @@ export default function AdminLayout({
                               )}
                               <button
                                 onClick={() => handleDeleteOne(notif.id)}
-                                className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-90"
+                                style={{ transition: 'all 0.2s ease' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.backgroundColor = '#FEE2E2'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+                                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100"
                                 title="Eliminar"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -415,7 +443,10 @@ export default function AdminLayout({
                   <Link
                     href="/admin/notificaciones"
                     onClick={() => setShowNotifications(false)}
-                    className="block px-4 py-3 text-center text-sm text-sage hover:bg-muted/50 border-t border-border transition-colors duration-200 hover:text-coffee-dark"
+                    style={{ transition: 'all 0.2s ease' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F5F5F4'; e.currentTarget.style.color = '#3E2723'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = ''; }}
+                    className="block px-4 py-3 text-center text-sm text-sage border-t border-border"
                   >
                     Ver todas
                   </Link>
