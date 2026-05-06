@@ -128,18 +128,15 @@ export default function AdminLayout({
 
   const fetchNotifications = async () => {
     try {
-      console.log("Fetching notifications...");
       const res = await fetch("/api/admin/notifications", { credentials: "include" });
-      console.log("Notifications response:", res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log("Notifications data:", data);
         setNotifications(data || []);
         const unread = data?.filter((n: Notification) => !n.is_read) || [];
         setUnreadCount(unread.length);
       }
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
+    } catch {
+      // Silent fail
     }
   };
 
@@ -161,60 +158,50 @@ export default function AdminLayout({
   };
 
   const handleMarkAllAsRead = async () => {
-    console.log(">>> CLICK handleMarkAllAsRead");
     try {
-      const url = "/api/admin/notifications/read-all";
-      console.log(">>> Fetching:", url);
-      const res = await fetch(url, { 
+      const res = await fetch("/api/admin/notifications/read-all", { 
         method: "PATCH",
-        mode: "cors"
+        credentials: "include"
       });
-      console.log(">>> Status:", res.status);
-      console.log(">>> OK:", res.ok);
-      const data = await res.json();
-      console.log(">>> Data:", data);
       if (res.ok) {
         setNotifications(notifications.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
+        setShowNotifications(false);
       }
     } catch (err) {
-      console.error(">>> Error:", err);
+      console.error("Error marking all as read:", err);
     }
   };
 
   const handleDeleteOne = async (id: number) => {
-    console.log(">>> CLICK handleDeleteOne:", id);
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, { 
         method: "DELETE",
-        mode: "cors"
+        credentials: "include"
       });
-      console.log(">>> Status:", res.status);
       if (res.ok) {
         setNotifications(notifications.filter(n => n.id !== id));
         const wasUnread = notifications.find(n => n.id === id && !n.is_read);
         if (wasUnread) setUnreadCount(Math.max(0, unreadCount - 1));
       }
     } catch (err) {
-      console.error(">>> Error:", err);
+      console.error("Error deleting notification:", err);
     }
   };
 
   const handleDeleteAll = async () => {
-    console.log(">>> CLICK handleDeleteAll");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     try {
       const res = await fetch("/api/admin/notifications", { 
         method: "DELETE",
-        mode: "cors"
+        credentials: "include"
       });
-      console.log(">>> Status:", res.status);
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
       }
     } catch (err) {
-      console.error(">>> Error:", err);
+      console.error("Error deleting all notifications:", err);
     }
   };
 
@@ -353,17 +340,15 @@ export default function AdminLayout({
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); alert("CLICK LEER TODO!"); handleMarkAllAsRead(); }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
                         disabled={unreadCount === 0}
-                        style={{ cursor: unreadCount === 0 ? 'not-allowed' : 'pointer' }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ✓ Leer todo
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); alert("CLICK ELIMINAR!"); handleDeleteAll(); }}
-                        style={{ cursor: 'pointer' }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
                         className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
                       >
                         ✗ Eliminar

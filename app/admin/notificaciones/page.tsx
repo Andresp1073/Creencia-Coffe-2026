@@ -58,16 +58,14 @@ export default function AdminNotificationsPage() {
       const res = await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
       if (!res.ok) throw new Error("Error");
       
+      // Update local state regardless of server response
       const updated = notifications.map(n => ({ ...n, is_read: true }));
       setNotifications(updated);
       
       // Dispatch event that layout listens to
       window.dispatchEvent(new Event("notifications:update"));
-      
-      // Also trigger immediate refresh
-      window.dispatchEvent(new CustomEvent("force-notif-refresh"));
     } catch (err) {
-      console.error("Error marking all read:", err);
+      // Fallback: still update local state
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
     }
   };
@@ -75,16 +73,21 @@ export default function AdminNotificationsPage() {
   const handleDelete = async (id: number) => {
     const wasUnread = notifications.find(n => n.id === id)?.is_read === false;
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/admin/notifications/${id}`, { 
+        method: "DELETE", 
+        credentials: "include" 
+      });
+      if (!res.ok) {
+        throw new Error("Delete failed");
+      }
     } catch {
-      // ignore local fallback
+      // Continue with local deletion even if API fails
     }
     setNotifications(notifications.filter(n => n.id !== id));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("notifications:update"));
       if (wasUnread) {
         localStorage.setItem("admin-unread-count", String(Math.max(0, unreadCount - 1)));
-        window.dispatchEvent(new StorageEvent("storage", { key: "admin-unread-count" }));
       }
     }
   };
