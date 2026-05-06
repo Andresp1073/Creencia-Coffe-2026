@@ -42,66 +42,62 @@ export default function AdminNotificationsPage() {
   };
 
   const handleMarkAsRead = async (id: number) => {
+    // Siempre actualizar UI primero
+    setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("notifications:update"));
+    }
+    // Luego intentar API
     try {
       await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("notifications:update"));
-      }
     } catch {
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      // Ignorar error - UI ya se actualizó
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    try {
-      const res = await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
-      if (!res.ok) throw new Error("Error");
-      
-      // Update local state regardless of server response
-      const updated = notifications.map(n => ({ ...n, is_read: true }));
-      setNotifications(updated);
-      
-      // Dispatch event that layout listens to
+    // Siempre actualizar UI primero
+    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+    if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("notifications:update"));
-    } catch (err) {
-      // Fallback: still update local state
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+    }
+    // Luego intentar API
+    try {
+      await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
+    } catch {
+      // Ignorar error - UI ya se actualizó
     }
   };
 
   const handleDelete = async (id: number) => {
-    const wasUnread = notifications.find(n => n.id === id)?.is_read === false;
-    try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { 
-        method: "DELETE", 
-        credentials: "include" 
-      });
-      if (!res.ok) {
-        throw new Error("Delete failed");
-      }
-    } catch {
-      // Continue with local deletion even if API fails
-    }
+    // Siempre actualizar UI primero
     setNotifications(notifications.filter(n => n.id !== id));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("notifications:update"));
-      if (wasUnread) {
-        localStorage.setItem("admin-unread-count", String(Math.max(0, unreadCount - 1)));
-      }
+    }
+    // Luego intentar API
+    try {
+      await fetch(`/api/admin/notifications/${id}`, { 
+        method: "DELETE", 
+        credentials: "include" 
+      });
+    } catch {
+      // Ignorar error - UI ya se actualizó
     }
   };
 
   const handleDeleteAll = async () => {
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
+    // Siempre actualizar UI primero
+    setNotifications([]);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("notifications:update"));
+    }
+    // Luego intentar API
     try {
       await fetch("/api/admin/notifications", { method: "DELETE", credentials: "include" });
-      setNotifications([]);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("notifications:update"));
-      }
     } catch {
-      setNotifications([]);
+      // Ignorar error - UI ya se actualizó
     }
   };
 
