@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Pencil, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Pencil, Eye, EyeOff, Trash2, Plus } from "lucide-react";
 
 interface Category {
   id: number;
@@ -121,9 +121,10 @@ export default function CategoriasPage() {
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="bg-coffee-dark text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-coffee-dark/90 transition-smooth"
+          className="px-6 py-2.5 rounded-full bg-[#3E2723] text-white font-sans font-medium shadow-soft hover:shadow-warm hover:bg-[#4a332a] active:scale-95 transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          + Nueva Categoría
+          <Plus className="size-4" />
+          Nueva Categoría
         </button>
       </div>
 
@@ -163,14 +164,14 @@ export default function CategoriasPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-coffee-dark text-white py-2 rounded-lg font-medium hover:bg-coffee-dark/90 transition-smooth disabled:opacity-50"
+                  className="flex-1 px-6 py-2.5 rounded-full bg-[#3E2723] text-white font-sans font-medium shadow-soft hover:shadow-warm hover:bg-[#4a332a] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:hover:bg-[#3E2723]"
                 >
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2 border border-border rounded-lg text-foreground hover:bg-secondary transition-smooth"
+                  className="px-6 py-2.5 rounded-full border border-gray-300 text-gray-700 font-sans font-medium hover:bg-gray-100 active:scale-95 transition-all duration-300"
                 >
                   Cancelar
                 </button>

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireApiAuth } from "@/lib/security/api-auth";
 
 export async function PATCH(request: NextRequest) {
-  console.log("[READ-ALL] PATCH received");
+  const auth = await requireApiAuth(request);
+  if (auth instanceof NextResponse) return auth;
+
   try {
-    console.log("[READ-ALL] Running UPDATE query...");
     await query("UPDATE notifications SET is_read = 1 WHERE is_read = 0");
-    console.log("[READ-ALL] Query executed OK");
     return NextResponse.json({ message: "Todas las notificaciones marcadas como leídas" });
   } catch (error) {
-    console.error("[READ-ALL] Error:", error);
+    console.error("Error marking all as read:", error);
     return NextResponse.json({ error: "Error al marcar notificaciones" }, { status: 500 });
   }
 }

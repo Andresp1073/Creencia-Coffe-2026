@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS products (
     price_250g DECIMAL(10, 2),
     price_125g DECIMAL(10, 2),
     stock INT DEFAULT 0,
-    image VARCHAR(500),
+    image LONGTEXT,
     description TEXT,
     featured BOOLEAN DEFAULT FALSE,
     active BOOLEAN DEFAULT TRUE,

@@ -519,14 +519,14 @@ export default function AdminProductsPage() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-5 py-2.5 rounded-lg border border-border hover:bg-muted font-medium"
+                  className="px-5 py-2.5 rounded-xl border border-border hover:bg-muted font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving || !form.name || !form.price_500g || !form.stock}
-                  className="px-6 py-2.5 rounded-lg bg-coffee-dark text-cream font-medium disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-coffee-dark text-cream font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {saving && <Loader2 className="size-4 animate-spin" />}
                   {editingId ? "Guardar cambios" : "Crear producto"}

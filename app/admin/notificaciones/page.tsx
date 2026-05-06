@@ -55,17 +55,25 @@ export default function AdminNotificationsPage() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("notifications:update"));
-      }
-    } catch {
+      const res = await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
+      if (!res.ok) throw new Error("Error");
+      
+      const updated = notifications.map(n => ({ ...n, is_read: true }));
+      setNotifications(updated);
+      
+      // Dispatch event that layout listens to
+      window.dispatchEvent(new Event("notifications:update"));
+      
+      // Also trigger immediate refresh
+      window.dispatchEvent(new CustomEvent("force-notif-refresh"));
+    } catch (err) {
+      console.error("Error marking all read:", err);
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
     }
   };
 
   const handleDelete = async (id: number) => {
+    const wasUnread = notifications.find(n => n.id === id)?.is_read === false;
     try {
       await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
     } catch {
@@ -74,6 +82,10 @@ export default function AdminNotificationsPage() {
     setNotifications(notifications.filter(n => n.id !== id));
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("notifications:update"));
+      if (wasUnread) {
+        localStorage.setItem("admin-unread-count", String(Math.max(0, unreadCount - 1)));
+        window.dispatchEvent(new StorageEvent("storage", { key: "admin-unread-count" }));
+      }
     }
   };
 

@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryMany, query } from "@/lib/db";
+import { requireApiAuth } from "@/lib/security/api-auth";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireApiAuth(request);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const notifications = await queryMany<any>(
-      `SELECT id, type, message, is_read, created_at 
-       FROM notifications 
-       ORDER BY created_at DESC 
+      `SELECT n.id, n.type, n.message, n.is_read, n.created_at, p.name as product_name
+       FROM notifications n
+       LEFT JOIN products p ON n.product_id = p.id
+       ORDER BY n.created_at DESC 
        LIMIT 50`
     );
     const formatted = notifications.map(n => ({
       ...n,
       title: n.type === 'stock_low' ? 'Stock bajo' : n.type,
+      product_name: n.product_name || 'Sistema',
       is_read: Boolean(n.is_read)
     }));
     return NextResponse.json(formatted);
@@ -22,13 +28,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  console.log("[NOTIF DELETE] DELETE received");
+  const auth = await requireApiAuth(request);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     await query("DELETE FROM notifications");
-    console.log("[NOTIF DELETE] Deleted OK");
     return NextResponse.json({ message: "Notificaciones eliminadas" });
   } catch (error) {
-    console.error("[NOTIF DELETE] Error:", error);
+    console.error("Error deleting notifications:", error);
     return NextResponse.json({ message: "Notificaciones eliminadas" });
   }
 }

@@ -85,9 +85,25 @@ export default function AdminLayout({
       fetchNotifications();
     };
 
+    const handleForceRefresh = () => {
+      fetchNotifications();
+    };
+
     window.addEventListener("notifications:update", handleNotificationUpdate);
+    window.addEventListener("force-notif-refresh", handleForceRefresh);
+    
+    // Also listen for storage events (from other pages)
+    const handleStorageChange = (e: StorageEvent) => {
+      if ((e.key === "admin-unread-count" || e.key === "notif-unread-count") && e.newValue) {
+        setUnreadCount(0);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    
     return () => {
       window.removeEventListener("notifications:update", handleNotificationUpdate);
+      window.removeEventListener("force-notif-refresh", handleForceRefresh);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [isAuthenticated]);
 

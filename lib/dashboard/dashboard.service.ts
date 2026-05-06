@@ -17,11 +17,31 @@ export interface DashboardAlert {
   status: "bajo" | "sin-stock";
 }
 
+function getProductPrice(product: any): number {
+  if (product.price && Number(product.price) > 0) {
+    return Number(product.price);
+  }
+  if (product.description && product.description.startsWith('{')) {
+    try {
+      const prices = JSON.parse(product.description);
+      return prices.price_500g || prices.price_250g || prices.price_125g || 0;
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 export async function getDashboardData() {
   try {
-    const products = await queryMany<DashboardProduct>(
-      "SELECT id, name, presentation, stock, active, price FROM products WHERE active = TRUE ORDER BY id ASC"
+    const productsRaw = await queryMany<any>(
+      "SELECT id, name, presentation, stock, active, price, description FROM products WHERE active = TRUE ORDER BY id ASC"
     );
+
+    const products = productsRaw.map(p => ({
+      ...p,
+      price: getProductPrice(p)
+    }));
 
     const alerts: DashboardAlert[] = products
       .filter(p => p.stock > 0 && p.stock <= 5)
