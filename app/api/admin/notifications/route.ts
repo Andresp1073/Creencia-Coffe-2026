@@ -32,10 +32,10 @@ export async function DELETE(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    await query("DELETE FROM notifications");
+    await query("DELETE FROM notifications WHERE id > 0");
     return NextResponse.json({ message: "Notificaciones eliminadas" });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting notifications:", error);
-    return NextResponse.json({ message: "Notificaciones eliminadas" });
+    return NextResponse.json({ error: error.message || "Error al eliminar las notificaciones" }, { status: 500 });
   }
 }

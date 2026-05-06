@@ -128,7 +128,7 @@ export default function AdminLayout({
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/admin/notifications", { credentials: "include" });
+      const res = await fetch(`/api/admin/notifications?_t=${Date.now()}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setNotifications(data || []);
@@ -140,31 +140,77 @@ export default function AdminLayout({
     }
   };
 
-  const handleMarkAsRead = (id: number) => {
-    alert("Marcar leido: " + id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+const handleMarkAsRead = async (id: number) => {
+    try {
+      await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
+      await fetchNotifications();
+      window.dispatchEvent(new Event("notifications:update"));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    alert("Marcar todos leidos");
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    setUnreadCount(0);
-    setShowNotifications(false);
+  const handleMarkAllAsRead = async () => {
+    try {
+      await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      await fetchNotifications();
+      setShowNotifications(false);
+      window.dispatchEvent(new Event("notifications:update"));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDeleteOne = (id: number) => {
-    alert("Eliminar: " + id);
-    const wasUnread = notifications.find(n => n.id === id && !n.is_read);
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+  const handleDeleteOne = async (id: number) => {
+    try {
+      await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      await fetchNotifications();
+      window.dispatchEvent(new Event("notifications:update"));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDeleteAll = () => {
-    alert("Eliminar todas");
+  const handleDeleteAll = async () => {
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
-    setNotifications([]);
-    setUnreadCount(0);
+    try {
+      await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      await fetchNotifications();
+      setShowNotifications(false);
+      window.dispatchEvent(new Event("notifications:update"));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      await fetchNotifications();
+      setShowNotifications(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteOne = async (id: number) => {
+    try {
+      await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      await fetchNotifications();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!confirm("¿Eliminar todas las notificaciones?")) return;
+    try {
+      await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      await fetchNotifications();
+      setShowNotifications(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleLogout = async () => {
@@ -299,37 +345,19 @@ export default function AdminLayout({
                 <div className="absolute right-0 mt-2 w-80 bg-cream border border-border rounded-xl shadow-lg z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                     <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
-                    <div className="flex gap-2">
+<div className="flex gap-2">
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
                         disabled={unreadCount === 0}
-                        style={{ 
-                          backgroundColor: '#3B82F6', 
-                          cursor: unreadCount === 0 ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => { if (unreadCount > 0) e.currentTarget.style.backgroundColor = '#2563EB'; }}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
-                        onMouseDown={(e) => { if (unreadCount > 0) e.currentTarget.style.transform = 'scale(0.95)'; }}
-                        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white disabled:opacity-50"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ✓ Leer todo
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        style={{ 
-                          backgroundColor: '#EF4444', 
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DC2626'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EF4444'}
-                        onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-                        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
                       >
                         ✗ Eliminar
                       </button>
@@ -373,12 +401,7 @@ export default function AdminLayout({
                               {!notif.is_read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
-                                  style={{ transition: 'all 0.2s ease' }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#16A34A'; e.currentTarget.style.backgroundColor = '#DCFCE7'; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-                                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100"
+                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-green-600 hover:bg-green-50"
                                   title="Marcar como leído"
                                 >
                                   <Check className="h-4 w-4" />
@@ -386,12 +409,7 @@ export default function AdminLayout({
                               )}
                               <button
                                 onClick={() => handleDeleteOne(notif.id)}
-                                style={{ transition: 'all 0.2s ease' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.backgroundColor = '#FEE2E2'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-                                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100"
+                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50"
                                 title="Eliminar"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -405,10 +423,7 @@ export default function AdminLayout({
                   <Link
                     href="/admin/notificaciones"
                     onClick={() => setShowNotifications(false)}
-                    style={{ transition: 'all 0.2s ease' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F5F5F4'; e.currentTarget.style.color = '#3E2723'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = ''; }}
-                    className="block px-4 py-3 text-center text-sm text-sage border-t border-border"
+                    className="block px-4 py-3 text-center text-sm text-sage hover:text-coffee-dark hover:bg-muted border-t border-border"
                   >
                     Ver todas
                   </Link>
