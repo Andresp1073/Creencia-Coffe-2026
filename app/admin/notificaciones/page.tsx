@@ -42,23 +42,23 @@ export default function AdminNotificationsPage() {
   };
 
   const handleMarkAsRead = (id: number) => {
-    console.log("handleMarkAsRead called for id:", id);
+    alert("Click en marcar leido: " + id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
   const handleMarkAllAsRead = () => {
-    console.log("handleMarkAllAsRead called");
+    alert("Click en marcar todos");
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
   const handleDelete = (id: number) => {
-    console.log("handleDelete called for id:", id);
+    alert("Click en eliminar: " + id);
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const handleDeleteAll = () => {
+    alert("Click en eliminar todo");
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
-    console.log("handleDeleteAll called");
     setNotifications([]);
   };
 

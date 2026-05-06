@@ -141,27 +141,27 @@ export default function AdminLayout({
   };
 
   const handleMarkAsRead = (id: number) => {
-    console.log("handleMarkAsRead called for id:", id);
+    alert("Marcar leido: " + id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const handleMarkAllAsRead = () => {
-    console.log("handleMarkAllAsRead called");
+    alert("Marcar todos leidos");
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
     setShowNotifications(false);
   };
 
   const handleDeleteOne = (id: number) => {
-    console.log("handleDeleteOne called for id:", id);
+    alert("Eliminar: " + id);
     const wasUnread = notifications.find(n => n.id === id && !n.is_read);
     setNotifications(prev => prev.filter(n => n.id !== id));
     if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const handleDeleteAll = () => {
-    console.log("handleDeleteAll called");
+    alert("Eliminar todas");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     setNotifications([]);
     setUnreadCount(0);
