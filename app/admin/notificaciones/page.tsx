@@ -41,64 +41,25 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  const handleMarkAsRead = async (id: number) => {
-    // Siempre actualizar UI primero
-    setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("notifications:update"));
-    }
-    // Luego intentar API
-    try {
-      await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
-    } catch {
-      // Ignorar error - UI ya se actualizó
-    }
+  const handleMarkAsRead = (id: number) => {
+    console.log("handleMarkAsRead called for id:", id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
-  const handleMarkAllAsRead = async () => {
-    // Siempre actualizar UI primero
-    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("notifications:update"));
-    }
-    // Luego intentar API
-    try {
-      await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
-    } catch {
-      // Ignorar error - UI ya se actualizó
-    }
+  const handleMarkAllAsRead = () => {
+    console.log("handleMarkAllAsRead called");
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
-  const handleDelete = async (id: number) => {
-    // Siempre actualizar UI primero
-    setNotifications(notifications.filter(n => n.id !== id));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("notifications:update"));
-    }
-    // Luego intentar API
-    try {
-      await fetch(`/api/admin/notifications/${id}`, { 
-        method: "DELETE", 
-        credentials: "include" 
-      });
-    } catch {
-      // Ignorar error - UI ya se actualizó
-    }
+  const handleDelete = (id: number) => {
+    console.log("handleDelete called for id:", id);
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const handleDeleteAll = async () => {
+  const handleDeleteAll = () => {
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
-    // Siempre actualizar UI primero
+    console.log("handleDeleteAll called");
     setNotifications([]);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("notifications:update"));
-    }
-    // Luego intentar API
-    try {
-      await fetch("/api/admin/notifications", { method: "DELETE", credentials: "include" });
-    } catch {
-      // Ignorar error - UI ya se actualizó
-    }
   };
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
