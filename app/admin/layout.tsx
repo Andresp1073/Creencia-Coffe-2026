@@ -342,14 +342,14 @@ export default function AdminLayout({
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
                         disabled={unreadCount === 0}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500 disabled:active:scale-100"
                       >
                         ✓ Leer todo
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all duration-200"
                       >
                         ✗ Eliminar
                       </button>
@@ -393,7 +393,7 @@ export default function AdminLayout({
                               {!notif.is_read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
-                                  className="text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="text-gray-400 hover:text-green-600 hover:bg-green-50 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-90"
                                   title="Marcar como leído"
                                 >
                                   <Check className="h-4 w-4" />
@@ -401,7 +401,7 @@ export default function AdminLayout({
                               )}
                               <button
                                 onClick={() => handleDeleteOne(notif.id)}
-                                className="text-gray-400 hover:text-red-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-90"
                                 title="Eliminar"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -415,7 +415,7 @@ export default function AdminLayout({
                   <Link
                     href="/admin/notificaciones"
                     onClick={() => setShowNotifications(false)}
-                    className="block px-4 py-3 text-center text-sm text-sage hover:bg-muted/50 border-t border-border"
+                    className="block px-4 py-3 text-center text-sm text-sage hover:bg-muted/50 border-t border-border transition-colors duration-200 hover:text-coffee-dark"
                   >
                     Ver todas
                   </Link>
