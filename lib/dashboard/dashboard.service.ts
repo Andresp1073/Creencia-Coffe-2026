@@ -69,31 +69,20 @@ export async function getDashboardData() {
     let revenueMonth = 0;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
       const todayColombian = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
       const monthStart = new Date();
       monthStart.setDate(1);
       const monthStartStr = monthStart.toISOString().split('T')[0];
 
-      console.log("Dashboard - today (UTC):", today, "today (Colombian):", todayColombian);
-
       const allOrdersToday = await queryMany<any>(
         `SELECT id, customer_name, total, status, created_at FROM orders WHERE DATE(created_at) = ?`,
         [todayColombian]
       );
-      console.log("Dashboard - allOrdersToday:", allOrdersToday);
-
-      const allOrders = await queryMany<any>(`SELECT id, customer_name, total, status, created_at FROM orders`);
-      console.log("Dashboard - allOrders (count):", allOrders.length);
-      if (allOrders.length > 0) {
-        console.log("Dashboard - sample order:", allOrders[0]);
-      }
 
       const todayOrders = await queryOne<{ count: number; total: number }>(
         `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE DATE(created_at) = ?`,
         [todayColombian]
       );
-      console.log("Dashboard - todayOrders:", todayOrders);
       if (todayOrders) {
         salesToday = Number(todayOrders.count) || 0;
         revenueToday = Number(todayOrders.total) || 0;
@@ -103,18 +92,12 @@ export async function getDashboardData() {
         `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE DATE(created_at) >= ?`,
         [monthStartStr]
       );
-      console.log("Dashboard - monthOrders:", monthOrders);
       if (monthOrders) {
         salesMonth = Number(monthOrders.count) || 0;
         revenueMonth = Number(monthOrders.total) || 0;
       }
-
-      salesToday = allOrdersToday.length;
-      revenueToday = allOrdersToday.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-      console.log("Dashboard - FINAL salesToday:", salesToday, "revenueToday:", revenueToday);
-    } catch (e) {
-      console.log("Error fetching sales stats:", e);
+    } catch {
+      // Silent fail for stats
     }
 
     return { 
