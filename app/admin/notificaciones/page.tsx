@@ -67,6 +67,14 @@ export default function AdminNotificationsPage() {
 
   return (
     <div>
+      {/* BOTÓN DE PRUEBA SIMPLE */}
+      <button 
+        onClick={() => alert("BOTÓN FUNCIONA")}
+        className="bg-red-500 text-white px-4 py-2 mb-4"
+      >
+        PRUEBA CLICK
+      </button>
+      
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl">Notificaciones</h1>
