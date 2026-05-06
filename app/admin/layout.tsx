@@ -183,36 +183,6 @@ const handleMarkAsRead = async (id: number) => {
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    try {
-      await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
-      await fetchNotifications();
-      setShowNotifications(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteOne = async (id: number) => {
-    try {
-      await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
-      await fetchNotifications();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteAll = async () => {
-    if (!confirm("¿Eliminar todas las notificaciones?")) return;
-    try {
-      await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
-      await fetchNotifications();
-      setShowNotifications(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
