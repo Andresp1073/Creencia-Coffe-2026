@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Coffee, ExternalLink } from "lucide-react";
-
-const WHATSAPP_NUMBER = "3004878385";
+import { getWhatsAppLink } from "@/lib/whatsapp";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -35,7 +34,7 @@ export function Footer() {
           <ul className="space-y-3 text-sm text-cream/80" role="list">
             <li>
               <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero más información sobre Café Creencia.`}
+                href={getWhatsAppLink("Hola, quiero más información sobre Café Creencia.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-cream transition-smooth flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream/50 rounded"

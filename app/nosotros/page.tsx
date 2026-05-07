@@ -4,8 +4,7 @@ import { ArrowRight, Leaf, Flame, Heart, Award, Users, Truck } from "lucide-reac
 import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
-
-const WHATSAPP_NUMBER = "3004878385";
+import { getWhatsAppLink } from "@/lib/whatsapp";
 
 export const metadata = {
   title: "Nosotros",
@@ -37,7 +36,7 @@ export default function NosotrosPage() {
                 en pequeñas cantidades para entregarte siempre un producto fresco.
               </p>
               <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero conocer más sobre Cafe Creencia.`}
+                href={getWhatsAppLink("Hola, quiero conocer más sobre Cafe Creencia.")}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full gradient-warm text-cream shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
@@ -197,7 +196,7 @@ export default function NosotrosPage() {
                   Estamos aquí para ayudarte a encontrar el café perfecto para ti.
                 </p>
                 <a
-                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero hacer un pedido de café.`}
+                  href={getWhatsAppLink("Hola, quiero hacer un pedido de café.")}
                   target="_blank"
                   rel="noopener"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-cream text-coffee-dark font-medium shadow-warm hover:scale-[1.02] transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-coffee-dark"

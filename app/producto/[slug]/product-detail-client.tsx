@@ -7,13 +7,12 @@ import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { ProductCard } from "@/components/site/product-card";
 import { formatCOP } from "@/lib/utils";
 import type { Product as ProductType } from "@/lib/products/products.types";
+import { getWhatsAppLink } from "@/lib/whatsapp";
 
 interface Props {
   product: ProductType;
   related: ProductType[];
 }
-
-const WHATSAPP_NUMBER = "3004878385";
 
 export function ProductDetailClient({ product, related }: Props) {
   const getPresentationLabel = (pres?: string) => {
@@ -84,7 +83,7 @@ export function ProductDetailClient({ product, related }: Props) {
               </ul>
 
               <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`}
+                href={getWhatsAppLink(message)}
                 target="_blank"
                 rel="noopener"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-whatsapp text-white font-medium shadow-warm hover:shadow-elevated hover:scale-[1.02] transition-smooth"

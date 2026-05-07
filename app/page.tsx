@@ -6,10 +6,9 @@ import { Footer } from "@/components/site/footer";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { ProductCard } from "@/components/site/product-card";
 import { getFeaturedProducts } from "@/lib/products/products.service";
+import { getWhatsAppLink } from "@/lib/whatsapp";
 
 export const revalidate = 60;
-
-const WHATSAPP_NUMBER = "3004878385";
 
 export default async function HomePage() {
   const featured = await getFeaturedProducts();
@@ -55,7 +54,7 @@ export default async function HomePage() {
                   <ArrowRight className="size-4 transition-smooth group-hover:translate-x-1" aria-hidden="true" />
                 </Link>
                 <a
-                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero más información sobre Cafe Creencia.`}
+                  href={getWhatsAppLink("Hola, quiero más información sobre Cafe Creencia.")}
                   target="_blank"
                   rel="noopener"
                   className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-cream/30 text-cream hover:bg-cream/10 transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
@@ -210,7 +209,7 @@ export default async function HomePage() {
                 y respeto por el grano.
               </p>
               <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero conocer más sobre Cafe Creencia.`}
+                href={getWhatsAppLink("Hola, quiero conocer más sobre Cafe Creencia.")}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full gradient-warm text-cream shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
@@ -250,7 +249,7 @@ export default async function HomePage() {
                   Pide tu café por WhatsApp y recíbelo recientemente tostado.
                 </p>
                 <a
-                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero hacer un pedido de café.`}
+                  href={getWhatsAppLink("Hola, quiero hacer un pedido de café.")}
                   target="_blank"
                   rel="noopener"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-cream text-coffee-dark font-medium shadow-warm hover:scale-[1.02] transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-coffee-dark"
