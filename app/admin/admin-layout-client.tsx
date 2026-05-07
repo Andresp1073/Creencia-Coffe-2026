@@ -63,6 +63,8 @@ export default function AdminLayoutClient({
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingAll, setProcessingAll] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -137,45 +139,78 @@ export default function AdminLayoutClient({
   };
 
   const handleMarkAsRead = async (id: number) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
-      await fetchNotifications();
-      window.dispatchEvent(new Event("notifications:update"));
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch (e) {
       console.error(e);
+      await fetchNotifications();
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleMarkAllAsRead = async () => {
+    if (processingAll) return;
+    setProcessingAll(true);
     try {
-      await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
-      await fetchNotifications();
-      setShowNotifications(false);
-      window.dispatchEvent(new Event("notifications:update"));
+      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+        setShowNotifications(false);
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch (e) {
       console.error("Error:", e);
+      await fetchNotifications();
+    } finally {
+      setProcessingAll(false);
     }
   };
 
   const handleDeleteOne = async (id: number) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
-      await fetchNotifications();
-      window.dispatchEvent(new Event("notifications:update"));
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        const wasUnread = notifications.find(n => n.id === id && !n.is_read);
+        if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch (e) {
       console.error("Error:", e);
+      await fetchNotifications();
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleDeleteAll = async () => {
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
+    if (processingAll) return;
+    setProcessingAll(true);
     try {
-      await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
-      await fetchNotifications();
-      setShowNotifications(false);
-      window.dispatchEvent(new Event("notifications:update"));
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setShowNotifications(false);
+        window.dispatchEvent(new Event("notifications:update"));
+      }
     } catch (e) {
       console.error("Error:", e);
+      await fetchNotifications();
+    } finally {
+      setProcessingAll(false);
     }
   };
 
@@ -294,17 +329,28 @@ export default function AdminLayoutClient({
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
-                        disabled={unreadCount === 0}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-white hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={unreadCount === 0 || processingAll}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-white hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
-                        ✓ Leer todo
+                        {processingAll ? (
+                          <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          "✓"
+                        )}
+                        Leer todo
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-white hover:opacity-90"
+                        disabled={processingAll}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
                       >
-                        ✗ Eliminar
+                        {processingAll ? (
+                          <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          "✗"
+                        )}
+                        Eliminar
                       </button>
                     </div>
                   </div>
@@ -346,18 +392,28 @@ export default function AdminLayoutClient({
                               {!notif.is_read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
-                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-caramel hover:bg-brand-caramel/10"
+                                  disabled={processingId === notif.id}
+                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-caramel hover:bg-brand-caramel/10 disabled:opacity-50"
                                   title="Marcar como leído"
                                 >
-                                  <Check className="h-4 w-4" />
+                                  {processingId === notif.id ? (
+                                    <span className="h-4 w-4 border-2 border-coffee-dark/30 border-t-coffee-dark rounded-full animate-spin block" />
+                                  ) : (
+                                    <Check className="h-4 w-4" />
+                                  )}
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDeleteOne(notif.id)}
-                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50"
+                                disabled={processingId === notif.id}
+                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-terracotta hover:bg-brand-terracotta/10 disabled:opacity-50"
                                 title="Eliminar"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                {processingId === notif.id ? (
+                                  <span className="h-4 w-4 border-2 border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin block" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
                               </button>
                             </div>
                           </div>
