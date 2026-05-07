@@ -1,7 +1,7 @@
 import { getInventoryData } from "@/lib/admin/inventory";
 import { AdminInventoryClient } from "./admin-inventory-client";
 
-export const revalidate = 15;
+export const dynamic = "force-dynamic";
 
 export default async function AdminInventoryPage() {
   const { products, movements } = await getInventoryData();

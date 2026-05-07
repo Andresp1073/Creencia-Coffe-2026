@@ -3,7 +3,7 @@ import { Package, ShoppingCart, TrendingUp, AlertTriangle } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard/dashboard.service";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const { alerts, topProducts, stats } = await getDashboardData();

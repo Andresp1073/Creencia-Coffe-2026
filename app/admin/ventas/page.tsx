@@ -1,7 +1,7 @@
 import { getSales, getProducts } from "@/lib/admin/sales";
 import { AdminSalesClient } from "./admin-sales-client";
 
-export const revalidate = 10;
+export const dynamic = "force-dynamic";
 
 export default async function AdminVentasPage() {
   const [sales, products] = await Promise.all([

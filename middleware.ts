@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/auth/session";
 
-const PUBLIC_PATHS = ["/login", "/recuperar-password", "/api/auth", "/api/products", "/catalogo", "/producto", "/nosotros", "/", "/api/admin/notifications", "/api/admin/categories"];
+const PUBLIC_PATHS = ["/login", "/recuperar-password", "/api/auth", "/api/products", "/catalogo", "/producto", "/nosotros", "/"];
 const ADMIN_PREFIX = "/admin";
 
 const SECURITY_HEADERS = {
@@ -14,23 +14,14 @@ const SECURITY_HEADERS = {
 };
 
 const CACHE_HEADERS = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, no-transform",
   "Pragma": "no-cache",
   "Expires": "0",
 };
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  let response = NextResponse.next();
-
-  Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-
-  Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
+  const token = request.cookies.get("cafe-creencia-session")?.value;
 
   if (pathname.startsWith("/api/")) {
     const isPublicApi = PUBLIC_PATHS.some(path => 
@@ -38,7 +29,6 @@ export async function middleware(request: NextRequest) {
     );
 
     if (!isPublicApi && pathname.startsWith("/api/admin/")) {
-      const token = request.cookies.get("cafe-creencia-session")?.value;
       if (!token) {
         return NextResponse.json(
           { error: "No autorizado" },
@@ -53,41 +43,57 @@ export async function middleware(request: NextRequest) {
         );
       }
     }
+
+    const response = NextResponse.next();
+    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   }
 
-  if (pathname.startsWith(ADMIN_PREFIX) || pathname.startsWith("/api/admin/")) {
-    const token = request.cookies.get("cafe-creencia-session")?.value;
+  if (pathname.startsWith(ADMIN_PREFIX)) {
+    const response = NextResponse.next();
+    
+    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
 
     if (!token) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "No autorizado" },
-          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
-        );
-      }
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(loginUrl, {
+        status: 302,
+      });
     }
 
     const session = await verifyToken(token);
-    
     if (!session) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Sesión inválida" },
-          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
-        );
-      }
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(loginUrl, {
+        status: 302,
+      });
     }
+
+    return response;
   }
 
+  const response = NextResponse.next();
+  Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: [
+    '/((?!api/_next/static|_next/image|favicon.ico|.*\\..*).*)',
+  ],
 };
