@@ -13,12 +13,22 @@ const SECURITY_HEADERS = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
+const CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   let response = NextResponse.next();
 
   Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
 
@@ -32,21 +42,17 @@ export async function middleware(request: NextRequest) {
       if (!token) {
         return NextResponse.json(
           { error: "No autorizado" },
-          { status: 401, headers: SECURITY_HEADERS }
+          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
         );
       }
       const session = await verifyToken(token);
       if (!session) {
         return NextResponse.json(
           { error: "Sesión inválida" },
-          { status: 401, headers: SECURITY_HEADERS }
+          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
         );
       }
     }
-
-    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
   }
 
   if (pathname.startsWith(ADMIN_PREFIX) || pathname.startsWith("/api/admin/")) {
@@ -56,10 +62,12 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "No autorizado" },
-          { status: 401, headers: SECURITY_HEADERS }
+          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
         );
       }
-      return NextResponse.redirect(new URL("/login", request.url));
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
     }
 
     const session = await verifyToken(token);
@@ -68,10 +76,12 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Sesión inválida" },
-          { status: 401, headers: SECURITY_HEADERS }
+          { status: 401, headers: { ...SECURITY_HEADERS, ...CACHE_HEADERS } }
         );
       }
-      return NextResponse.redirect(new URL("/login", request.url));
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 

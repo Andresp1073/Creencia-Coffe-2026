@@ -8,6 +8,8 @@ const JWT_SECRET = new TextEncoder().encode(
 
 const COOKIE_NAME = "cafe-creencia-session";
 
+const SESSION_EXPIRY = "30m";
+
 export interface JWTPayload {
   userId: number;
   username: string;
@@ -20,7 +22,7 @@ export async function createToken(payload: Omit<JWTPayload, "iat" | "exp">) {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(process.env.JWT_EXPIRES_IN || "5m")
+    .setExpirationTime(SESSION_EXPIRY)
     .sign(JWT_SECRET);
 }
 
@@ -51,6 +53,7 @@ export async function setSession(payload: Omit<JWTPayload, "iat" | "exp">) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
+    maxAge: 60 * 30,
   });
 }
 

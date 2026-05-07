@@ -28,13 +28,11 @@ if (config) {
     user: config.user,
     password: config.password,
     database: config.database,
-    charset: "utf8mb4",
-
+    charset: "UTF8MB4_UNICODE_CI",
     ssl: {
       minVersion: "TLSv1.2",
       rejectUnauthorized: true,
     },
-
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
