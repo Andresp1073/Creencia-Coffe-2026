@@ -102,10 +102,10 @@ export function ProductDetailClient({ product, related }: Props) {
         </div>
       </section>
 
-      <section className="py-20 gradient-cream mt-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <h2 className="font-display text-3xl sm:text-4xl mb-10">También te puede gustar</h2>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="py-12 sm:py-16 lg:py-20 gradient-cream mt-8 sm:mt-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
+          <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl mb-6 sm:mb-8 lg:mb-10">También te puede gustar</h2>
+          <div className="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
