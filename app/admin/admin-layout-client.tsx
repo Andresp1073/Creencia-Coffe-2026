@@ -48,6 +48,17 @@ export default function AdminLayoutClient({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      try {
+        await fetch("/api/auth/logout", { method: "POST", keepalive: true });
+      } catch (e) {}
+    };
+    
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -56,6 +67,37 @@ export default function AdminLayoutClient({
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (!res.ok) {
+          router.push("/login");
+        }
+      } catch {
+        router.push("/login");
+      }
+    };
+
+    verifySession();
+
+    let lastFocus = Date.now();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        if (now - lastFocus > 30000) {
+          lastFocus = now;
+          verifySession();
+        }
+      } else {
+        lastFocus = Date.now();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

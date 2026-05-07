@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 
 const COOKIE_NAME = "cafe-creencia-session";
 
-const SESSION_EXPIRY = "30m";
+const SESSION_EXPIRY = "15m";
 
 export interface JWTPayload {
   userId: number;
