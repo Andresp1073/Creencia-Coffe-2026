@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/site/product-card";
 import { Product } from "@/lib/products/products.types";
 import { Category } from "@/lib/products/products.types";
 import { Filter, X, SearchX, RotateCcw } from "lucide-react";
-import { ProductCardSkeleton } from "@/components/ui/skeleton";
 
 interface CatalogClientProps {
   products: Product[];
@@ -21,7 +20,6 @@ export function CatalogClient({ products, categories, initialPresentation, initi
   
   const [presentation, setPresentation] = useState(initialPresentation);
   const [category, setCategory] = useState(initialCategory);
-  const [isLoading, setIsLoading] = useState(false);
 
   const hasActiveFilters = presentation !== "todos" || category !== "todos";
 
@@ -36,25 +34,16 @@ export function CatalogClient({ products, categories, initialPresentation, initi
   });
 
   const updateFilters = (newPresentation?: string, newCategory?: string) => {
-    setIsLoading(true);
     const params = new URLSearchParams();
     if (newPresentation && newPresentation !== "todos") params.set("presentation", newPresentation);
     if (newCategory && newCategory !== "todos") params.set("categoria", newCategory);
-    
-    setTimeout(() => {
-      router.push(`/catalogo?${params.toString()}`);
-      setIsLoading(false);
-    }, 150);
+    router.push(`/catalogo?${params.toString()}`);
   };
 
   const clearFilters = () => {
-    setIsLoading(true);
     setPresentation("todos");
     setCategory("todos");
-    setTimeout(() => {
-      router.push("/catalogo");
-      setIsLoading(false);
-    }, 150);
+    router.push("/catalogo");
   };
 
   const categoryOptions = [
@@ -217,9 +206,7 @@ export function CatalogClient({ products, categories, initialPresentation, initi
           role="status"
           aria-live="polite"
         >
-          {isLoading ? (
-            <span>Cargando productos...</span>
-          ) : hasActiveFilters ? (
+          {hasActiveFilters ? (
             <span>Mostrando {filtered.length} {filtered.length === 1 ? "producto" : "productos"} con: <strong>{getFilterDescription()}</strong></span>
           ) : (
             <span>Mostrando todos los productos ({filtered.length} {filtered.length === 1 ? "café" : "cafés"})</span>
@@ -227,23 +214,14 @@ export function CatalogClient({ products, categories, initialPresentation, initi
         </div>
 
         <div 
-          className={`grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mt-6 transition-opacity ${isLoading ? "opacity-50" : "opacity-100"}`}
-          aria-busy={isLoading}
+          className="grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mt-6"
         >
-          {isLoading ? (
-            <>
-              <ProductCardSkeleton />
-              <ProductCardSkeleton />
-              <ProductCardSkeleton />
-            </>
-          ) : (
-            filtered.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))
-          )}
+          {filtered.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
         </div>
 
-        {filtered.length === 0 && !isLoading && (
+        {filtered.length === 0 && (
           <div 
             className="py-20 text-center"
             role="status"

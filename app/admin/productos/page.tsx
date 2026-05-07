@@ -38,6 +38,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [originalImage, setOriginalImage] = useState<string>(defaultImage);
@@ -217,6 +218,7 @@ export default function AdminProductsPage() {
 
   const handleToggle = async (id: number, currentActive: boolean) => {
     const newActive = !currentActive;
+    setToggling(id);
     try {
       await fetch('/api/admin/products', {
         method: 'PUT',
@@ -224,9 +226,10 @@ export default function AdminProductsPage() {
         body: JSON.stringify({ ...products.find(p => p.id === id), active: newActive })
       });
       setProducts(products.map(p => p.id === id ? { ...p, active: newActive } : p));
-      alert(newActive ? "Producto mostrado" : "Producto ocultado");
     } catch {
       alert("Error al actualizar");
+    } finally {
+      setToggling(null);
     }
   };
 
@@ -335,10 +338,13 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             onClick={() => handleToggle(p.id, p.active)}
-                            className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
+                            disabled={toggling !== null}
+                            className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth disabled:opacity-50"
                             title={p.active ? "Ocultar producto" : "Mostrar producto"}
                           >
-                            {p.active ? (
+                            {toggling === p.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : p.active ? (
                               <EyeOff className="size-4" strokeWidth={1.75} />
                             ) : (
                               <Eye className="size-4" strokeWidth={1.75} />

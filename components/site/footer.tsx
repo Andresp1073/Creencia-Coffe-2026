@@ -75,20 +75,7 @@ export function Footer() {
           <p className="text-sm text-cream/70 leading-relaxed">
             Granos seleccionados, tueste reciente y empaque que conserva el aroma.
           </p>
-          <ul className="mt-4 space-y-2 text-xs text-cream/60">
-            <li className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-sage" aria-hidden="true" />
-              Envío gratis en pedidos mayores a $80.000
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-sage" aria-hidden="true" />
-              Tueste fresco garantizado
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-sage" aria-hidden="true" />
-              Empaque al vacío
-            </li>
-          </ul>
+          
         </div>
       </div>
       

@@ -246,9 +246,8 @@ export default async function HomePage() {
                 <h2 id="cta-heading" className="font-display text-4xl sm:text-5xl mb-4">
                   ¿Listo para probarlo?
                 </h2>
-                <p className="text-cream/75 max-w-md mx-auto mb-8">
-                  Pide tu café por WhatsApp y recíbelo recién tostado. 
-                  Envío gratis en pedidos mayores a $80.000.
+<p className="text-cream/75 max-w-md mx-auto mb-8">
+                  Pide tu café por WhatsApp y recíbelo recientemente tostado.
                 </p>
                 <a
                   href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola, quiero hacer un pedido de café.`}

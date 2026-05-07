@@ -78,7 +78,7 @@ export default function NosotrosPage() {
                 </p>
                 <p>
                   Por eso nos dedicamos a buscar los mejores granos de las fincas locales, 
-                  those que comparten nuestra visión de respectful el proceso y la tierra.
+                  las que comparten nuestra visión de respeto por el proceso y la tierra.
                 </p>
                 <p>
                   Cada bolsa que sale de nuestra tostadora lleva nuestro compromiso: 
