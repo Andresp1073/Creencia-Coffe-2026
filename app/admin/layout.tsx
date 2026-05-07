@@ -203,19 +203,18 @@ const handleMarkAsRead = async (id: number) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-coffee-dark" />
-      </div>
-    );
-  }
-
   if (!isAuthenticated) {
     if (typeof window !== "undefined") {
       router.push("/login");
     }
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-muted" />
+          <div className="w-32 h-4 bg-muted rounded" />
+        </div>
+      </div>
+    );
   }
 
   const isActive = (href: string, exact?: boolean) =>
