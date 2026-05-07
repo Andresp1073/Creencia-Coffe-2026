@@ -275,17 +275,17 @@ export default function AdminProductsPage() {
             No hay productos. Crea uno nuevo.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/50 bg-muted/30">
-                  <th className="px-6 py-3.5 font-normal">Producto</th>
-                  <th className="px-6 py-3.5 font-normal">Categoría</th>
-                  <th className="px-6 py-3.5 font-normal">Presentación</th>
-                  <th className="px-6 py-3.5 font-normal text-right">Precio</th>
-                  <th className="px-6 py-3.5 font-normal text-right">Stock</th>
-                  <th className="px-6 py-3.5 font-normal">Estado</th>
-                  <th className="px-6 py-3.5 font-normal text-right">Acciones</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal">Producto</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal hidden lg:table-cell">Categoría</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal">Presentación</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Precio</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Stock</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal">Estado</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,24 +296,24 @@ export default function AdminProductsPage() {
                       key={p.id}
                       className={`border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors ${!p.active ? "opacity-60 bg-muted/10" : ""}`}
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-3">
                           <img
                             src={p.image || defaultImage}
                             alt={p.name}
-                            className="size-11 rounded-lg object-cover"
+                            className="size-9 sm:size-11 rounded-lg object-cover"
                           />
-                          <div className="font-medium text-foreground">{p.name}</div>
+                          <span className="font-medium text-foreground text-sm sm:text-base line-clamp-1">{p.name}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-muted-foreground">{p.category}</td>
-                      <td className="px-6 py-4 text-muted-foreground">{p.presentation}</td>
-                      <td className="px-6 py-4 text-right font-medium text-coffee-dark">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground hidden lg:table-cell">{p.category}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground">{p.presentation}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-right font-medium text-coffee-dark">
                         {formatCOP(p.price)}
                       </td>
-                      <td className="px-6 py-4 text-right tabular-nums">{p.stock}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-right tabular-nums">{p.stock}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <span className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${
                           status.variant === "success" ? "bg-green-100 text-green-700" :
                           status.variant === "warning" ? "bg-yellow-100 text-yellow-700" :
                           status.variant === "danger" ? "bg-red-100 text-red-700" :
@@ -322,11 +322,11 @@ export default function AdminProductsPage() {
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-1 justify-end">
                           <button
                             onClick={() => handleEdit(p)}
-                            className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
+                            className="size-7 sm:size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
                             title="Editar producto"
                           >
                             <Pencil className="size-4" strokeWidth={1.75} />
@@ -334,7 +334,7 @@ export default function AdminProductsPage() {
                           <button
                             onClick={() => handleToggle(p.id, p.active)}
                             disabled={toggling !== null}
-                            className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth disabled:opacity-50"
+                            className="size-7 sm:size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth disabled:opacity-50"
                             title={p.active ? "Ocultar producto" : "Mostrar producto"}
                           >
                             {toggling === p.id ? (

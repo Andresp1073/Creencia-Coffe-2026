@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/site/product-card";
 import { Product } from "@/lib/products/products.types";
@@ -14,24 +14,26 @@ interface CatalogClientProps {
   initialCategory: string;
 }
 
+const presentationMap: Record<string, string> = {
+  "500grs": "500g", "250grs": "250g", "125grs": "125g"
+};
+
 export function CatalogClient({ products, categories, initialPresentation, initialCategory }: CatalogClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [presentation, setPresentation] = useState(initialPresentation);
   const [category, setCategory] = useState(initialCategory);
 
   const hasActiveFilters = presentation !== "todos" || category !== "todos";
 
-  const filtered = products.filter((p) => {
-    const presentationMap: Record<string, string> = {
-      "500grs": "500g", "250grs": "250g", "125grs": "125g"
-    };
+  const filtered = useMemo(() => {
     const dbPresentation = presentationMap[presentation] || presentation;
-    const matchesPresentation = presentation === "todos" || p.presentation === dbPresentation;
-    const matchesCategory = category === "todos" || p.categorySlug === category;
-    return matchesPresentation && matchesCategory;
-  });
+    return products.filter((p) => {
+      const matchesPresentation = presentation === "todos" || p.presentation === dbPresentation;
+      const matchesCategory = category === "todos" || p.categorySlug === category;
+      return matchesPresentation && matchesCategory;
+    });
+  }, [products, presentation, category]);
 
   const updateFilters = (newPresentation?: string, newCategory?: string) => {
     const params = new URLSearchParams();
@@ -214,7 +216,7 @@ export function CatalogClient({ products, categories, initialPresentation, initi
         </div>
 
         <div 
-          className="grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mt-6"
+          className="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mt-6"
         >
           {filtered.map((p) => (
             <ProductCard key={p.id} product={p} />
