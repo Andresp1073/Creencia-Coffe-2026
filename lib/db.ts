@@ -4,7 +4,7 @@ function parseDatabaseUrl(url: string) {
   const match = url.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/);
 
   if (!match) {
-    throw new Error("Invalid DATABASE_URL format");
+    return null;
   }
 
   return {
@@ -17,35 +17,41 @@ function parseDatabaseUrl(url: string) {
 }
 
 const databaseUrl = process.env.DATABASE_URL;
+const config = databaseUrl ? parseDatabaseUrl(databaseUrl) : null;
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL environment variable is not defined");
+let pool: Pool | null = null;
+
+if (config) {
+  pool = mysql.createPool({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+
+    ssl: {
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true,
+    },
+
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+  });
 }
 
-const config = parseDatabaseUrl(databaseUrl);
-
-const pool: Pool = mysql.createPool({
-  host: config.host,
-  port: config.port,
-  user: config.user,
-  password: config.password,
-  database: config.database,
-
-  ssl: {
-    minVersion: "TLSv1.2",
-    rejectUnauthorized: true,
-  },
-
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+function getPool(): Pool {
+  if (!pool) {
+    throw new Error("Database not configured. Set DATABASE_URL environment variable.");
+  }
+  return pool;
+}
 
 export async function query<T>(
   sql: string,
   params?: unknown[]
 ): Promise<T> {
-  const [rows] = await pool.execute(sql, params as any);
+  const [rows] = await getPool().execute(sql, params as any);
   return rows as T;
 }
 
@@ -53,7 +59,7 @@ export async function queryMany<T>(
   sql: string,
   params?: unknown[]
 ): Promise<T[]> {
-  const [rows] = await pool.execute<RowDataPacket[]>(
+  const [rows] = await getPool().execute<RowDataPacket[]>(
     sql,
     params as any
   );
@@ -65,7 +71,7 @@ export async function queryOne<T>(
   sql: string,
   params?: unknown[]
 ): Promise<T | null> {
-  const [rows] = await pool.execute<RowDataPacket[]>(
+  const [rows] = await getPool().execute<RowDataPacket[]>(
     sql,
     params as any
   );
