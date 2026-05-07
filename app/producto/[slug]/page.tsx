@@ -10,7 +10,11 @@ interface Props {
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  
+  const [product, allProducts] = await Promise.all([
+    getProductBySlug(slug),
+    getProducts()
+  ]);
 
   if (!product) {
     return (
@@ -29,7 +33,6 @@ export default async function ProductPage({ params }: Props) {
     );
   }
 
-  const allProducts = await getProducts();
   const related = allProducts.filter((p) => p.id !== product.id).slice(0, 3);
 
   return (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 
@@ -36,11 +37,12 @@ export function ProductCard({ product }: ProductCardProps) {
         aria-label={`Ver detalles de ${product.name}, ${presentationLabel}, precio ${priceFormatted}`}
       >
         <div className="relative overflow-hidden rounded-2xl bg-secondary mb-4 shadow-soft h-80">
-          <img
+          <Image
             src={product.image || DEFAULT_IMAGE}
-            alt=""
-            className="w-full h-full object-contain transition-smooth group-hover:scale-105"
-            loading="lazy"
+            alt={product.name}
+            fill
+            className="object-contain transition-smooth group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
           <span 
             className="absolute top-4 left-4 text-[10px] uppercase tracking-[0.16em] bg-cream text-coffee-dark px-2.5 py-1 rounded-full backdrop-blur"
