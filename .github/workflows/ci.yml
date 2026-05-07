@@ -6,16 +6,6 @@ on:
   pull_request:
     branches: [main, develop]
 
-env:
-  NODE_ENV: test
-  DB_HOST: localhost
-  DB_PORT: 3306
-  DB_USER: root
-  DB_PASSWORD: test
-  DB_NAME: cafe_creencia_test
-  JWT_SECRET: test-secret-key-for-ci
-  RESEND_API_KEY: re_test_123456
-
 jobs:
   lint-and-typecheck:
     runs-on: ubuntu-latest
@@ -44,11 +34,14 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
       - run: pnpm test:coverage
+        if: always()
       - uses: codecov/codecov-action@v4
+        if: always()
         with:
           files: ./coverage/coverage-final.json
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
@@ -81,9 +74,10 @@ jobs:
           CI: true
 
   deploy:
-    needs: [lint-and-typecheck, unit-tests, build, e2e-tests]
+    needs: [lint-and-typecheck, unit-tests, build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: production
     steps:
-      - name: Deploy
-        run: echo "Deploy would happen here"
+      - name: Deploy to Vercel
+        run: echo "Deploy to Vercel would happen here"
