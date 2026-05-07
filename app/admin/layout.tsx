@@ -127,16 +127,19 @@ export default function AdminLayout({
   };
 
   const fetchNotifications = async () => {
+    console.log(">>> fetchNotifications called");
     try {
       const res = await fetch(`/api/admin/notifications?_t=${Date.now()}`, { credentials: "include" });
+      console.log(">>> fetch response:", res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log(">>> notifications loaded:", data.length);
         setNotifications(data || []);
         const unread = data?.filter((n: Notification) => !n.is_read) || [];
         setUnreadCount(unread.length);
       }
-    } catch {
-      // Silent fail
+    } catch (e) {
+      console.error(">>> fetch error:", e);
     }
   };
 

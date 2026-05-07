@@ -26,14 +26,20 @@ export default function AdminNotificationsPage() {
 
   const loadNotifications = async () => {
     setLoading(true);
+    console.log(">>> Loading notifications...");
     try {
       const res = await fetch("/api/admin/notifications", { credentials: "include" });
+      console.log(">>> Load response:", res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log(">>> Loaded notifications:", data.length);
         setNotifications(data);
+      } else {
+        const err = await res.text();
+        console.error(">>> Load error:", err);
       }
     } catch (err) {
-      console.error("Error cargando notificaciones:", err);
+      console.error(">>> Error cargando notificaciones:", err);
     } finally {
       setLoading(false);
     }
