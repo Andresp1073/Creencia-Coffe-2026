@@ -19,6 +19,8 @@ interface Product {
   featured: boolean;
 }
 
+export const dynamic = "force-dynamic";
+
 // GET all products
 export async function GET(request: NextRequest) {
   const auth = await requireApiAuth(request);

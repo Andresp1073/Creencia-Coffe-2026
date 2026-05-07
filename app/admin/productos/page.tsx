@@ -270,12 +270,7 @@ export default function AdminProductsPage() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Loader2 className="size-6 animate-spin mx-auto mb-2" />
-            Cargando productos...
-          </div>
-        ) : products.length === 0 ? (
+        {products.length === 0 && !loading ? (
           <div className="p-8 text-center text-muted-foreground">
             No hay productos. Crea uno nuevo.
           </div>

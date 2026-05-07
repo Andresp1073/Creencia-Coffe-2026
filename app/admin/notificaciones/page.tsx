@@ -163,12 +163,7 @@ export default function AdminNotificationsPage() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Loader2 className="size-6 animate-spin mx-auto mb-2" />
-            Cargando...
-          </div>
-        ) : notifications.length === 0 ? (
+        {notifications.length === 0 && !loading ? (
           <div className="p-12 text-center">
             <Bell className="size-12 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-muted-foreground">No hay notificaciones</p>
