@@ -18,6 +18,9 @@ export function NotificacionesClient() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingAllRead, setProcessingAllRead] = useState(false);
+  const [processingAllDelete, setProcessingAllDelete] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -38,24 +41,84 @@ export function NotificacionesClient() {
   };
 
   const handleMarkAsRead = async (id: number) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("Error:", data.error);
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (processingAllRead) return;
+    setProcessingAllRead(true);
+    try {
+      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("Error:", data.error);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProcessingAllRead(false);
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
-      setNotifications(notifications.filter(n => n.id !== id));
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("Error:", data.error);
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!confirm("¿Eliminar todas las notificaciones?")) return;
+    if (processingAllDelete) return;
+    setProcessingAllDelete(true);
+    try {
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        setNotifications([]);
+        window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("Error:", data.error);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProcessingAllDelete(false);
     }
   };
 
   const filtered = filter === "unread" ? notifications.filter(n => !n.is_read) : notifications;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   if (loading) {
     return (
@@ -72,26 +135,53 @@ export function NotificacionesClient() {
           <h1 className="font-display text-3xl">Notificaciones</h1>
           <p className="text-muted-foreground mt-1">Alertas y avisos del sistema</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setFilter("all")}
-            className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
-              filter === "all" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0 || processingAllRead}
+            className="px-4 py-2 rounded-full text-sm font-medium bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            Todas
+            {processingAllRead ? (
+              <span className="size-4 border-2 border-cream/30 border-t-cream rounded-full animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
+            Leer todo
           </button>
           <button
-            onClick={() => setFilter("unread")}
-            className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
-              filter === "unread" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
+            onClick={handleDeleteAll}
+            disabled={notifications.length === 0 || processingAllDelete}
+            className="px-4 py-2 rounded-full text-sm font-medium bg-brand-terracotta text-cream hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            Sin leer
+            {processingAllDelete ? (
+              <span className="size-4 border-2 border-cream/30 border-t-cream rounded-full animate-spin" />
+            ) : (
+              <Trash2 className="size-4" />
+            )}
+            Eliminar todo
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6">
+        <button
+          onClick={() => setFilter("all")}
+          className={cn(
+            "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
+            filter === "all" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
+          )}
+        >
+          Todas ({notifications.length})
+        </button>
+        <button
+          onClick={() => setFilter("unread")}
+          className={cn(
+            "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
+            filter === "unread" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
+          )}
+        >
+          Sin leer ({unreadCount})
+        </button>
       </div>
 
       <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
@@ -107,20 +197,20 @@ export function NotificacionesClient() {
                 key={notif.id}
                 className={cn(
                   "p-6 flex items-start gap-4 transition-colors",
-                  !notif.is_read && "bg-yellow-50/50"
+                  !notif.is_read && "bg-yellow-50/30"
                 )}
               >
                 <div className={cn(
                   "size-10 rounded-full flex items-center justify-center shrink-0",
-                  notif.type === "warning" ? "bg-amber-100" : "bg-blue-100"
+                  notif.type === "warning" ? "bg-brand-terracotta/20" : "bg-brand-caramel/20"
                 )}>
-                  <Bell className={cn("size-5", notif.type === "warning" ? "text-amber-600" : "text-blue-600")} />
+                  <Bell className={cn("size-5", notif.type === "warning" ? "text-brand-terracotta" : "text-brand-caramel")} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-medium text-foreground">{notif.title || notif.product_name}</h3>
                     {!notif.is_read && (
-                      <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded-full">
+                      <span className="px-2 py-0.5 text-xs font-medium bg-brand-caramel/20 text-brand-brown rounded-full">
                         Nueva
                       </span>
                     )}
@@ -139,18 +229,28 @@ export function NotificacionesClient() {
                   {!notif.is_read && (
                     <button
                       onClick={() => handleMarkAsRead(notif.id)}
-                      className="size-8 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground transition-smooth"
+                      disabled={processingId === notif.id}
+                      className="size-9 rounded-full hover:bg-brand-caramel/10 flex items-center justify-center text-brand-caramel transition-smooth disabled:opacity-50"
                       title="Marcar como leída"
                     >
-                      <Check className="size-4" />
+                      {processingId === notif.id ? (
+                        <span className="size-4 border-2 border-brand-caramel/30 border-t-brand-caramel rounded-full animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(notif.id)}
-                    className="size-8 rounded-full hover:bg-red-50 flex items-center justify-center text-red-500 transition-smooth"
+                    disabled={processingId === notif.id}
+                    className="size-9 rounded-full hover:bg-brand-terracotta/10 flex items-center justify-center text-brand-terracotta transition-smooth disabled:opacity-50"
                     title="Eliminar"
                   >
-                    <Trash2 className="size-4" />
+                    {processingId === notif.id ? (
+                      <span className="size-4 border-2 border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
                   </button>
                 </div>
               </div>
