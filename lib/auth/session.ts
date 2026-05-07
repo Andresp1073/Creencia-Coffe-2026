@@ -53,7 +53,6 @@ export async function setSession(payload: Omit<JWTPayload, "iat" | "exp">) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: 60 * 30,
   });
 }
 
