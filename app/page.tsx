@@ -7,7 +7,7 @@ import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { ProductCard } from "@/components/site/product-card";
 import { getFeaturedProducts } from "@/lib/products/products.service";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const WHATSAPP_NUMBER = "3004878385";
 
