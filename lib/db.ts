@@ -1,11 +1,32 @@
 import mysql, { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
+function parseDatabaseUrl(url: string) {
+  const match = url.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(\w+)/);
+  if (!match) {
+    throw new Error("Invalid DATABASE_URL format");
+  }
+  return {
+    user: match[1],
+    password: match[2],
+    host: match[3],
+    port: parseInt(match[4]),
+    database: match[5],
+  };
+}
+
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL environment variable is not defined");
+}
+
+const config = parseDatabaseUrl(databaseUrl);
+
 const pool: Pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "3306"),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "creencia_coffee",
+  host: config.host,
+  port: config.port,
+  user: config.user,
+  password: config.password,
+  database: config.database,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

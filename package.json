@@ -19,8 +19,7 @@
     "test:api": "vitest run tests/api",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
-    "test:ci": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e",
-    "postinstall": "playwright install --with-deps chromium"
+    "test:ci": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",
