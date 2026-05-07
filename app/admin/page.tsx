@@ -13,7 +13,7 @@ export default async function AdminDashboard() {
 
   const statsCards = [
     { label: "Ventas hoy", value: stats.salesToday, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "text-green-600" },
+    { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "text-brand-caramel" },
     { label: "Ventas del mes", value: stats.salesMonth, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
     { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "vs mes anterior", icon: TrendingUp, color: "text-sage" },
   ];
@@ -108,7 +108,7 @@ export default async function AdminDashboard() {
               <p className="text-xs text-muted-foreground mt-0.5">Stock que requiere atención</p>
             </div>
             {alerts.length > 0 && (
-              <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+              <span className="px-2 py-1 text-xs font-medium bg-brand-terracotta/20 text-brand-terracotta rounded-full">
                 {alerts.length}
               </span>
             )}
@@ -123,10 +123,10 @@ export default async function AdminDashboard() {
                 <div key={alert.id} className="px-6 py-4 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <div className={`size-9 rounded-full flex items-center justify-center shrink-0 ${
-                      alert.status === "sin-stock" ? "bg-red-100" : "bg-amber-100"
+                      alert.status === "sin-stock" ? "bg-brand-terracotta/20" : "bg-amber-100"
                     }`}>
                       <AlertTriangle className={`size-4 ${
-                        alert.status === "sin-stock" ? "text-red-700" : "text-amber-700"
+                        alert.status === "sin-stock" ? "text-brand-terracotta" : "text-amber-700"
                       }`} strokeWidth={1.75} />
                     </div>
                     <div>
@@ -138,7 +138,7 @@ export default async function AdminDashboard() {
                   </div>
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                     alert.status === "sin-stock" 
-                      ? "bg-red-100 text-red-700" 
+                      ? "bg-brand-terracotta/20 text-brand-terracotta" 
                       : "bg-amber-100 text-amber-700"
                   }`}>
                     {alert.status === "sin-stock" ? "Sin stock" : "Bajo"}

@@ -290,9 +290,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-right tabular-nums">{p.stock}</td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <span className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${
-                          status.variant === "success" ? "bg-green-100 text-green-700" :
-                          status.variant === "warning" ? "bg-yellow-100 text-yellow-700" :
-                          status.variant === "danger" ? "bg-red-100 text-red-700" :
+                          status.variant === "success" ? "bg-brand-caramel/20 text-brand-brown" :
+                          status.variant === "warning" ? "bg-amber-100 text-amber-700" :
+                          status.variant === "danger" ? "bg-brand-terracotta/20 text-brand-terracotta" :
                           "bg-gray-100 text-gray-700"
                         }`}>
                           {status.label}
@@ -323,7 +323,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                           </button>
                           <button
                             onClick={() => handleDelete(p.id)}
-                            className="size-8 rounded-md hover:bg-red-50 flex items-center justify-center text-red-500 transition-smooth"
+                            className="size-8 rounded-md hover:bg-brand-terracotta/10 flex items-center justify-center text-brand-terracotta transition-smooth"
                             title="Eliminar producto"
                           >
                             <Trash2 className="size-4" strokeWidth={1.75} />

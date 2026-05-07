@@ -280,7 +280,7 @@ export default function AdminLayoutClient({
               >
                 <Bell className="size-5 text-muted-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-xs font-bold text-white">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -295,14 +295,14 @@ export default function AdminLayoutClient({
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
                         disabled={unreadCount === 0}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-white hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ✓ Leer todo
                       </button>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-white hover:opacity-90"
                       >
                         ✗ Eliminar
                       </button>
@@ -346,7 +346,7 @@ export default function AdminLayoutClient({
                               {!notif.is_read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
-                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-green-600 hover:bg-green-50"
+                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-caramel hover:bg-brand-caramel/10"
                                   title="Marcar como leído"
                                 >
                                   <Check className="h-4 w-4" />
@@ -368,7 +368,7 @@ export default function AdminLayoutClient({
                   <Link
                     href="/admin/notificaciones"
                     onClick={() => setShowNotifications(false)}
-                    className="block px-4 py-3 text-center text-sm text-sage hover:text-coffee-dark hover:bg-muted border-t border-border"
+                    className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border"
                   >
                     Ver todas
                   </Link>

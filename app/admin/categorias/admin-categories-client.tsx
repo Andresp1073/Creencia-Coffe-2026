@@ -176,7 +176,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                 <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{cat.slug}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${cat.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${cat.active ? 'bg-brand-caramel/20 text-brand-brown' : 'bg-brand-terracotta/20 text-brand-terracotta'}`}>
                     {cat.active ? "Activa" : "Inactiva"}
                   </span>
                 </td>
@@ -202,7 +202,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                     </button>
                     <button
                       onClick={() => handleDelete(cat.id)}
-                      className="size-8 rounded-md hover:bg-red-50 flex items-center justify-center text-red-500 transition-smooth"
+                      className="size-8 rounded-md hover:bg-brand-terracotta/10 flex items-center justify-center text-brand-terracotta transition-smooth"
                       title="Eliminar categoría"
                     >
                       <Trash2 className="size-4" strokeWidth={1.75} />

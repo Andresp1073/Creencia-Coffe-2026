@@ -67,7 +67,7 @@ export function Header() {
                 {link.label}
                 {isActive && (
                   <span 
-                    className="absolute -bottom-1 left-0 right-0 h-0.5 bg-sage rounded-full" 
+                    className="absolute -bottom-1 left-0 right-0 h-0.5 bg-coffee-dark rounded-full" 
                     aria-hidden="true"
                   />
                 )}

@@ -185,9 +185,9 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                     <td className="px-6 py-4 text-right tabular-nums font-medium">{p.stock || 0}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        status.variant === "danger" ? "bg-red-100 text-red-700" :
+                        status.variant === "danger" ? "bg-brand-terracotta/20 text-brand-terracotta" :
                         status.variant === "warning" ? "bg-amber-100 text-amber-700" :
-                        "bg-green-100 text-green-700"
+                        "bg-brand-caramel/20 text-brand-brown"
                       }`}>
                         {status.label}
                       </span>
@@ -196,13 +196,13 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setStockModal({ product: p, type: "entrada" })}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-green-100 text-green-700 hover:bg-green-200 transition-smooth"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-brand-caramel/20 text-brand-brown hover:bg-brand-caramel/30 transition-smooth"
                         >
                           <ArrowUp className="size-3.5" /> Entrada
                         </button>
                         <button
                           onClick={() => setStockModal({ product: p, type: "salida" })}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 transition-smooth"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-brand-terracotta/20 text-brand-terracotta hover:bg-brand-terracotta/30 transition-smooth"
                         >
                           <ArrowDown className="size-3.5" /> Salida
                         </button>
@@ -237,7 +237,7 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                 <td className="px-6 py-4 font-medium">{m.product_name}</td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                    m.type === "entrada" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    m.type === "entrada" ? "bg-brand-caramel/20 text-brand-brown" : "bg-brand-terracotta/20 text-brand-terracotta"
                   }`}>
                     {m.type === "entrada" ? "Entrada" : "Salida"}
                   </span>

@@ -23,6 +23,14 @@ const config: Config = {
           light: "#C4D4B5",
         },
         whatsapp: "#25D366",
+        brand: {
+          brown: "#5D4037",
+          caramel: "#A67C52",
+          terracotta: "#C75B39",
+          amber: "#D4A574",
+          gold: "#C9A962",
+          warm: "#8B6914",
+        },
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "serif"],
