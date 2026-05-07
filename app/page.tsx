@@ -134,16 +134,16 @@ export default async function HomePage() {
 
         {/* PRODUCTS */}
         <section 
-          className="py-20 gradient-cream"
+          className="py-12 sm:py-16 lg:py-20 gradient-cream"
           aria-labelledby="products-heading"
         >
-          <div className="mx-auto max-w-7xl px-6 lg:px-10">
-            <div className="flex items-end justify-between mb-12 gap-6 flex-wrap">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
+            <div className="flex items-end justify-between mb-8 sm:mb-10 lg:mb-12 gap-4 sm:gap-6 flex-wrap">
               <div>
                 <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
                   Nuestro café
                 </span>
-                <h2 id="products-heading" className="font-display text-4xl sm:text-5xl text-foreground mt-3 max-w-xl">
+                <h2 id="products-heading" className="font-display text-3xl sm:text-4xl lg:text-5xl text-foreground mt-2 sm:mt-3 max-w-xl">
                   Productos destacados
                 </h2>
               </div>
@@ -156,7 +156,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <div 
-              className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
+              className="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3"
               role="list"
               aria-label="Lista de cafés destacados"
             >
