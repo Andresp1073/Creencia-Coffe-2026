@@ -28,6 +28,7 @@ if (config) {
     user: config.user,
     password: config.password,
     database: config.database,
+    charset: "utf8mb4",
 
     ssl: {
       minVersion: "TLSv1.2",
