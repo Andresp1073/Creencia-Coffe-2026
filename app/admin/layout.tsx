@@ -203,10 +203,13 @@ const handleMarkAsRead = async (id: number) => {
     }
   };
 
-  if (!isAuthenticated) {
-    if (typeof window !== "undefined") {
+  useEffect(() => {
+    if (!isAuthenticated && !loading) {
       router.push("/login");
     }
+  }, [isAuthenticated, loading, router]);
+
+  if (!isAuthenticated && loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -215,6 +218,10 @@ const handleMarkAsRead = async (id: number) => {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   const isActive = (href: string, exact?: boolean) =>
