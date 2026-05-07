@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = ["/login", "/recuperar-password", "/api/auth", "/api/products", "/catalogo", "/producto", "/nosotros", "/"];
 const ADMIN_PREFIX = "/admin";
+const COOKIE_NAME = "cafe-creencia-session";
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -21,7 +22,7 @@ const CACHE_HEADERS = {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get("cafe-creencia-session")?.value;
+  const token = request.cookies.get(COOKIE_NAME)?.value;
 
   if (pathname.startsWith("/api/")) {
     const isPublicApi = PUBLIC_PATHS.some(path => 
@@ -55,32 +56,24 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith(ADMIN_PREFIX)) {
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const session = await verifyToken(token);
+    if (!session) {
+      const loginUrl = new URL("/login", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+
     const response = NextResponse.next();
-    
     Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
     Object.entries(CACHE_HEADERS).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
-
-    if (!token) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl, {
-        status: 302,
-      });
-    }
-
-    const session = await verifyToken(token);
-    if (!session) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl, {
-        status: 302,
-      });
-    }
-
     return response;
   }
 
