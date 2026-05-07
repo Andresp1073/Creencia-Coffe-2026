@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, Loader2 } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -15,13 +15,7 @@ const links = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
   const pathname = usePathname();
-
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    setIsNavigating(true);
-    setOpen(false);
-  };
 
   return (
     <header 
@@ -32,7 +26,6 @@ export function Header() {
         <Link 
           href="/" 
           className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 rounded-lg"
-          onClick={() => setIsNavigating(true)}
           aria-label="Cafe Creencia - Ir a página principal"
         >
           <Image
@@ -62,7 +55,6 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={(e) => handleNavClick(e, link.href)}
                 className={cn(
                   "text-sm transition-smooth relative",
                   isActive
@@ -82,9 +74,6 @@ export function Header() {
               </Link>
             );
           })}
-          {isNavigating && (
-            <Loader2 className="size-4 animate-spin text-sage" aria-hidden="true" />
-          )}
         </nav>
 
         <button
