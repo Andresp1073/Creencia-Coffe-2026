@@ -2,10 +2,13 @@ import Link from "next/link";
 import { Package, ShoppingCart, TrendingUp, AlertTriangle } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard/dashboard.service";
+import { requireAdminSession } from "@/lib/auth/require-admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
+  await requireAdminSession();
+  
   const { alerts, topProducts, stats } = await getDashboardData();
 
   const statsCards = [
