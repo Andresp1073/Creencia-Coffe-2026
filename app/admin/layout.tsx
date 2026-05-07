@@ -151,35 +151,41 @@ const handleMarkAsRead = async (id: number) => {
   };
 
   const handleMarkAllAsRead = async () => {
+    console.log(">>> handleMarkAllAsRead called");
     try {
-      await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      console.log(">>> Mark all response:", res.status, res.ok);
       await fetchNotifications();
       setShowNotifications(false);
       window.dispatchEvent(new Event("notifications:update"));
     } catch (e) {
-      console.error(e);
+      console.error(">>> Error:", e);
     }
   };
 
   const handleDeleteOne = async (id: number) => {
+    console.log(">>> handleDeleteOne called:", id);
     try {
-      await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      console.log(">>> Delete response:", res.status, res.ok);
       await fetchNotifications();
       window.dispatchEvent(new Event("notifications:update"));
     } catch (e) {
-      console.error(e);
+      console.error(">>> Error:", e);
     }
   };
 
   const handleDeleteAll = async () => {
+    console.log(">>> handleDeleteAll called");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     try {
-      await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      console.log(">>> Delete all response:", res.status, res.ok);
       await fetchNotifications();
       setShowNotifications(false);
       window.dispatchEvent(new Event("notifications:update"));
     } catch (e) {
-      console.error(e);
+      console.error(">>> Error:", e);
     }
   };
 

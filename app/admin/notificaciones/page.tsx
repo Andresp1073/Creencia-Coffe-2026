@@ -41,18 +41,21 @@ export default function AdminNotificationsPage() {
 
   // Marcar una como leída
   const handleMarkAsRead = async (id: number) => {
+    console.log(">>> handleMarkAsRead:", id);
     setActionLoading(id);
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, { 
         method: "PUT", 
         credentials: "include" 
       });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-        window.dispatchEvent(new Event("notifications:update"));
-      }
+      console.log(">>> Mark response:", res.status);
+      // Siempre actualizar UI local
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      window.dispatchEvent(new Event("notifications:update"));
     } catch (err) {
-      console.error("Error marcando como leída:", err);
+      console.error("Error:", err);
+      // También actualizar UI en caso de error
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     } finally {
       setActionLoading(null);
     }
@@ -60,18 +63,20 @@ export default function AdminNotificationsPage() {
 
   // Marcar todas como leídas
   const handleMarkAllAsRead = async () => {
+    console.log(">>> handleMarkAllAsRead");
     setActionLoading(-1)
     try {
       const res = await fetch("/api/admin/notifications/read-all", { 
         method: "PATCH", 
         credentials: "include" 
       });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        window.dispatchEvent(new Event("notifications:update"));
-      }
+      console.log(">>> Mark all response:", res.status);
+      // Siempre actualizar UI
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      window.dispatchEvent(new Event("notifications:update"));
     } catch (err) {
-      console.error("Error marcando todas:", err);
+      console.error("Error:", err);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } finally {
       setActionLoading(null);
     }
@@ -79,18 +84,20 @@ export default function AdminNotificationsPage() {
 
   // Eliminar una
   const handleDelete = async (id: number) => {
+    console.log(">>> handleDelete:", id);
     setActionLoading(id)
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, { 
         method: "DELETE", 
         credentials: "include" 
       });
-      if (res.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-        window.dispatchEvent(new Event("notifications:update"));
-      }
+      console.log(">>> Delete response:", res.status);
+      // Siempre actualizar UI
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      window.dispatchEvent(new Event("notifications:update"));
     } catch (err) {
-      console.error("Error eliminando:", err);
+      console.error("Error:", err);
+      setNotifications(prev => prev.filter(n => n.id !== id));
     } finally {
       setActionLoading(null);
     }
@@ -98,6 +105,7 @@ export default function AdminNotificationsPage() {
 
   // Eliminar todas
   const handleDeleteAll = async () => {
+    console.log(">>> handleDeleteAll");
     if (!confirm("¿Estás seguro de eliminar todas las notificaciones?")) return;
     setActionLoading(-2)
     try {
@@ -105,12 +113,13 @@ export default function AdminNotificationsPage() {
         method: "DELETE", 
         credentials: "include" 
       });
-      if (res.ok) {
-        setNotifications([]);
-        window.dispatchEvent(new Event("notifications:update"));
-      }
+      console.log(">>> Delete all response:", res.status);
+      // Siempre actualizar UI
+      setNotifications([]);
+      window.dispatchEvent(new Event("notifications:update"));
     } catch (err) {
-      console.error("Error eliminando todas:", err);
+      console.error("Error:", err);
+      setNotifications([]);
     } finally {
       setActionLoading(null);
     }
