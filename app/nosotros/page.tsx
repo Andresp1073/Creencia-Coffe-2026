@@ -192,7 +192,7 @@ export default function NosotrosPage() {
                 <h2 id="cta-heading" className="font-display text-4xl sm:text-5xl mb-4">
                   ¿Te animas a probarlo?
                 </h2>
-                <p className="text-cream/75 max-w-md mx-auto mb-8">
+                <p className="text-cream/75 max-w mx-auto mb-8">
                   Estamos aquí para ayudarte a encontrar el café perfecto para ti.
                 </p>
                 <a
