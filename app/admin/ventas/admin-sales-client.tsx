@@ -158,6 +158,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
       setItems([]);
       setCustomer("");
       await fetchSales();
+      window.dispatchEvent(new Event("notifications:update"));
     } catch (error) {
       console.error("Error saving sale:", error);
       showToast("Error al registrar venta", "error");
