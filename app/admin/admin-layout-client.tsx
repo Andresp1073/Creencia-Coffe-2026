@@ -139,11 +139,15 @@ export default function AdminLayoutClient({
     }
   };
 
-  const handleMarkAsRead = async (id: number) => {
+const handleMarkAsRead = async (id: number) => {
+    alert("handleMarkAsRead called: " + id);
+    console.log("handleMarkAsRead called:", id);
     if (processingId) return;
     setProcessingId(id);
     try {
+      console.log("Fetching PUT /api/admin/notifications/" + id);
       const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
+      console.log("Response:", res.status, res.ok);
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -151,9 +155,81 @@ export default function AdminLayoutClient({
       }
     } catch (e) {
       console.error(e);
-      await fetchNotifications();
+      alert("Error: " + e);
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    alert("handleMarkAllAsRead called");
+    console.log("handleMarkAllAsRead called");
+    if (processingAll) return;
+    setProcessingAll(true);
+    try {
+      console.log("Fetching PATCH /api/admin/notifications/read-all");
+      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      console.log("Response:", res.status, res.ok);
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+        setShowNotifications(false);
+        window.dispatchEvent(new Event("notifications:update"));
+      }
+    } catch (e) {
+      console.error("Error:", e);
+      alert("Error: " + e);
+    } finally {
+      setProcessingAll(false);
+    }
+  };
+
+  const handleDeleteOne = async (id: number) => {
+    alert("handleDeleteOne called: " + id);
+    console.log("handleDeleteOne called:", id);
+    if (processingId) return;
+    setProcessingId(id);
+    try {
+      console.log("Fetching DELETE /api/admin/notifications/" + id);
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      console.log("Response:", res.status, res.ok);
+      if (res.ok) {
+        setNotifications(prev => {
+          const wasUnread = prev.some(n => n.id === id && !n.is_read);
+          if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
+          return prev.filter(n => n.id !== id);
+        });
+        window.dispatchEvent(new Event("notifications:update"));
+      }
+    } catch (e) {
+      console.error("Error:", e);
+      alert("Error: " + e);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    alert("handleDeleteAll called");
+    console.log("handleDeleteAll called");
+    if (!confirm("¿Eliminar todas las notificaciones?")) return;
+    if (processingAll) return;
+    setProcessingAll(true);
+    try {
+      console.log("Fetching DELETE /api/admin/notifications");
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
+      console.log("Response:", res.status, res.ok);
+      if (res.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setShowNotifications(false);
+        window.dispatchEvent(new Event("notifications:update"));
+      }
+    } catch (e) {
+      console.error("Error:", e);
+      alert("Error: " + e);
+    } finally {
+      setProcessingAll(false);
     }
   };
 
