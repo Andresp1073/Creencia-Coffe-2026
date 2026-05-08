@@ -30,7 +30,7 @@ interface Product {
 }
 
 const presentations = ["500g", "250g", "125g"];
-const defaultImage = "/imagenes/default-producto.jpg";
+const defaultImage = "/imagenes/Producto.jpg";
 
 interface Props {
   initialProducts: Product[];

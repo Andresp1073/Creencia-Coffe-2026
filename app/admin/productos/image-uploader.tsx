@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, DragEvent } from "react";
+import { useState, useRef, useCallback, DragEvent, useEffect } from "react";
 import { Upload, X, Image as ImageIcon, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,10 +23,15 @@ export function ImageUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage = value || defaultImage;
+  const displayImage = value && !imageError ? value : (defaultImage && !imageError ? defaultImage : null);
   const hasImage = !!displayImage;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [value, defaultImage]);
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -46,6 +51,7 @@ export function ImageUploader({
     }
 
     setError(null);
+    setImageError(false);
     setIsUploading(true);
 
     try {
@@ -92,44 +98,41 @@ export function ImageUploader({
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback(
-    (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
 
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        const file = files[0];
-        const validationError = validateFile(file);
-        if (validationError) {
-          setError(validationError);
-          return;
-        }
-
-        setError(null);
-        setIsUploading(true);
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        fetch("/api/admin/upload", {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        })
-          .then((res) => (res.ok ? res.json() : Promise.reject()))
-          .then((data) => onChange(data.url))
-          .catch(() => {
-            const reader = new FileReader();
-            reader.onloadend = () => onChange(reader.result as string);
-            reader.readAsDataURL(file);
-          })
-          .finally(() => setIsUploading(false));
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
       }
-    },
-    [onChange]
-  );
+
+      setError(null);
+      setIsUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      fetch("/api/admin/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data) => onChange(data.url))
+        .catch(() => {
+          const reader = new FileReader();
+          reader.onloadend = () => onChange(reader.result as string);
+          reader.readAsDataURL(file);
+        })
+        .finally(() => setIsUploading(false));
+    }
+  }, [onChange]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -145,9 +148,14 @@ export function ImageUploader({
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(null);
+    setImageError(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const handleImageLoadError = () => {
+    setImageError(true);
   };
 
   return (
@@ -159,12 +167,11 @@ export function ImageUploader({
         onDragOver={hasImage ? undefined : handleDragOver}
         onDrop={hasImage ? undefined : handleDrop}
         className={cn(
-          "relative aspect-square rounded-2xl border-2 border-dashed transition-all duration-300 overflow-hidden cursor-pointer",
+          "relative aspect-square rounded-2xl border-2 border-dashed transition-all duration-300 overflow-hidden",
           hasImage
             ? "border-transparent cursor-default"
-            : isDragging
-            ? "border-brand-caramel bg-brand-caramel/5 scale-[1.02]"
-            : "border-border/60 hover:border-brand-caramel/50 hover:bg-muted/50",
+            : "border-border/60 hover:border-brand-caramel/50 hover:bg-muted/50 cursor-pointer",
+          !hasImage && isDragging && "border-brand-caramel bg-brand-caramel/5 scale-[1.02]",
           error && !hasImage && "border-red-500 bg-red-50/50"
         )}
       >
@@ -188,6 +195,7 @@ export function ImageUploader({
               src={displayImage}
               alt="Imagen del producto"
               className="w-full h-full object-cover"
+              onError={handleImageLoadError}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -250,7 +258,7 @@ export function ImageUploader({
         </div>
       )}
 
-      {hasImage && !value && (
+      {hasImage && (
         <button
           type="button"
           onClick={handleRemove}
