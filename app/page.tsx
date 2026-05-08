@@ -97,7 +97,7 @@ export default async function HomePage() {
                   icon: Flame,
                   title: "Tostado en casa",
                   text: "Cada lote pasa por nuestras manos. Tostamos según el perfil que cada grano pide.",
-                  benefit: "Tueste personalizado",
+                  benefit: "Tueste fresco",
                 },
                 {
                   icon: Leaf,
