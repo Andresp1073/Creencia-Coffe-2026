@@ -48,7 +48,7 @@ export async function getProducts(): Promise<Product[]> {
               p.stock, p.presentation, c.name as category, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
-       WHERE p.active = TRUE AND p.stock > 0
+       WHERE p.active = TRUE
        ORDER BY p.name ASC`
     );
     return products.map(p => {
