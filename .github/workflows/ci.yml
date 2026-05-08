@@ -28,7 +28,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run ESLint
         run: pnpm lint
@@ -54,7 +54,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run Unit Tests
         run: pnpm test:unit
@@ -86,7 +86,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run Build
         run: pnpm build
@@ -118,7 +118,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -157,7 +157,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Link Vercel Project
         run: pnpm dlx vercel@latest link --yes --token=${{ secrets.VERCEL_TOKEN }}
@@ -208,7 +208,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Link Vercel Project
         run: pnpm dlx vercel@latest link --yes --token=${{ secrets.VERCEL_TOKEN }}
