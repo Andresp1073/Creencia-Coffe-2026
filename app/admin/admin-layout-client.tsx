@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Toaster } from "sonner";
 import {
   LayoutDashboard,
   Package,
@@ -492,6 +493,7 @@ export default function AdminLayoutClient({
           onClick={() => setShowNotifications(false)}
         />
       )}
+      <Toaster position="top-right" richColors />
     </div>
   );
 }
