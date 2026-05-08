@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUp, ArrowDown, X } from "lucide-react";
+import { useState, useCallback } from "react";
+import { ArrowUp, ArrowDown, CheckCircle, AlertCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,22 @@ interface Props {
   initialMovements: Movement[];
 }
 
-function StockModal({ product, type, onClose, onSaved }: { product: Product; type: "entrada" | "salida"; onClose: () => void; onSaved: () => void }) {
+interface Toast {
+  message: string;
+  type: "success" | "error" | "warning";
+}
+
+function StockModal({ 
+  product, 
+  type, 
+  onClose, 
+  onSaved 
+}: { 
+  product: Product; 
+  type: "entrada" | "salida"; 
+  onClose: () => void; 
+  onSaved: (message: string, type: "success" | "error" | "warning") => void;
+}) {
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -67,15 +82,16 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
         });
         
         if (type === "salida" && newStock <= 5) {
-          alert(`Movimiento registrado. Alerta: "${product.name}" tiene stock bajo (${newStock} unidades)`);
+          onSaved(`Stock actualizado. Alerta: "${product.name}" tiene stock bajo (${newStock} unidades)`, "warning");
         } else {
-          alert("Movimiento registrado correctamente");
+          onSaved("Movimiento registrado correctamente", "success");
         }
-        onSaved();
         onClose();
+      } else {
+        onSaved("Error al actualizar el stock", "error");
       }
     } catch (err) {
-      alert("Error al registrar movimiento");
+      onSaved("Error al registrar movimiento", "error");
     } finally {
       setSaving(false);
     }
@@ -91,8 +107,9 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
     >
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Cantidad</label>
+          <label htmlFor="stock-qty" className="block text-sm font-medium text-foreground mb-2">Cantidad</label>
           <input
+            id="stock-qty"
             type="number"
             min={1}
             value={qty || ""}
@@ -102,8 +119,9 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Nota (opcional)</label>
+          <label htmlFor="stock-note" className="block text-sm font-medium text-foreground mb-2">Nota (opcional)</label>
           <input
+            id="stock-note"
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -112,7 +130,9 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
           />
         </div>
         <div className="flex gap-3 pt-2">
-          <Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button variant="ghost" onClick={onClose} className="flex-1" aria-label="Cancelar">
+            Cancelar
+          </Button>
           <Button onClick={handleSubmit} loading={saving} disabled={qty <= 0} className="flex-1">
             Registrar
           </Button>
@@ -126,6 +146,12 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [movements] = useState<Movement[]>(initialMovements);
   const [stockModal, setStockModal] = useState<{ product: Product; type: "entrada" | "salida" } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error" | "warning") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   const stockStatus = (stock: number) => {
     if (stock === 0) return { label: "Sin stock", variant: "danger" as const };
@@ -135,15 +161,30 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <div 
+          role="alert"
+          aria-live="polite"
+          className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-elevated animate-slide-in-right ${
+            toast.type === "success" ? "bg-success text-white" : toast.type === "warning" ? "bg-warning text-white" : "bg-danger text-white"
+          }`}>
+          {toast.type === "success" ? <CheckCircle className="size-5" aria-hidden="true" /> : toast.type === "warning" ? <AlertCircle className="size-5" aria-hidden="true" /> : <AlertCircle className="size-5" aria-hidden="true" />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
       {stockModal && (
         <StockModal
           product={stockModal.product}
           type={stockModal.type}
           onClose={() => setStockModal(null)}
-          onSaved={async () => {
-            const productsRes = await fetch("/api/admin/products", { credentials: "include" });
-            const productsData = await productsRes.json();
-            setProducts(productsData.products || []);
+          onSaved={(message, type) => {
+            showToast(message, type);
+            if (type === "success") {
+              fetch("/api/admin/products", { credentials: "include" })
+                .then(res => res.json())
+                .then(data => setProducts(data.products || []));
+            }
           }}
         />
       )}
@@ -155,8 +196,7 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
         </div>
       </div>
 
-      {/* Stock Table */}
-      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Stock por producto">
         <div className="px-6 py-5 border-b border-border">
           <h2 className="font-display text-xl text-foreground">Stock por producto</h2>
         </div>
@@ -164,11 +204,11 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-6 py-4 font-medium text-left">Producto</th>
-                <th className="px-6 py-4 font-medium text-left">Presentación</th>
-                <th className="px-6 py-4 font-medium text-right">Stock</th>
-                <th className="px-6 py-4 font-medium text-center">Estado</th>
-                <th className="px-6 py-4 font-medium text-right">Acciones</th>
+                <th className="px-6 py-4 font-medium text-left" scope="col">Producto</th>
+                <th className="px-6 py-4 font-medium text-left" scope="col">Presentación</th>
+                <th className="px-6 py-4 font-medium text-right" scope="col">Stock</th>
+                <th className="px-6 py-4 font-medium text-center" scope="col">Estado</th>
+                <th className="px-6 py-4 font-medium text-right" scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -180,7 +220,7 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                     <td className="px-6 py-4 text-muted-foreground">{p.presentation}</td>
                     <td className="px-6 py-4 text-right tabular-nums font-medium text-foreground">{p.stock || 0}</td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                      <Badge variant={status.variant} size="sm" aria-label={`Estado: ${status.label}`}>{status.label}</Badge>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
@@ -189,8 +229,9 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                           size="sm"
                           onClick={() => setStockModal({ product: p, type: "entrada" })}
                           className="gap-1.5"
+                          aria-label={`Registrar entrada de stock para ${p.name}`}
                         >
-                          <ArrowUp className="size-3.5" />
+                          <ArrowUp className="size-3.5" aria-hidden="true" />
                           Entrada
                         </Button>
                         <Button
@@ -198,8 +239,9 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
                           size="sm"
                           onClick={() => setStockModal({ product: p, type: "salida" })}
                           className="gap-1.5 text-danger hover:text-danger"
+                          aria-label={`Registrar salida de stock para ${p.name}`}
                         >
-                          <ArrowDown className="size-3.5" />
+                          <ArrowDown className="size-3.5" aria-hidden="true" />
                           Salida
                         </Button>
                       </div>
@@ -212,23 +254,28 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
         </div>
       </div>
 
-      {/* Movements Table */}
-      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Movimientos recientes">
         <div className="px-6 py-5 border-b border-border">
           <h2 className="font-display text-xl text-foreground">Movimientos recientes</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-6 py-3.5 font-medium text-left">Fecha</th>
-              <th className="px-6 py-3.5 font-medium text-left">Producto</th>
-              <th className="px-6 py-3.5 font-medium text-left">Tipo</th>
-              <th className="px-6 py-3.5 font-medium text-right">Cantidad</th>
-              <th className="px-6 py-3.5 font-medium text-left">Nota</th>
+              <th className="px-6 py-3.5 font-medium text-left" scope="col">Fecha</th>
+              <th className="px-6 py-3.5 font-medium text-left" scope="col">Producto</th>
+              <th className="px-6 py-3.5 font-medium text-left" scope="col">Tipo</th>
+              <th className="px-6 py-3.5 font-medium text-right" scope="col">Cantidad</th>
+              <th className="px-6 py-3.5 font-medium text-left" scope="col">Nota</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {movements.map((m) => (
+            {movements.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                  No hay movimientos registrados
+                </td>
+              </tr>
+            ) : movements.map((m) => (
               <tr key={m.id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-6 py-4 text-muted-foreground">{m.date}</td>
                 <td className="px-6 py-4 font-medium text-foreground">{m.product_name}</td>

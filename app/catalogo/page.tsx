@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
@@ -6,6 +7,53 @@ import { getProducts, getCategories } from "@/lib/products/products.service";
 import { CatalogClient } from "./catalog-client";
 
 export const dynamic = "force-dynamic";
+
+const BASE_URL = "https://cafecreencia.com";
+
+export const metadata: Metadata = {
+  title: "Catálogo de Café | Café Creencia",
+  description: "Explora nuestra selección de cafés artesanales tostados en lotes pequeños. 500g, 250g y 125g. Compra online y recibecafé fresco directo a tu puerta.",
+  keywords: [
+    "catálogo café",
+    "tienda de café",
+    "café online",
+    "café artesanal",
+    "comprar café",
+    "café tostado",
+    "café Colombia",
+    "café premium",
+    "Café Creencia",
+  ],
+  alternates: {
+    canonical: `${BASE_URL}/catalogo`,
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+    url: `${BASE_URL}/catalogo`,
+    siteName: "Café Creencia",
+    title: "Catálogo de Café | Café Creencia",
+    description: "Explora nuestra selección de cafés artesanales tostados en lotes pequeños.",
+    images: [
+      {
+        url: `${BASE_URL}/imagenes/LOGO-CC.png`,
+        width: 512,
+        height: 512,
+        alt: "Catálogo Café Creencia",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "Catálogo de Café | Café Creencia",
+    description: "Explora nuestra selección de cafés artesanales tostados en lotes pequeños.",
+    images: [`${BASE_URL}/imagenes/LOGO-CC.png`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 interface Props {
   searchParams: Promise<{ presentation?: string; categoria?: string }>;

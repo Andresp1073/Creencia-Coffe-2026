@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -57,9 +57,28 @@ export default function AdminLayoutClient({
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [processingAll, setProcessingAll] = useState(false);
 
+  const lastFocusRef = useRef<number>(Date.now());
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/notifications?_t=${Date.now()}`, { 
+        credentials: "include",
+        cache: "no-store"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data || []);
+        const unread = data?.filter((n: Notification) => !n.is_read) || [];
+        setUnreadCount(unread.length);
+      }
+    } catch (e) {
+      console.error("fetch error:", e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [fetchNotifications]);
 
   useEffect(() => {
     const verifySession = async () => {
@@ -75,16 +94,15 @@ export default function AdminLayoutClient({
 
     verifySession();
 
-    let lastFocus = Date.now();
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         const now = Date.now();
-        if (now - lastFocus > 30000) {
-          lastFocus = now;
+        if (now - lastFocusRef.current > 30000) {
+          lastFocusRef.current = now;
           verifySession();
         }
       } else {
-        lastFocus = Date.now();
+        lastFocusRef.current = Date.now();
       }
     };
 
@@ -93,36 +111,19 @@ export default function AdminLayoutClient({
   }, [router]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     const handleNotificationUpdate = () => fetchNotifications();
-
     window.addEventListener("notifications:update", handleNotificationUpdate);
+    return () => window.removeEventListener("notifications:update", handleNotificationUpdate);
+  }, [fetchNotifications]);
 
-    return () => {
-      window.removeEventListener("notifications:update", handleNotificationUpdate);
-    };
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch(`/api/admin/notifications?_t=${Date.now()}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data || []);
-        const unread = data?.filter((n: Notification) => !n.is_read) || [];
-        setUnreadCount(unread.length);
-      }
-    } catch (e) {
-      console.error("fetch error:", e);
-    }
-  };
-
-  const handleMarkAsRead = async (id: number) => {
+  const handleMarkAsRead = useCallback(async (id: number) => {
     if (processingId) return;
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
+      const res = await fetch(`/api/admin/notifications/${id}`, { 
+        method: 'PUT', 
+        credentials: "include" 
+      });
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -133,13 +134,16 @@ export default function AdminLayoutClient({
     } finally {
       setProcessingId(null);
     }
-  };
+  }, [processingId]);
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = useCallback(async () => {
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      const res = await fetch('/api/admin/notifications/read-all', { 
+        method: 'PATCH', 
+        credentials: "include" 
+      });
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
@@ -151,14 +155,17 @@ export default function AdminLayoutClient({
     } finally {
       setProcessingAll(false);
     }
-  };
+  }, [processingAll]);
 
-  const handleDeleteOne = async (id: number) => {
+  const handleDeleteOne = useCallback(async (id: number) => {
     if (!confirm("¿Eliminar esta notificación?")) return;
     if (processingId) return;
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/admin/notifications/${id}`, { 
+        method: "DELETE", 
+        credentials: "include" 
+      });
       if (res.ok) {
         setNotifications(prev => {
           const wasUnread = prev.some(n => n.id === id && !n.is_read);
@@ -172,14 +179,17 @@ export default function AdminLayoutClient({
     } finally {
       setProcessingId(null);
     }
-  };
+  }, [processingId]);
 
-  const handleDeleteAll = async () => {
+  const handleDeleteAll = useCallback(async () => {
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
+      const res = await fetch('/api/admin/notifications', { 
+        method: 'DELETE', 
+        credentials: "include" 
+      });
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
@@ -191,19 +201,19 @@ export default function AdminLayoutClient({
     } finally {
       setProcessingAll(false);
     }
-  };
+  }, [processingAll]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
-  };
+  }, [router]);
 
-  const isActive = (href: string, exact?: boolean) =>
-    exact ? pathname === href : pathname.startsWith(href);
+  const isActive = useCallback((href: string, exact?: boolean) =>
+    exact ? pathname === href : pathname.startsWith(href), [pathname]);
 
   return (
     <div className="min-h-screen flex bg-muted/30">
@@ -214,13 +224,20 @@ export default function AdminLayoutClient({
           collapsed ? "w-20" : "w-64",
           showMobileMenu ? "fixed inset-0 w-64" : "hidden md:flex"
         )}
+        aria-label="Panel de administración"
       >
         <div className="h-18 flex items-center justify-between px-5 py-4 border-b border-cream/10">
-          <Link href="/admin" className="flex items-center gap-2.5 overflow-hidden">
+          <Link 
+            href="/admin" 
+            className="flex items-center gap-2.5 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-cream/50 rounded-lg"
+            aria-label="Cafe Creencia Admin - Ir al dashboard"
+          >
             <img
               src="/imagenes/LOGO-CC.png"
               alt="Cafe Creencia"
               className="h-9 w-9 rounded-full object-cover shrink-0"
+              width={36}
+              height={36}
             />
             {!collapsed && (
               <div className="leading-tight">
@@ -231,8 +248,9 @@ export default function AdminLayoutClient({
           </Link>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="size-7 rounded-md hover:bg-cream/10 flex items-center justify-center text-cream/70 hover:text-cream transition-colors"
-            aria-label="Colapsar"
+            className="size-7 rounded-md hover:bg-cream/10 flex items-center justify-center text-cream/70 hover:text-cream transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cream/50"
+            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+            aria-expanded={!collapsed}
           >
             <ChevronLeft
               className={cn("size-4 transition-transform", collapsed && "rotate-180")}
@@ -240,21 +258,22 @@ export default function AdminLayoutClient({
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto" aria-label="Navegación del admin">
           {navItems.map((item) => {
-            const active = isActive(item.href, "exact" in item ? item.exact : false);
+            const active = isActive(item.href, item.exact);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cream/50",
                   active
                     ? "bg-cream text-coffee-dark shadow-warm-sm"
                     : "text-cream/70 hover:text-cream hover:bg-cream/10"
                 )}
+                aria-current={active ? "page" : undefined}
               >
-                <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+                <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
                 {!collapsed && <span>{item.label}</span>}
               </Link>
             );
@@ -263,7 +282,8 @@ export default function AdminLayoutClient({
 
         <button
           onClick={() => setShowMobileMenu(false)}
-          className="md:hidden p-4 text-cream/70 hover:text-cream border-t border-cream/10"
+          className="md:hidden p-4 text-cream/70 hover:text-cream border-t border-cream/10 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cream/50"
+          aria-label="Cerrar menú móvil"
         >
           <X className="size-5" />
         </button>
@@ -276,16 +296,20 @@ export default function AdminLayoutClient({
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowMobileMenu(true)}
-              className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
+              className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel"
+              aria-label="Abrir menú de navegación"
             >
               <Menu className="size-5" />
             </button>
             <div className="relative w-full max-w-sm hidden sm:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <label htmlFor="admin-search" className="sr-only">Buscar en el panel</label>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden="true" />
               <input
+                id="admin-search"
                 type="search"
                 placeholder="Buscar..."
                 className="w-full pl-10 pr-4 py-2 text-sm rounded-full bg-muted border border-transparent focus:bg-background focus:border-border outline-none transition-all"
+                aria-label="Buscar en el panel de administración"
               />
             </div>
           </div>
@@ -295,12 +319,13 @@ export default function AdminLayoutClient({
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2.5 hover:bg-muted rounded-xl transition-colors cursor-pointer"
-                aria-label="Notificaciones"
+                className="relative p-2.5 hover:bg-muted rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel"
+                aria-label={unreadCount > 0 ? `Notificaciones (${unreadCount} sin leer)` : "Notificaciones"}
+                aria-expanded={showNotifications}
               >
                 <Bell className="size-5 text-muted-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-white text-[10px] font-bold shadow-elevated">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-white text-[10px] font-bold shadow-elevated" aria-hidden="true">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -311,34 +336,40 @@ export default function AdminLayoutClient({
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setShowNotifications(false)}
+                    aria-hidden="true"
                   />
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-border rounded-2xl shadow-elevated z-50 overflow-hidden">
+                  <div 
+                    className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-border rounded-2xl shadow-elevated z-50 overflow-hidden"
+                    role="dialog"
+                    aria-label="Panel de notificaciones"
+                  >
                     <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/50">
                       <h3 className="font-semibold text-sm text-foreground">Notificaciones</h3>
                       <div className="flex gap-2">
                         <button
                           onClick={handleMarkAllAsRead}
                           disabled={unreadCount === 0 || processingAll}
-                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-coffee-dark"
                         >
                           <span className="flex items-center gap-1.5">
-                            <Check className="size-3" />
-                            Todo leído
+                            <Check className="size-3" aria-hidden="true" />
+                            <span>Todo leído</span>
                           </span>
                         </button>
                         <button
                           onClick={handleDeleteAll}
                           disabled={processingAll || notifications.length === 0}
-                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50 flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50 flex items-center gap-1.5 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+                          aria-label="Eliminar todas las notificaciones"
                         >
-                          <Trash2 className="size-3" />
+                          <Trash2 className="size-3" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="max-h-80 overflow-y-auto" role="list" aria-label="Lista de notificaciones">
                       {notifications.length === 0 ? (
                         <div className="px-5 py-10 text-center">
-                          <Bell className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                          <Bell className="size-10 text-muted-foreground/30 mx-auto mb-2" aria-hidden="true" />
                           <p className="text-sm text-muted-foreground">No hay notificaciones</p>
                         </div>
                       ) : (
@@ -350,9 +381,10 @@ export default function AdminLayoutClient({
                                 "flex items-start gap-3 p-3 rounded-xl mb-2 last:mb-0 transition-colors",
                                 notif.is_read ? "bg-muted/30 opacity-60" : "bg-brand-caramel/5 border border-brand-caramel/20"
                               )}
+                              role="listitem"
                             >
                               {!notif.is_read && (
-                                <div className="mt-0.5 h-2 w-2 rounded-full bg-brand-caramel shrink-0" />
+                                <div className="mt-0.5 h-2 w-2 rounded-full bg-brand-caramel shrink-0" aria-hidden="true" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
@@ -375,26 +407,26 @@ export default function AdminLayoutClient({
                                   <button
                                     onClick={() => handleMarkAsRead(notif.id)}
                                     disabled={processingId === notif.id}
-                                    className="size-7 rounded-lg bg-success/10 text-success hover:bg-success/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-                                    title="Marcar como leída"
+                                    className="size-7 rounded-lg bg-success/10 text-success hover:bg-success/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-success"
+                                    aria-label="Marcar como leída"
                                   >
                                     {processingId === notif.id ? (
-                                      <span className="size-3 border-2 border-success/30 border-t-success rounded-full animate-spin" />
+                                      <span className="size-3 border-2 border-success/30 border-t-success rounded-full animate-spin" aria-label="Procesando" />
                                     ) : (
-                                      <Check className="size-3.5" />
+                                      <Check className="size-3.5" aria-hidden="true" />
                                     )}
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleDeleteOne(notif.id)}
                                   disabled={processingId === notif.id}
-                                  className="size-7 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Eliminar"
+                                  className="size-7 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+                                  aria-label="Eliminar notificación"
                                 >
                                   {processingId === notif.id ? (
-                                    <span className="size-3 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
+                                    <span className="size-3 border-2 border-danger/30 border-t-danger rounded-full animate-spin" aria-label="Procesando" />
                                   ) : (
-                                    <Trash2 className="size-3.5" />
+                                    <Trash2 className="size-3.5" aria-hidden="true" />
                                   )}
                                 </button>
                               </div>
@@ -406,7 +438,7 @@ export default function AdminLayoutClient({
                     <Link
                       href="/admin/notificaciones"
                       onClick={() => setShowNotifications(false)}
-                      className="block px-5 py-3.5 text-center text-sm font-medium text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border transition-colors"
+                      className="block px-5 py-3.5 text-center text-sm font-medium text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel"
                     >
                       Ver todas las notificaciones
                     </Link>
@@ -419,12 +451,16 @@ export default function AdminLayoutClient({
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 pl-2 hover:opacity-80 transition-opacity"
+                className="flex items-center gap-2 pl-2 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded-lg"
+                aria-label="Menú del usuario"
+                aria-expanded={showUserMenu}
               >
                 <img
                   src="/imagenes/LOGO-CC.png"
-                  alt="Admin"
+                  alt="Usuario administrador"
                   className="h-9 w-9 rounded-full object-cover"
+                  width={36}
+                  height={36}
                 />
                 <div className="hidden sm:block leading-tight text-left">
                   <div className="text-sm font-medium text-foreground">Admin</div>
@@ -432,20 +468,25 @@ export default function AdminLayoutClient({
                 </div>
               </button>
               {showUserMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-elevated z-50 min-w-[180px] overflow-hidden">
+                <div 
+                  className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-elevated z-50 min-w-[180px] overflow-hidden"
+                  role="menu"
+                >
                   <Link
                     href="/"
                     onClick={() => setShowUserMenu(false)}
-                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel"
+                    role="menuitem"
                   >
-                    <ArrowLeft className="size-4" strokeWidth={1.75} />
+                    <ArrowLeft className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     Ver sitio
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors w-full border-t border-border"
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors w-full border-t border-border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+                    role="menuitem"
                   >
-                    <LogOut className="size-4" strokeWidth={1.75} />
+                    <LogOut className="size-4" strokeWidth={1.75} aria-hidden="true" />
                     Cerrar sesión
                   </button>
                 </div>
@@ -455,7 +496,7 @@ export default function AdminLayoutClient({
         </header>
 
         {/* Main */}
-        <main className="flex-1 p-6 md:p-8 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 p-6 md:p-8 max-w-[1400px] w-full mx-auto" id="main-content" tabIndex={-1}>
           {children}
         </main>
       </div>
@@ -465,9 +506,10 @@ export default function AdminLayoutClient({
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
           onClick={() => setShowMobileMenu(false)}
+          aria-hidden="true"
         />
       )}
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }

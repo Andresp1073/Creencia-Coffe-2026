@@ -1,9 +1,8 @@
 "use client";
 
-import type { StaticImageData } from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Check } from "lucide-react";
-import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { ProductCard } from "@/components/site/product-card";
 import { formatCOP } from "@/lib/utils";
 import type { Product as ProductType } from "@/lib/products/products.types";
@@ -40,11 +39,16 @@ export function ProductDetailClient({ product, related }: Props) {
 
           <div className="flex flex-col lg:flex-row gap-8 items-stretch">
             <div className="lg:w-1/2">
-              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center">
-                <img
+              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center aspect-square relative">
+                <Image
                   src={product.image || "/imagenes/Producto.jpg"}
                   alt={product.name}
-                  className="w-full max-h-[400px] object-contain"
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  quality={80}
+                  priority
+                  decoding="async"
                 />
               </div>
             </div>
@@ -112,8 +116,6 @@ export function ProductDetailClient({ product, related }: Props) {
           </div>
         </div>
       </section>
-
-      <WhatsAppFloat />
     </div>
   );
 }

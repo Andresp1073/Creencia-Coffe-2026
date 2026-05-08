@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 
@@ -42,13 +43,16 @@ export const ProductCard = memo(function ProductCard({ product, priority }: Prod
         aria-label={`Ver detalles de ${product.name}, ${presentationLabel}, precio ${priceFormatted}`}
       >
         <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-coffee-medium/40 mb-2 sm:mb-3 md:mb-4 shadow-soft aspect-[4/3] sm:aspect-square">
-          <img
+          <Image
             src={imageSrc}
             alt={product.name}
-            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+            fill
+            className="object-contain transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             loading={priority ? "eager" : "lazy"}
+            priority={priority}
+            quality={75}
             decoding="async"
-            fetchPriority={priority ? "high" : "auto"}
           />
           <span 
             className="absolute top-2 left-2 sm:top-3 sm:left-3 text-[9px] sm:text-[10px] uppercase tracking-[0.14em] bg-cream/95 text-coffee-dark px-2 py-0.5 sm:py-1 rounded-full backdrop-blur-sm"

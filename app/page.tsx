@@ -30,6 +30,7 @@ export default async function HomePage() {
             className="object-cover"
             priority
             sizes="100vw"
+            quality={85}
           />
           <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
@@ -56,7 +57,7 @@ export default async function HomePage() {
                 <a
                   href={getWhatsAppLink("Hola, quiero más información sobre Cafe Creencia.")}
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-cream/30 text-cream hover:bg-cream/10 transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
                   aria-label="Contactarnos por WhatsApp (se abre en nueva pestaña)"
                 >
@@ -175,12 +176,16 @@ export default async function HomePage() {
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div className="relative">
-              <div className="aspect-[4/5] overflow-hidden rounded-3xl shadow-warm">
-                <img
+              <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-warm">
+                <Image
                   src="/imagenes/Home.jpg"
                   alt="Tostador profesional preparando café artesanal en tostadora de tambor"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  quality={80}
                   loading="eager"
+                  decoding="async"
                 />
               </div>
               <div 
@@ -210,7 +215,7 @@ export default async function HomePage() {
               <a
                 href={getWhatsAppLink("Hola, quiero conocer más sobre Cafe Creencia.")}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full gradient-warm text-cream shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
                 aria-label="Enviar mensaje por WhatsApp (se abre en nueva pestaña)"
               >
@@ -244,13 +249,13 @@ export default async function HomePage() {
                 <h2 id="cta-heading" className="font-display text-4xl sm:text-5xl mb-4">
                   ¿Listo para probarlo?
                 </h2>
-<p className="text-cream/75 max-w-md mx-auto mb-8">
+                <p className="text-cream/75 max-w-md mx-auto mb-8">
                   Pide tu café por WhatsApp y recíbelo recientemente tostado.
                 </p>
                 <a
                   href={getWhatsAppLink("Hola, quiero hacer un pedido de café.")}
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-cream text-coffee-dark font-medium shadow-warm hover:scale-[1.02] transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-coffee-dark"
                   aria-label="Hacer pedido por WhatsApp (se abre en nueva pestaña)"
                 >

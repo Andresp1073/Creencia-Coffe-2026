@@ -56,7 +56,6 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    console.log("Attempting login with username:", username);
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -65,9 +64,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username: username.trim(), password }),
       });
 
-      console.log("Response status:", res.status);
       const data = await res.json();
-      console.log("Response data:", data);
 
       if (!res.ok) {
         if (data.code === "INVALID_CREDENTIALS") {
@@ -83,11 +80,9 @@ export default function LoginPage() {
         const passwordInput = document.getElementById("password") as HTMLInputElement;
         passwordInput?.focus();
       } else {
-        console.log("Login successful, redirecting with full page reload");
         window.location.href = "/admin";
       }
-    } catch (err) {
-      console.error("Login catch error:", err);
+    } catch {
       setError("No se puede conectar al servidor. Verifica tu conexión a internet e intenta nuevamente.");
     } finally {
       setLoading(false);

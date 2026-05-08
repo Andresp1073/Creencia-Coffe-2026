@@ -1,14 +1,57 @@
+import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Leaf, Flame, Heart, Award, Users, Truck } from "lucide-react";
+import { ArrowRight, Leaf, Flame, Heart, Award, Truck } from "lucide-react";
 import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
 import { getWhatsAppLink } from "@/lib/whatsapp";
 
-export const metadata = {
-  title: "Nosotros",
-  description: "Conoce la historia de Café Creencia. Café artesanal tostado en lotes pequeños con más de 10 años de experiencia.",
+const BASE_URL = "https://cafecreencia.com";
+
+export const metadata: Metadata = {
+  title: "Nosotros | Café Creencia - Historia y Filosofía",
+  description: "Conoce la historia de Café Creencia. Café artesanal tostado en lotes pequeños con más de 10 años de experiencia. Granos seleccionados de fincas locales en Colombia.",
+  keywords: [
+    "Café Creencia",
+    "nosotros",
+    "historia del café",
+    "café artesanal",
+    "café哥伦比亚",
+    "tostado artesanal",
+    "productores locales",
+    "café de especialidad",
+    "fincas de café",
+  ],
+  alternates: {
+    canonical: `${BASE_URL}/nosotros`,
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+    url: `${BASE_URL}/nosotros`,
+    siteName: "Café Creencia",
+    title: "Nosotros | Café Creencia - Historia y Filosofía",
+    description: "Conoce la historia de Café Creencia. Café artesanal tostado en lotes pequeños con más de 10 años de experiencia.",
+    images: [
+      {
+        url: `${BASE_URL}/imagenes/Home.jpg`,
+        width: 1200,
+        height: 630,
+        alt: "Tostador profesional preparando café artesanal",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nosotros | Café Creencia - Historia y Filosofía",
+    description: "Conoce la historia de Café Creencia. Café artesanal tostado en lotes pequeños.",
+    images: [`${BASE_URL}/imagenes/Home.jpg`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function NosotrosPage() {
@@ -40,6 +83,7 @@ export default function NosotrosPage() {
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full gradient-warm text-cream shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2"
+                aria-label="Contactar con Café Creencia por WhatsApp (se abre en nueva pestaña)"
               >
                 Conversemos por WhatsApp
                 <ArrowRight className="size-4" aria-hidden="true" />
@@ -59,6 +103,7 @@ export default function NosotrosPage() {
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
+                  quality={80}
                 />
               </div>
               <div className="absolute -bottom-6 -right-4 sm:-right-6 bg-coffee-dark text-cream rounded-2xl p-6 shadow-elevated max-w-[200px]">
@@ -200,6 +245,7 @@ export default function NosotrosPage() {
                   target="_blank"
                   rel="noopener"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-cream text-coffee-dark font-medium shadow-warm hover:scale-[1.02] transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-coffee-dark"
+                  aria-label="Hacer pedido de café por WhatsApp (se abre en nueva pestaña)"
                 >
                   Escríbenos
                   <ArrowRight className="size-4" aria-hidden="true" />
