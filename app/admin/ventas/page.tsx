@@ -12,6 +12,6 @@ export default async function AdminVentasPage() {
     getProducts()
   ]);
   
-  const activeProducts = products.filter(p => p.active !== false && p.active !== 0);
+  const activeProducts = products.filter(p => (p.active as any) !== false && (p.active as any) !== 0);
   return <AdminSalesClient initialSales={sales} initialProducts={activeProducts} />;
 }
