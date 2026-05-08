@@ -173,12 +173,15 @@ export async function GET(request: NextRequest) {
 
           const newStock = product.stock - item.qty;
           console.log(`New stock for ${product.name}: ${newStock}, threshold: ${LOW_STOCK_THRESHOLD}`);
+          console.log(`Condition check: newStock (${newStock}) <= threshold (${LOW_STOCK_THRESHOLD}) && newStock (${newStock}) >= 0: ${newStock <= LOW_STOCK_THRESHOLD && newStock >= 0}`);
           if (newStock <= LOW_STOCK_THRESHOLD && newStock >= 0) {
             await conn.execute(
               `INSERT INTO notifications (type, product_id, message) VALUES ('stock_low', ?, ?)`,
               [productId, `Stock bajo: ${product.name} tiene solo ${newStock} unidades disponibles`]
             );
             console.log(`Low stock notification created for ${product.name}`);
+          } else {
+            console.log(`Notification NOT created - condition not met`);
           }
         }
 
