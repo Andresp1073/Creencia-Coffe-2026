@@ -273,7 +273,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
               </tr>
             ) : sales.map((s) => (
               <tr key={s.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-6 py-4 font-medium text-brand-caramel">#{s.id}</td>
+                <td className="px-6 py-4 font-medium text-brand-caramel">{s.id}</td>
                 <td className="px-6 py-4 text-muted-foreground">
                   {new Date(s.date).toLocaleString("es-CO", {
                     day: "2-digit",
