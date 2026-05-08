@@ -26,10 +26,25 @@ export async function getProducts(): Promise<Product[]> {
        LEFT JOIN categories c ON p.category_id = c.id 
        ORDER BY p.id DESC`
     );
+    
+    const getImageUrl = (img: string | undefined | null) => {
+      if (!img) return "/imagenes/default-producto.jpg";
+      if (img.startsWith("data:")) return img;
+      if (img.startsWith("http")) return img;
+      return img.startsWith("/") ? img : "/" + img;
+    };
+    
     return products.map(p => ({
       ...p,
       category_id: p.category_id,
-      category_slug: p.category_slug
+      category_slug: p.category_slug,
+      price: Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
+      presentation: p.presentation || '500g',
+      price_500g: Number(p.price_500g) || Number(p.price) || 0,
+      price_250g: Number(p.price_250g) || Math.round(Number(p.price) * 0.55),
+      price_125g: Number(p.price_125g) || Math.round(Number(p.price) * 0.3),
+      image: getImageUrl(p.image),
     }));
   } catch (error) {
     console.error("Error fetching products:", error);

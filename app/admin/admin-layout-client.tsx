@@ -176,6 +176,7 @@ export default function AdminLayoutClient({
   };
 
   const handleDeleteOne = async (id: number) => {
+    console.log("click eliminar individual", id);
     if (processingId) return;
     setProcessingId(id);
     try {
@@ -195,6 +196,7 @@ export default function AdminLayoutClient({
   };
 
   const handleDeleteAll = async () => {
+    console.log("click eliminar todo");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAll) return;
     setProcessingAll(true);
@@ -393,8 +395,9 @@ export default function AdminLayoutClient({
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}
                                   disabled={processingId === notif.id}
-                                  className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-caramel hover:bg-brand-caramel/10 disabled:opacity-50"
-                                  title="Marcar como leído"
+                                  className="size-10 rounded-full bg-brand-caramel/15 border border-brand-caramel/20 text-brand-caramel cursor-pointer transition-all duration-200 ease-out hover:bg-brand-caramel/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
+                                  title="Marcar como leída"
+                                  aria-label="Marcar notificación como leída"
                                 >
                                   {processingId === notif.id ? (
                                     <span className="h-4 w-4 border-2 border-coffee-dark/30 border-t-coffee-dark rounded-full animate-spin block" />
@@ -406,8 +409,9 @@ export default function AdminLayoutClient({
                               <button
                                 onClick={() => handleDeleteOne(notif.id)}
                                 disabled={processingId === notif.id}
-                                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:text-brand-terracotta hover:bg-brand-terracotta/10 disabled:opacity-50"
-                                title="Eliminar"
+                                className="size-10 rounded-full bg-brand-terracotta/15 border border-brand-terracotta/20 text-brand-terracotta cursor-pointer transition-all duration-200 ease-out hover:bg-brand-terracotta/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
+                                title="Eliminar notificación"
+                                aria-label="Eliminar notificación"
                               >
                                 {processingId === notif.id ? (
                                   <span className="h-4 w-4 border-2 border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin block" />
@@ -424,7 +428,7 @@ export default function AdminLayoutClient({
                   <Link
                     href="/admin/notificaciones"
                     onClick={() => setShowNotifications(false)}
-                    className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border"
+                    className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted hover:scale-105 hover:-translate-y-0.5 hover:shadow-lg border-t border-border cursor-pointer transition-all duration-200 ease-out"
                   >
                     Ver todas
                   </Link>

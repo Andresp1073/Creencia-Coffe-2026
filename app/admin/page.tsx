@@ -22,7 +22,6 @@ export default async function AdminDashboard() {
     <div>
       <div className="mb-8">
         <h1 className="font-display text-3xl text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Resumen de la actividad de tu emprendimiento</p>
       </div>
 
       {/* Stats Grid */}

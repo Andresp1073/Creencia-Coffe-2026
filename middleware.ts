@@ -5,6 +5,12 @@ import { verifyToken } from "@/lib/auth/session";
 const PUBLIC_PATHS = ["/login", "/recuperar-password", "/api/auth", "/api/products", "/catalogo", "/producto", "/nosotros", "/"];
 const ADMIN_PREFIX = "/admin";
 const COOKIE_NAME = "cafe-creencia-session";
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: false,
+  sameSite: "lax" as const,
+  path: "/" as string,
+};
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",

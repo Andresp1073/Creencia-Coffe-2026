@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Trash2, Bell, Loader2 } from "lucide-react";
+import { Check, Trash2, Bell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Notification {
   id: number;
-  type: string;
   title?: string;
   product_name: string;
   message: string;
   created_at: string;
   is_read: boolean;
+  type: string;
 }
 
 export function NotificacionesClient() {
@@ -48,9 +48,6 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         window.dispatchEvent(new Event("notifications:update"));
-      } else {
-        const data = await res.json();
-        console.error("Error:", data.error);
       }
     } catch (e) {
       console.error(e);
@@ -67,9 +64,6 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         window.dispatchEvent(new Event("notifications:update"));
-      } else {
-        const data = await res.json();
-        console.error("Error:", data.error);
       }
     } catch (e) {
       console.error(e);
@@ -79,6 +73,7 @@ export function NotificacionesClient() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!confirm("¿Eliminar esta notificación?")) return;
     if (processingId) return;
     setProcessingId(id);
     try {
@@ -86,9 +81,6 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.filter(n => n.id !== id));
         window.dispatchEvent(new Event("notifications:update"));
-      } else {
-        const data = await res.json();
-        console.error("Error:", data.error);
       }
     } catch (e) {
       console.error(e);
@@ -102,13 +94,10 @@ export function NotificacionesClient() {
     if (processingAllDelete) return;
     setProcessingAllDelete(true);
     try {
-      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
       if (res.ok) {
         setNotifications([]);
         window.dispatchEvent(new Event("notifications:update"));
-      } else {
-        const data = await res.json();
-        console.error("Error:", data.error);
       }
     } catch (e) {
       console.error(e);
@@ -139,7 +128,7 @@ export function NotificacionesClient() {
           <button
             onClick={handleMarkAllAsRead}
             disabled={unreadCount === 0 || processingAllRead}
-            className="px-4 py-2 rounded-full text-sm font-medium bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-5 py-2.5 rounded-full text-sm font-medium bg-coffee-dark text-cream hover:bg-coffee-medium hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 cursor-pointer transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {processingAllRead ? (
               <span className="size-4 border-2 border-cream/30 border-t-cream rounded-full animate-spin" />
@@ -151,7 +140,7 @@ export function NotificacionesClient() {
           <button
             onClick={handleDeleteAll}
             disabled={notifications.length === 0 || processingAllDelete}
-            className="px-4 py-2 rounded-full text-sm font-medium bg-brand-terracotta text-cream hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-5 py-2.5 rounded-full text-sm font-medium bg-brand-terracotta text-cream hover:opacity-80 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 cursor-pointer transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {processingAllDelete ? (
               <span className="size-4 border-2 border-cream/30 border-t-cream rounded-full animate-spin" />
@@ -167,7 +156,7 @@ export function NotificacionesClient() {
         <button
           onClick={() => setFilter("all")}
           className={cn(
-            "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
+            "px-5 py-2.5 rounded-full text-sm font-medium cursor-pointer transition-all duration-200 ease-out hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0",
             filter === "all" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
           )}
         >
@@ -176,7 +165,7 @@ export function NotificacionesClient() {
         <button
           onClick={() => setFilter("unread")}
           className={cn(
-            "px-4 py-2 rounded-full text-sm font-medium transition-smooth",
+            "px-5 py-2.5 rounded-full text-sm font-medium cursor-pointer transition-all duration-200 ease-out hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0",
             filter === "unread" ? "bg-coffee-dark text-cream" : "bg-muted text-muted-foreground hover:bg-muted/80"
           )}
         >
@@ -230,26 +219,28 @@ export function NotificacionesClient() {
                     <button
                       onClick={() => handleMarkAsRead(notif.id)}
                       disabled={processingId === notif.id}
-                      className="size-9 rounded-full hover:bg-brand-caramel/10 flex items-center justify-center text-brand-caramel transition-smooth disabled:opacity-50"
+                      className="size-10 rounded-full bg-brand-caramel/15 border border-brand-caramel/20 text-brand-caramel cursor-pointer transition-all duration-200 ease-out hover:bg-brand-caramel/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
                       title="Marcar como leída"
+                      aria-label="Marcar notificación como leída"
                     >
                       {processingId === notif.id ? (
                         <span className="size-4 border-2 border-brand-caramel/30 border-t-brand-caramel rounded-full animate-spin" />
                       ) : (
-                        <Check className="size-4" />
+                        <Check className="size-5" />
                       )}
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(notif.id)}
                     disabled={processingId === notif.id}
-                    className="size-9 rounded-full hover:bg-brand-terracotta/10 flex items-center justify-center text-brand-terracotta transition-smooth disabled:opacity-50"
-                    title="Eliminar"
+                    className="size-10 rounded-full bg-brand-terracotta/15 border border-brand-terracotta/20 text-brand-terracotta cursor-pointer transition-all duration-200 ease-out hover:bg-brand-terracotta/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
+                    title="Eliminar notificación"
+                    aria-label="Eliminar notificación"
                   >
                     {processingId === notif.id ? (
                       <span className="size-4 border-2 border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin" />
                     ) : (
-                      <Trash2 className="size-4" />
+                      <Trash2 className="size-5" />
                     )}
                   </button>
                 </div>

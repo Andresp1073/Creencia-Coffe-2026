@@ -285,7 +285,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground hidden lg:table-cell">{p.category}</td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground">{p.presentation}</td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-right font-medium text-coffee-dark">
-                        {formatCOP(p.price)}
+                        {formatCOP(p.price_500g || p.price)}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-right tabular-nums">{p.stock}</td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
