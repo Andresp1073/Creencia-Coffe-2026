@@ -19,7 +19,7 @@ interface ProductCardProps {
   product: Product;
 }
 
-const DEFAULT_IMAGE = "/imagenes/default-producto.jpg";
+const DEFAULT_IMAGE = "/imagenes/Producto.jpg";
 
 const presentationLabels: Record<string, string> = {
   "500g": "500 GRS",
