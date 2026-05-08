@@ -160,8 +160,8 @@ export default async function HomePage() {
               role="list"
               aria-label="Lista de cafés destacados"
             >
-              {featured.map((p) => (
-                <ProductCard key={p.id} product={p} />
+              {featured.map((p, index) => (
+                <ProductCard key={p.id} product={p} priority={index < 3} />
               ))}
             </div>
           </div>
