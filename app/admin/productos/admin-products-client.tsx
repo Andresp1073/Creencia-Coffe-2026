@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Plus, Pencil, Eye, EyeOff, Trash2, X, Loader2, Upload } from "lucide-react";
+import { useState } from "react";
+import { Plus, Pencil, Eye, EyeOff, Trash2, X, Loader2 } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
+import { ImageUploader } from "./image-uploader";
 
 interface Category {
   id: number;
@@ -43,9 +44,6 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [originalImage, setOriginalImage] = useState<string>(defaultImage);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "",
     category_id: 1,
@@ -59,42 +57,6 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     image: defaultImage,
     featured: false,
   });
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      try {
-        const res = await fetch("/api/admin/upload", {
-          method: "POST",
-          credentials: "include",
-          body: formData
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          setImagePreview(data.url);
-          setForm({ ...form, image: data.url });
-        } else {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setImagePreview(reader.result as string);
-            setForm({ ...form, image: reader.result as string });
-          };
-          reader.readAsDataURL(file);
-        }
-      } catch (error) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result as string);
-          setForm({ ...form, image: reader.result as string });
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,8 +116,6 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setImagePreview(null);
-    setOriginalImage(defaultImage);
     setForm({
       name: "",
       category_id: 1,
@@ -183,11 +143,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       price_125g: String(product.price_125g || Math.round(product.price * 0.3)),
       stock: String(product.stock),
       description: product.description || "",
-      image: product.image,
+      image: product.image || defaultImage,
       featured: product.featured,
     });
-    setImagePreview(product.image);
-    setOriginalImage(product.image || defaultImage);
     setEditingId(product.id);
     setShowForm(true);
   };
@@ -360,42 +318,12 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
               <div className="grid gap-6 md:grid-cols-3">
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-2">Imagen del producto</label>
-                  <div 
-                    className="aspect-square rounded-xl bg-muted overflow-hidden relative cursor-pointer hover:bg-muted/80 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {imagePreview || form.image ? (
-                      <img 
-                        src={imagePreview || form.image} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                        <Upload className="size-10 mb-2" />
-                        <span className="text-sm">Subir imagen</span>
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
+                  <ImageUploader
+                    value={form.image === defaultImage ? null : form.image}
+                    onChange={(url) => setForm({ ...form, image: url || defaultImage })}
+                    defaultImage={defaultImage}
+                    maxSizeMB={5}
                   />
-                  {(imagePreview || form.image) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImagePreview(null);
-                        setForm({ ...form, image: defaultImage });
-                      }}
-                      className="text-xs text-red-500 mt-2 hover:underline"
-                    >
-                      Eliminar imagen
-                    </button>
-                  )}
                 </div>
 
                 <div className="md:col-span-2 space-y-4">
