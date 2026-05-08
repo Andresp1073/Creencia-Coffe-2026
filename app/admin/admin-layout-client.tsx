@@ -233,67 +233,6 @@ const handleMarkAsRead = async (id: number) => {
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    if (processingAll) return;
-    setProcessingAll(true);
-    try {
-      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
-        setShowNotifications(false);
-        window.dispatchEvent(new Event("notifications:update"));
-      }
-    } catch (e) {
-      console.error("Error:", e);
-      await fetchNotifications();
-    } finally {
-      setProcessingAll(false);
-    }
-  };
-
-  const handleDeleteOne = async (id: number) => {
-    if (processingId) return;
-    setProcessingId(id);
-    try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
-      if (res.ok) {
-        setNotifications(prev => {
-          const wasUnread = prev.some(n => n.id === id && !n.is_read);
-          if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
-          return prev.filter(n => n.id !== id);
-        });
-        window.dispatchEvent(new Event("notifications:update"));
-      }
-    } catch (e) {
-      console.error("Error:", e);
-      await fetchNotifications();
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleDeleteAll = async () => {
-    console.log("click eliminar todo");
-    if (!confirm("¿Eliminar todas las notificaciones?")) return;
-    if (processingAll) return;
-    setProcessingAll(true);
-    try {
-      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: 'include' });
-      if (res.ok) {
-        setNotifications([]);
-        setUnreadCount(0);
-        setShowNotifications(false);
-        window.dispatchEvent(new Event("notifications:update"));
-      }
-    } catch (e) {
-      console.error("Error:", e);
-      await fetchNotifications();
-    } finally {
-      setProcessingAll(false);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
