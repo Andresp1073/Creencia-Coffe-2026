@@ -177,15 +177,16 @@ export default function AdminLayoutClient({
   };
 
   const handleDeleteOne = async (id: number) => {
-    console.log("click eliminar individual", id);
     if (processingId) return;
     setProcessingId(id);
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-        const wasUnread = notifications.find(n => n.id === id && !n.is_read);
-        if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+        setNotifications(prev => {
+          const wasUnread = prev.some(n => n.id === id && !n.is_read);
+          if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
+          return prev.filter(n => n.id !== id);
+        });
         window.dispatchEvent(new Event("notifications:update"));
       }
     } catch (e) {
@@ -314,7 +315,8 @@ export default function AdminLayoutClient({
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 hover:bg-muted rounded-full transition-smooth"
+                className="relative p-2 hover:bg-muted rounded-full transition-smooth cursor-pointer"
+                aria-label="Notificaciones"
               >
                 <Bell className="size-5 text-muted-foreground" />
                 {unreadCount > 0 && (
@@ -325,115 +327,111 @@ export default function AdminLayoutClient({
               </button>
               
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-cream border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                    <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMarkAllAsRead(); }}
-                        disabled={unreadCount === 0 || processingAll}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-white hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                      >
-                        {processingAll ? (
-                          <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          "✓"
-                        )}
-                        Leer todo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAll(); }}
-                        disabled={processingAll}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {processingAll ? (
-                          <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          "✗"
-                        )}
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-sm text-gray-500">
-                        No hay notificaciones
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowNotifications(false)} 
+                  />
+                  <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
+                      <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleMarkAllAsRead}
+                          disabled={unreadCount === 0 || processingAll}
+                          className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                        >
+                          <Check className="size-3" />
+                          <span>Leer todo</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteAll}
+                          disabled={processingAll || notifications.length === 0}
+                          className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-cream hover:opacity-90 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="size-3" />
+                          <span>Eliminar</span>
+                        </button>
                       </div>
-                    ) : (
-                      <div className="space-y-2 p-2">
-                        {notifications.map((notif) => (
-                          <div
-                            key={notif.id}
-                            className={cn(
-                              "flex items-start gap-2 rounded-lg p-3 transition-colors group",
-                              notif.is_read ? "bg-gray-50 opacity-60" : "bg-yellow-50 hover:bg-yellow-100"
-                            )}
-                          >
-                            {!notif.is_read && (
-                              <div className="mt-0.5 h-2 w-2 rounded-full bg-red-500 flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-coffee-dark truncate">
-                                {notif.title || notif.product_name}
-                              </p>
-                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                {notif.message}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(notif.created_at).toLocaleDateString("es-ES", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            </div>
-                            <div className="flex gap-1">
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                          No hay notificaciones
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          {notifications.map((notif) => (
+                            <div
+                              key={notif.id}
+                              className={cn(
+                                "flex items-start gap-2 rounded-lg p-3 mb-1 cursor-default",
+                                notif.is_read ? "bg-muted/30 opacity-60" : "bg-yellow-50/50"
+                              )}
+                            >
                               {!notif.is_read && (
+                                <div className="mt-0.5 h-2 w-2 rounded-full bg-brand-terracotta shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {notif.title || notif.product_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {notif.message}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground/70 mt-1">
+                                  {new Date(notif.created_at).toLocaleDateString("es-ES", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                              <div className="flex flex-col gap-1 shrink-0">
+                                {!notif.is_read && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(notif.id)}
+                                    disabled={processingId === notif.id}
+                                    className="size-7 rounded-full bg-brand-caramel/20 text-brand-caramel hover:bg-brand-caramel/40 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Marcar como leída"
+                                  >
+                                    {processingId === notif.id ? (
+                                      <span className="size-3 border border-brand-caramel/30 border-t-brand-caramel rounded-full animate-spin block" />
+                                    ) : (
+                                      <Check className="size-3" />
+                                    )}
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => handleMarkAsRead(notif.id)}
+                                  onClick={() => handleDeleteOne(notif.id)}
                                   disabled={processingId === notif.id}
-                                  className="size-10 rounded-full bg-brand-caramel/15 border border-brand-caramel/20 text-brand-caramel cursor-pointer transition-all duration-200 ease-out hover:bg-brand-caramel/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
-                                  title="Marcar como leída"
-                                  aria-label="Marcar notificación como leída"
+                                  className="size-7 rounded-full bg-brand-terracotta/20 text-brand-terracotta hover:bg-brand-terracotta/40 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Eliminar"
                                 >
                                   {processingId === notif.id ? (
-                                    <span className="h-4 w-4 border-2 border-coffee-dark/30 border-t-coffee-dark rounded-full animate-spin block" />
+                                    <span className="size-3 border border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin block" />
                                   ) : (
-                                    <Check className="h-4 w-4" />
+                                    <Trash2 className="size-3" />
                                   )}
                                 </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteOne(notif.id)}
-                                disabled={processingId === notif.id}
-                                className="size-10 rounded-full bg-brand-terracotta/15 border border-brand-terracotta/20 text-brand-terracotta cursor-pointer transition-all duration-200 ease-out hover:bg-brand-terracotta/30 hover:scale-110 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 flex items-center justify-center"
-                                title="Eliminar notificación"
-                                aria-label="Eliminar notificación"
-                              >
-                                {processingId === notif.id ? (
-                                  <span className="h-4 w-4 border-2 border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin block" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Link
+                      href="/admin/notificaciones"
+                      onClick={() => setShowNotifications(false)}
+                      className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border cursor-pointer"
+                    >
+                      Ver todas
+                    </Link>
                   </div>
-                  <Link
-                    href="/admin/notificaciones"
-                    onClick={() => setShowNotifications(false)}
-                    className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted hover:scale-105 hover:-translate-y-0.5 hover:shadow-lg border-t border-border cursor-pointer transition-all duration-200 ease-out"
-                  >
-                    Ver todas
-                  </Link>
-                </div>
+                </>
               )}
             </div>
 
