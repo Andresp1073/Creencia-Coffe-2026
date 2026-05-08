@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -15,18 +15,7 @@ const links = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-
-  const handleScroll = useCallback(() => {
-    setScrolled(window.scrollY > 20);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
 
   useEffect(() => {
     if (open) {
@@ -42,12 +31,7 @@ export function Header() {
   return (
     <>
       <header
-        className={cn(
-          "sticky top-0 z-50 transition-all duration-300",
-          scrolled
-            ? "bg-background/95 backdrop-blur-lg shadow-elevated border-b border-border/50"
-            : "bg-background border-b border-border/60"
-        )}
+        className="sticky top-0 z-50 bg-background border-b border-border shadow-soft"
         role="banner"
       >
         <div className="mx-auto max-w-7xl px-6 lg:px-10 h-18 flex items-center justify-between py-4">
