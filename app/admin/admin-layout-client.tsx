@@ -49,18 +49,6 @@ export default function AdminLayoutClient({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  useEffect(() => {
-    const handleBeforeUnload = async () => {
-      try {
-        await fetch("/api/auth/logout", { method: "POST", keepalive: true });
-      } catch (e) {}
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
-
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
