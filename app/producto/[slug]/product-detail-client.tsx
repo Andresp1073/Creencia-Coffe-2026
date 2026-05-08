@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 import { WhatsAppFloat } from "@/components/site/whatsapp-float";
@@ -40,13 +40,11 @@ export function ProductDetailClient({ product, related }: Props) {
 
           <div className="flex flex-col lg:flex-row gap-8 items-stretch">
             <div className="lg:w-1/2">
-              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center aspect-[4/3]">
-                <Image
+              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center">
+                <img
                   src={product.image || "/imagenes/Producto.jpg"}
                   alt={product.name}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="w-full max-h-[400px] object-contain"
                 />
               </div>
             </div>
