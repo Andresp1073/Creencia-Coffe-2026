@@ -56,10 +56,11 @@ export default function AdminLayoutClient({
         await fetch("/api/auth/logout", { method: "POST", keepalive: true });
       } catch (e) {}
     };
-    
+
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -110,14 +111,14 @@ export default function AdminLayoutClient({
 
     window.addEventListener("notifications:update", handleNotificationUpdate);
     window.addEventListener("force-notif-refresh", handleForceRefresh);
-    
+
     const handleStorageChange = (e: StorageEvent) => {
       if ((e.key === "admin-unread-count" || e.key === "notif-unread-count") && e.newValue) {
         setUnreadCount(0);
       }
     };
     window.addEventListener("storage", handleStorageChange);
-    
+
     return () => {
       window.removeEventListener("notifications:update", handleNotificationUpdate);
       window.removeEventListener("force-notif-refresh", handleForceRefresh);
@@ -139,15 +140,11 @@ export default function AdminLayoutClient({
     }
   };
 
-const handleMarkAsRead = async (id: number) => {
-    alert("handleMarkAsRead called: " + id);
-    console.log("handleMarkAsRead called:", id);
+  const handleMarkAsRead = async (id: number) => {
     if (processingId) return;
     setProcessingId(id);
     try {
-      console.log("Fetching PUT /api/admin/notifications/" + id);
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
-      console.log("Response:", res.status, res.ok);
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -155,21 +152,16 @@ const handleMarkAsRead = async (id: number) => {
       }
     } catch (e) {
       console.error(e);
-      alert("Error: " + e);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    alert("handleMarkAllAsRead called");
-    console.log("handleMarkAllAsRead called");
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      console.log("Fetching PATCH /api/admin/notifications/read-all");
-      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
-      console.log("Response:", res.status, res.ok);
+      const res = await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
@@ -178,21 +170,16 @@ const handleMarkAsRead = async (id: number) => {
       }
     } catch (e) {
       console.error("Error:", e);
-      alert("Error: " + e);
     } finally {
       setProcessingAll(false);
     }
   };
 
   const handleDeleteOne = async (id: number) => {
-    alert("handleDeleteOne called: " + id);
-    console.log("handleDeleteOne called:", id);
     if (processingId) return;
     setProcessingId(id);
     try {
-      console.log("Fetching DELETE /api/admin/notifications/" + id);
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
-      console.log("Response:", res.status, res.ok);
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         setNotifications(prev => {
           const wasUnread = prev.some(n => n.id === id && !n.is_read);
@@ -203,22 +190,17 @@ const handleMarkAsRead = async (id: number) => {
       }
     } catch (e) {
       console.error("Error:", e);
-      alert("Error: " + e);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleDeleteAll = async () => {
-    alert("handleDeleteAll called");
-    console.log("handleDeleteAll called");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      console.log("Fetching DELETE /api/admin/notifications");
-      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
-      console.log("Response:", res.status, res.ok);
+      const res = await fetch("/api/admin/notifications", { method: "DELETE", credentials: "include" });
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
@@ -227,7 +209,6 @@ const handleMarkAsRead = async (id: number) => {
       }
     } catch (e) {
       console.error("Error:", e);
-      alert("Error: " + e);
     } finally {
       setProcessingAll(false);
     }
@@ -340,13 +321,15 @@ const handleMarkAsRead = async (id: number) => {
                   </span>
                 )}
               </button>
-              
+
               {showNotifications && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowNotifications(false)} 
+                  {/* ✅ Un solo overlay para cerrar al hacer clic afuera */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowNotifications(false)}
                   />
+                  {/* ✅ z-50 garantiza que el dropdown quede encima del overlay */}
                   <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
                       <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
@@ -493,6 +476,7 @@ const handleMarkAsRead = async (id: number) => {
         </main>
       </div>
 
+      {/* Overlay menú mobile */}
       {showMobileMenu && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -500,12 +484,8 @@ const handleMarkAsRead = async (id: number) => {
         />
       )}
 
-      {showNotifications && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowNotifications(false)}
-        />
-      )}
+      {/* ✅ ELIMINADO: overlay duplicado de notificaciones que bloqueaba los botones */}
+
       <Toaster position="top-right" richColors />
     </div>
   );

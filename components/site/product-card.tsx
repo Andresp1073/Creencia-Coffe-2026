@@ -1,6 +1,5 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 
@@ -28,8 +27,11 @@ const presentationLabels: Record<string, string> = {
 };
 
 export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const presentationLabel = presentationLabels[product.presentation] || product.presentation;
   const priceFormatted = formatCOP(product.price);
+  const imageSrc = product.image && !imageError ? product.image : DEFAULT_IMAGE;
 
   return (
     <article className="group flex flex-col">
@@ -39,12 +41,18 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         aria-label={`Ver detalles de ${product.name}, ${presentationLabel}, precio ${priceFormatted}`}
       >
         <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-coffee-medium/40 mb-2 sm:mb-3 md:mb-4 shadow-soft aspect-[4/3] sm:aspect-square">
-          <Image
-            src={product.image || DEFAULT_IMAGE}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-coffee-medium/20 animate-pulse" />
+          )}
+          <img
+            src={imageSrc}
             alt={product.name}
-            fill
-            className="object-contain transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 639px) 33vw, (max-width: 1023px) 50vw, 33vw"
+            className={`w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(true);
+            }}
           />
           <span 
             className="absolute top-2 left-2 sm:top-3 sm:left-3 text-[9px] sm:text-[10px] uppercase tracking-[0.14em] bg-cream/95 text-coffee-dark px-2 py-0.5 sm:py-1 rounded-full backdrop-blur-sm"

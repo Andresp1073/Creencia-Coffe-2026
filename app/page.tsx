@@ -176,12 +176,11 @@ export default async function HomePage() {
           <div className="mx-auto max-w-7xl px-6 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <div className="relative">
               <div className="aspect-[4/5] overflow-hidden rounded-3xl shadow-warm">
-                <Image
+                <img
                   src="/imagenes/Home.jpg"
                   alt="Tostador profesional preparando café artesanal en tostadora de tambor"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="w-full h-full object-cover"
+                  loading="eager"
                 />
               </div>
               <div 
