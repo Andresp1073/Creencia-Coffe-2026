@@ -47,13 +47,18 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
   const [customer, setCustomer] = useState("");
 
   const addItem = (product: Product) => {
+    if (product.stock <= 0) {
+      alert(`${product.name} no tiene stock disponible`);
+      return;
+    }
     const pres = product.presentation || '500g';
     const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
+    const basePrice = product.price_500g || product.price || 0;
     setItems([...items, {
       productId: product.id,
       productName: product.name,
       quantity: 1,
-      price: product.price,
+      price: basePrice,
       presentation: presLabel
     }]);
   };
@@ -80,6 +85,18 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
       return;
     }
 
+    const stockErrors: string[] = [];
+    for (const item of items) {
+      const product = products.find(p => p.id === item.productId);
+      if (product && product.stock < item.quantity) {
+        stockErrors.push(`${product.name}: solo ${product.stock} disponibles`);
+      }
+    }
+    if (stockErrors.length > 0) {
+      alert("Stock insuficiente:\n" + stockErrors.join("\n"));
+      return;
+    }
+
     setSaving(true);
     try {
       const saleItems = items.map(i => ({ 
@@ -103,7 +120,11 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
 
       if (!res.ok) {
         const err = await res.json();
-        alert("Error: " + (err.error || "Error al guardar"));
+        let errorMsg = err.error || "Error al guardar";
+        if (err.details && err.details.length > 0) {
+          errorMsg = err.details.join("\n");
+        }
+        alert(errorMsg);
         setSaving(false);
         return;
       }
@@ -243,9 +264,10 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                       {products.map((pp) => {
                         const pres = pp.presentation || '500g';
                         const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
+                        const isOutOfStock = pp.stock <= 0;
                         return (
-                          <option key={pp.id} value={pp.id}>
-                            {pp.name} {presLabel} ({pp.stock} disponibles)
+                          <option key={pp.id} value={pp.id} disabled={isOutOfStock} className={isOutOfStock ? "text-red-500" : ""}>
+                            {pp.name} {presLabel} ({isOutOfStock ? "Sin stock" : `${pp.stock} disponibles`})
                           </option>
                         );
                       })}
@@ -294,14 +316,16 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                 ))}
                 <button
                   onClick={() => {
-                    if (products.length > 0) {
-                      addItem(products[0]);
+                    const inStockProducts = products.filter(p => p.stock > 0);
+                    if (inStockProducts.length > 0) {
+                      addItem(inStockProducts[0]);
                     }
                   }}
-                  disabled={products.length === 0}
+                  disabled={products.filter(p => p.stock > 0).length === 0}
                   className="w-full py-2.5 rounded-xl border border-dashed border-border text-sm text-muted-foreground hover:border-coffee-medium hover:text-coffee-dark transition-smooth flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Plus className="size-4" /> Agregar producto
+                  <Plus className="size-4" /> 
+                  {products.filter(p => p.stock > 0).length === 0 ? "Sin productos disponibles" : "Agregar producto"}
                 </button>
               </div>
             </div>
@@ -352,8 +376,10 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
             </div>
             <div className="p-7 space-y-3">
               {showDetail.items.length > 0 ? showDetail.items.map((it: any, i: number) => {
-                const product = products.find(p => String(p.id) === String(it.id));
-                const unitPrice = it.price || product?.price_500g || product?.price || 0;
+                const product = products.find(p => Number(p.id) === Number(it.id));
+                const storedPrice = it.price || 0;
+                const productPrice = product?.price_500g || product?.price_250g || product?.price || 0;
+                const unitPrice = storedPrice > 0 ? storedPrice : (productPrice > 0 ? productPrice : (showDetail.total / showDetail.items.reduce((sum: number, item: any) => sum + (item.qty || 0), 0)));
                 const productName = it.name || product?.name || "Producto";
                 const presentation = it.presentation || product?.presentation || "";
                 return (

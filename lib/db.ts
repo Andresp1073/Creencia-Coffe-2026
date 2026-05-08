@@ -34,11 +34,11 @@ if (config) {
       rejectUnauthorized: true,
     },
     waitForConnections: true,
-    connectionLimit: 3,
+    connectionLimit: 5,
     queueLimit: 0,
     connectTimeout: 60000,
     idleTimeout: 60000,
-    maxIdle: 3,
+    maxIdle: 5,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
   });
@@ -49,6 +49,27 @@ function getPool(): Pool {
     throw new Error("Database not configured. Set DATABASE_URL environment variable.");
   }
   return pool;
+}
+
+export async function getConnection(): Promise<PoolConnection> {
+  return getPool().getConnection();
+}
+
+export async function withTransaction<T>(
+  callback: (conn: PoolConnection) => Promise<T>
+): Promise<T> {
+  const conn = await getConnection();
+  try {
+    await conn.beginTransaction();
+    const result = await callback(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 async function withRetry<T>(

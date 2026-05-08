@@ -487,9 +487,6 @@ const handleDeleteAll = async () => {
           onClick={() => setShowMobileMenu(false)}
         />
       )}
-
-      {/* ✅ ELIMINADO: overlay duplicado de notificaciones que bloqueaba los botones */}
-
       <Toaster position="top-right" richColors />
     </div>
   );
