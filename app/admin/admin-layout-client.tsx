@@ -140,11 +140,14 @@ export default function AdminLayoutClient({
     }
   };
 
-  const handleMarkAsRead = async (id: number) => {
+const handleMarkAsRead = async (id: number) => {
+    console.log("handleMarkAsRead called:", id);
     if (processingId) return;
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
+      console.log("Fetching PUT /api/admin/notifications/" + id);
+      const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
+      console.log("Response:", res.status, res.ok);
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -157,11 +160,11 @@ export default function AdminLayoutClient({
     }
   };
 
-  const handleMarkAllAsRead = async () => {
+const handleMarkAllAsRead = async () => {
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      const res = await fetch("/api/admin/notifications/read-all", { method: "PATCH", credentials: "include" });
+      const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
@@ -175,7 +178,8 @@ export default function AdminLayoutClient({
     }
   };
 
-  const handleDeleteOne = async (id: number) => {
+const handleDeleteOne = async (id: number) => {
+    if (!confirm("¿Eliminar esta notificación?")) return;
     if (processingId) return;
     setProcessingId(id);
     try {
@@ -195,12 +199,12 @@ export default function AdminLayoutClient({
     }
   };
 
-  const handleDeleteAll = async () => {
+const handleDeleteAll = async () => {
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAll) return;
     setProcessingAll(true);
     try {
-      const res = await fetch("/api/admin/notifications", { method: "DELETE", credentials: "include" });
+      const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
       if (res.ok) {
         setNotifications([]);
         setUnreadCount(0);
