@@ -27,11 +27,17 @@ export function NotificacionesClient() {
   }, []);
 
   const fetchNotifications = async () => {
+    console.log("fetchNotifications called");
     try {
       const res = await fetch("/api/admin/notifications", { credentials: "include" });
+      console.log("fetchNotifications response status:", res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log("fetchNotifications data count:", data?.length);
+        console.log("First notification:", data?.[0]);
         setNotifications(data || []);
+      } else {
+        console.log("fetchNotifications error:", res.status);
       }
     } catch (e) {
       console.error("Error fetching:", e);
@@ -41,66 +47,96 @@ export function NotificacionesClient() {
   };
 
   const handleMarkAsRead = async (id: number) => {
+    console.log("handleMarkAsRead called with id:", id, "type:", typeof id);
     if (processingId) return;
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: "PUT", credentials: "include" });
+      const url = `/api/admin/notifications/${id}`;
+      console.log("Fetching:", url);
+      const res = await fetch(url, { method: "PUT", credentials: "include" });
+      console.log("Response status:", res.status, "ok:", res.ok);
       if (res.ok) {
+        console.log("Updating state for id:", id);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("Error response:", data);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Fetch error:", e);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleMarkAllAsRead = async () => {
+    console.log("handleMarkAllAsRead called");
     if (processingAllRead) return;
     setProcessingAllRead(true);
     try {
+      console.log("Fetching PATCH /api/admin/notifications/read-all");
       const res = await fetch('/api/admin/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+      console.log("PATCH Response status:", res.status, "ok:", res.ok);
       if (res.ok) {
+        console.log("Updating all notifications to is_read = true");
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("PATCH Error response:", data);
       }
     } catch (e) {
-      console.error(e);
+      console.error("PATCH Fetch error:", e);
     } finally {
       setProcessingAllRead(false);
     }
   };
 
   const handleDelete = async (id: number) => {
+    console.log("handleDelete called with id:", id, "type:", typeof id);
     if (!confirm("¿Eliminar esta notificación?")) return;
     if (processingId) return;
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/admin/notifications/${id}`, { method: "DELETE", credentials: "include" });
+      const url = `/api/admin/notifications/${id}`;
+      console.log("Fetching DELETE:", url);
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      console.log("DELETE Response status:", res.status, "ok:", res.ok);
       if (res.ok) {
+        console.log("Removing notification from state:", id);
         setNotifications(prev => prev.filter(n => n.id !== id));
         window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("DELETE Error response:", data);
       }
     } catch (e) {
-      console.error(e);
+      console.error("DELETE Fetch error:", e);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleDeleteAll = async () => {
+    console.log("handleDeleteAll called");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAllDelete) return;
     setProcessingAllDelete(true);
     try {
+      console.log("Fetching DELETE /api/admin/notifications");
       const res = await fetch('/api/admin/notifications', { method: 'DELETE', credentials: "include" });
+      console.log("DELETE all Response status:", res.status, "ok:", res.ok);
       if (res.ok) {
+        console.log("Clearing all notifications from state");
         setNotifications([]);
         window.dispatchEvent(new Event("notifications:update"));
+      } else {
+        const data = await res.json();
+        console.error("DELETE all Error response:", data);
       }
     } catch (e) {
-      console.error(e);
+      console.error("DELETE all Fetch error:", e);
     } finally {
       setProcessingAllDelete(false);
     }

@@ -23,7 +23,7 @@ export default async function ProductPage({ params }: Props) {
         <div className="flex-1 flex items-center justify-center px-6 py-24 text-center">
           <div>
             <h1 className="font-display text-4xl mb-3">Producto no encontrado</h1>
-            <a href="/catalogo" className="text-sage underline underline-offset-4">
+            <a href="/catalogo" className="text-brand-caramel underline underline-offset-4">
               Volver al catálogo
             </a>
           </div>

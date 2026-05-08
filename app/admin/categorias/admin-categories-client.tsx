@@ -120,7 +120,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-sage"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-coffee-dark"
                   placeholder="Ej: Café Tradicional"
                   required
                 />
@@ -133,7 +133,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                     id="active"
                     checked={form.active}
                     onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                    className="w-4 h-4 rounded border-border text-sage focus:ring-sage"
+                    className="w-4 h-4 rounded border-border text-brand-caramel focus:ring-brand-caramel"
                   />
                   <label htmlFor="active" className="text-sm text-foreground">Activa</label>
                 </div>

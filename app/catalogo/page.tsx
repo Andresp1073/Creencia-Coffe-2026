@@ -24,7 +24,7 @@ export default async function CatalogPage({ searchParams }: Props) {
 
       <section className="pt-16 pb-10 gradient-cream border-b border-border/50">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-sage font-medium">
+          <span className="text-[11px] uppercase tracking-[0.22em] text-brand-caramel font-medium">
             Catálogo
           </span>
           <h1 className="font-display text-5xl sm:text-6xl text-foreground mt-3 mb-4">

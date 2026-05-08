@@ -35,10 +35,10 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
     <article className="group flex flex-col">
       <Link 
         href={`/producto/${product.slug}`}
-        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-4 rounded-2xl"
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel focus-visible:ring-offset-4 rounded-2xl"
         aria-label={`Ver detalles de ${product.name}, ${presentationLabel}, precio ${priceFormatted}`}
       >
-        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-secondary mb-2 sm:mb-3 md:mb-4 shadow-soft aspect-[4/3] sm:aspect-square">
+        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-coffee-medium/40 mb-2 sm:mb-3 md:mb-4 shadow-soft aspect-[4/3] sm:aspect-square">
           <Image
             src={product.image || DEFAULT_IMAGE}
             alt={product.name}
@@ -63,7 +63,7 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         <h3 className="font-display text-sm sm:text-base md:text-lg text-foreground leading-tight line-clamp-2">
           <Link 
             href={`/producto/${product.slug}`}
-            className="hover:text-coffee-dark transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+            className="hover:text-coffee-dark transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
           >
             {product.name}
           </Link>

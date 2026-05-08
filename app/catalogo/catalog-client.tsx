@@ -88,7 +88,7 @@ export function CatalogClient({ products, categories, initialPresentation, initi
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="ml-auto text-sm text-sage hover:text-sage/80 flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+                className="ml-auto text-sm text-brand-caramel hover:text-brand-caramel/80 flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
                 aria-label="Limpiar todos los filtros activos"
               >
                 <X className="w-4 h-4" />
@@ -189,11 +189,11 @@ export function CatalogClient({ products, categories, initialPresentation, initi
               </span>
             )}
             {category !== "todos" && (
-              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-sage/10 text-sage text-sm rounded-full" role="group" aria-label="Filtro de categoría">
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-caramel/10 text-brand-caramel text-sm rounded-full" role="group" aria-label="Filtro de categoría">
                 <span>{categories.find(c => c.slug === category)?.name || category}</span>
                 <button 
                   onClick={() => { setCategory("todos"); updateFilters(presentation, "todos"); }} 
-                  className="hover:text-sage/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+                  className="hover:text-brand-caramel/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
                   aria-label={`Quitar filtro de ${categories.find(c => c.slug === category)?.name || category}`}
                 >
                   <X className="w-3 h-3" />
@@ -208,10 +208,8 @@ export function CatalogClient({ products, categories, initialPresentation, initi
           role="status"
           aria-live="polite"
         >
-          {hasActiveFilters ? (
+          {hasActiveFilters && (
             <span>Mostrando {filtered.length} {filtered.length === 1 ? "producto" : "productos"} con: <strong>{getFilterDescription()}</strong></span>
-          ) : (
-            <span>Mostrando todos los productos ({filtered.length} {filtered.length === 1 ? "café" : "cafés"})</span>
           )}
         </div>
 
@@ -240,7 +238,7 @@ export function CatalogClient({ products, categories, initialPresentation, initi
             <div className="flex flex-wrap justify-center gap-3">
               <button
                 onClick={clearFilters}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-sage text-white font-medium shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-caramel text-white font-medium shadow-soft hover:shadow-warm transition-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel focus-visible:ring-offset-2"
               >
                 <RotateCcw className="size-4" />
                 Restablecer filtros

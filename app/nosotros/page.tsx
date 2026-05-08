@@ -24,7 +24,7 @@ export default function NosotrosPage() {
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-10">
             <div className="max-w-3xl">
-              <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-brand-caramel font-medium">
                 Sobre nosotros
               </span>
               <h1 id="hero-heading" className="font-display text-4xl sm:text-5xl lg:text-6xl text-foreground mt-4 mb-6 leading-[1.1]">
@@ -95,7 +95,7 @@ export default function NosotrosPage() {
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-10">
             <div className="text-center mb-12">
-              <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-brand-caramel font-medium">
                 Lo que nos define
               </span>
               <h2 id="values-heading" className="font-display text-3xl sm:text-4xl text-foreground mt-3">
@@ -124,8 +124,8 @@ export default function NosotrosPage() {
                   key={v.title}
                   className="p-8 rounded-2xl bg-card shadow-soft border border-border/50"
                 >
-                  <div className="size-12 rounded-full bg-sage/15 flex items-center justify-center mb-5" aria-hidden="true">
-                    <v.icon className="size-6 text-sage" strokeWidth={1.75} />
+                  <div className="size-12 rounded-full bg-brand-caramel/15 flex items-center justify-center mb-5" aria-hidden="true">
+                    <v.icon className="size-6 text-brand-caramel" strokeWidth={1.75} />
                   </div>
                   <h3 className="font-display text-xl mb-3 text-foreground">{v.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{v.text}</p>
@@ -139,7 +139,7 @@ export default function NosotrosPage() {
         <section className="py-20 bg-background" aria-labelledby="commitments-heading">
           <div className="mx-auto max-w-7xl px-6 lg:px-10">
             <div className="text-center mb-12">
-              <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-brand-caramel font-medium">
                 Nuestro compromiso
               </span>
               <h2 id="commitments-heading" className="font-display text-3xl sm:text-4xl text-foreground mt-3">
@@ -161,7 +161,7 @@ export default function NosotrosPage() {
                 {
                   icon: Leaf,
                   title: "Origen local",
-                  desc: "Finca colombiana responsable",
+                  desc: "Finca local responsable",
                 },
                 {
                   icon: Heart,
@@ -173,7 +173,7 @@ export default function NosotrosPage() {
                   key={item.title}
                   className="p-6 rounded-xl bg-secondary/50 border border-border/30"
                 >
-                  <item.icon className="size-8 text-sage mb-3" strokeWidth={1.5} aria-hidden="true" />
+                  <item.icon className="size-8 text-brand-caramel mb-3" strokeWidth={1.5} aria-hidden="true" />
                   <h3 className="font-medium text-foreground mb-1">{item.title}</h3>
                   <p className="text-sm text-muted-foreground">{item.desc}</p>
                 </div>
@@ -186,7 +186,7 @@ export default function NosotrosPage() {
         <section className="pb-20" aria-labelledby="cta-heading">
           <div className="mx-auto max-w-7xl px-6 lg:px-10">
             <div className="relative overflow-hidden rounded-3xl bg-coffee-dark px-8 py-16 sm:px-16 sm:py-20 text-cream text-center shadow-elevated">
-              <div className="absolute -top-20 -right-20 size-80 rounded-full bg-sage/15 blur-3xl" aria-hidden="true" />
+              <div className="absolute -top-20 -right-20 size-80 rounded-full bg-brand-caramel/15 blur-3xl" aria-hidden="true" />
               <div className="absolute -bottom-20 -left-20 size-80 rounded-full bg-coffee-medium/40 blur-3xl" aria-hidden="true" />
               <div className="relative">
                 <h2 id="cta-heading" className="font-display text-4xl sm:text-5xl mb-4">

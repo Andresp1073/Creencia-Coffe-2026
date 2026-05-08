@@ -406,7 +406,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       placeholder="Ej: Café Tostado Medio"
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       required
                     />
                   </div>
@@ -417,7 +417,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       <select
                         value={form.category_id}
                         onChange={(e) => setForm({ ...form, category_id: Number(e.target.value) })}
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       >
                         {categories.map(cat => (
                           <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -429,7 +429,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       <select
                         value={form.presentation}
                         onChange={(e) => setForm({ ...form, presentation: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       >
                         <option value="500g">500g</option>
                         <option value="250g">250g</option>
@@ -446,7 +446,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                         value={form.price_500g}
                         onChange={(e) => setForm({ ...form, price_500g: e.target.value, price: e.target.value })}
                         placeholder="25000"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         required
                         min="0"
                       />
@@ -458,7 +458,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                         value={form.stock}
                         onChange={(e) => setForm({ ...form, stock: e.target.value })}
                         placeholder="50"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none"
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         required
                         min="0"
                       />
@@ -472,7 +472,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
                       placeholder="Descripción del producto..."
                       rows={3}
-                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-sage focus:ring-1 focus:ring-sage outline-none resize-none"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none resize-none"
                     />
                   </div>
 
@@ -482,7 +482,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       id="featured"
                       checked={form.featured}
                       onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                      className="w-4 h-4 rounded border-border text-sage focus:ring-sage"
+                      className="w-4 h-4 rounded border-border text-brand-caramel focus:ring-brand-caramel"
                     />
                     <label htmlFor="featured" className="text-sm">Producto destacado (aparece en inicio)</label>
                   </div>

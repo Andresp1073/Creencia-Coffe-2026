@@ -201,7 +201,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded p-1"
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
@@ -237,7 +237,7 @@ export default function LoginPage() {
 
           <Link
             href="/recuperar-password"
-            className="block text-center text-sm text-muted-foreground hover:text-foreground mt-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+            className="block text-center text-sm text-muted-foreground hover:text-foreground mt-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
           >
             ¿Olvidaste tu contraseña?
           </Link>
@@ -246,7 +246,7 @@ export default function LoginPage() {
         <p className="text-center text-xs text-muted-foreground mt-6">
           <Link 
             href="/" 
-            className="inline-flex items-center gap-1 hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+            className="inline-flex items-center gap-1 hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
           >
             <ArrowLeft className="size-3" aria-hidden="true" />
             Volver al sitio

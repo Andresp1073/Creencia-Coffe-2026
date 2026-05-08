@@ -40,7 +40,7 @@ export function ProductDetailClient({ product, related }: Props) {
 
           <div className="flex flex-col lg:flex-row gap-8 items-stretch">
             <div className="lg:w-1/2">
-              <div className="bg-secondary rounded-xl shadow-soft overflow-hidden flex items-start justify-center">
+              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center">
                 <img
                   src={product.image || "/imagenes/default-producto.jpg"}
                   alt={product.name}
@@ -74,8 +74,8 @@ export function ProductDetailClient({ product, related }: Props) {
                   "Empaque sellado que conserva el aroma",
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-3 text-sm text-foreground/80">
-                    <span className="mt-0.5 size-5 rounded-full bg-sage/20 flex items-center justify-center shrink-0">
-                      <Check className="size-3 text-sage" strokeWidth={2.5} />
+                    <span className="mt-0.5 size-5 rounded-full bg-brand-caramel/20 flex items-center justify-center shrink-0">
+                      <Check className="size-3 text-brand-caramel" strokeWidth={2.5} />
                     </span>
                     {f}
                   </li>

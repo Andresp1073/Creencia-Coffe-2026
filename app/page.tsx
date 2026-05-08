@@ -36,7 +36,7 @@ export default async function HomePage() {
           <div className="relative mx-auto max-w-7xl px-6 lg:px-10 py-24 w-full">
             <div className="max-w-2xl animate-fade-up">
               <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-cream/80 mb-6">
-                <span className="size-1 rounded-full bg-sage" aria-hidden="true" />
+                <span className="size-1 rounded-full bg-brand-caramel/15" aria-hidden="true" />
                 Tostado artesanal · Lotes pequeños
               </span>
               <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl text-cream leading-[1.05] mb-6">
@@ -72,13 +72,13 @@ export default async function HomePage() {
           >
             <div className="mx-auto max-w-7xl px-6 lg:px-10 py-4 flex flex-wrap gap-8 text-[11px] uppercase tracking-[0.18em] text-cream/70">
               <span className="flex items-center gap-2">
-                <span className="size-1 rounded-full bg-sage" /> Tueste reciente
+                <span className="size-1 rounded-full bg-brand-caramel/15" /> Tueste reciente
               </span>
               <span className="flex items-center gap-2">
-                <span className="size-1 rounded-full bg-sage" /> Origen seleccionado
+                <span className="size-1 rounded-full bg-brand-caramel/15" /> Origen seleccionado
               </span>
               <span className="flex items-center gap-2">
-                <span className="size-1 rounded-full bg-sage" /> Empaque que conserva el aroma
+                <span className="size-1 rounded-full bg-brand-caramel/15" /> Empaque que conserva el aroma
               </span>
             </div>
           </div>
@@ -117,12 +117,12 @@ export default async function HomePage() {
                   className="p-8 rounded-2xl bg-card shadow-soft border border-border/50 hover:shadow-warm transition-shadow"
                   role="listitem"
                 >
-                  <div className="size-11 rounded-full bg-sage/15 flex items-center justify-center mb-5" aria-hidden="true">
-                    <v.icon className="size-5 text-sage" strokeWidth={1.75} />
+                  <div className="size-11 rounded-full bg-brand-caramel/15 flex items-center justify-center mb-5" aria-hidden="true">
+                    <v.icon className="size-5 text-brand-caramel" strokeWidth={1.75} />
                   </div>
                   <h3 className="font-display text-xl mb-2 text-foreground">{v.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">{v.text}</p>
-                  <div className="flex items-center gap-2 text-xs text-sage font-medium">
+                  <div className="flex items-center gap-2 text-xs text-brand-caramel font-medium">
                     <CheckCircle2 className="size-3.5" aria-hidden="true" />
                     {v.benefit}
                   </div>
@@ -140,7 +140,7 @@ export default async function HomePage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
             <div className="flex items-end justify-between mb-8 sm:mb-10 lg:mb-12 gap-4 sm:gap-6 flex-wrap">
               <div>
-                <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
+                <span className="text-[11px] uppercase tracking-[0.2em] text-brand-caramel font-medium">
                   Nuestro café
                 </span>
                 <h2 id="products-heading" className="font-display text-3xl sm:text-4xl lg:text-5xl text-foreground mt-2 sm:mt-3 max-w-xl">
@@ -149,7 +149,7 @@ export default async function HomePage() {
               </div>
               <Link
                 href="/catalogo"
-                className="inline-flex items-center gap-2 text-sm font-medium text-coffee-dark hover:gap-3 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+                className="inline-flex items-center gap-2 text-sm font-medium text-coffee-dark hover:gap-3 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel rounded"
               >
                 Ver todo el catálogo 
                 <ArrowRight className="size-4" aria-hidden="true" />
@@ -193,7 +193,7 @@ export default async function HomePage() {
               </div>
             </div>
             <div>
-              <span className="text-[11px] uppercase tracking-[0.2em] text-sage font-medium">
+              <span className="text-[11px] uppercase tracking-[0.2em] text-brand-caramel font-medium">
                 Sobre nosotros
               </span>
               <h2 id="about-heading" className="font-display text-4xl sm:text-5xl text-foreground mt-3 mb-6 leading-[1.1]">
@@ -234,7 +234,7 @@ export default async function HomePage() {
               aria-label="Llamado a la acción"
             >
               <div 
-                className="absolute -top-20 -right-20 size-80 rounded-full bg-sage/15 blur-3xl" 
+                className="absolute -top-20 -right-20 size-80 rounded-full bg-brand-caramel/15 blur-3xl" 
                 aria-hidden="true"
               />
               <div 

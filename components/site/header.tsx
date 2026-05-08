@@ -25,7 +25,7 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-6 lg:px-10 h-18 flex items-center justify-between py-4">
         <Link 
           href="/" 
-          className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 rounded-lg"
+          className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel focus-visible:ring-offset-2 rounded-lg"
           aria-label="Cafe Creencia - Ir a página principal"
         >
           <Image
@@ -50,7 +50,8 @@ export function Header() {
           aria-label="Navegación principal"
         >
           {links.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = pathname === link.href || 
+              (link.href === "/catalogo" && pathname.startsWith("/producto"));
             return (
               <Link
                 key={link.href}
@@ -78,7 +79,7 @@ export function Header() {
 
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden p-2 -mr-2 text-foreground hover:bg-muted rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          className="md:hidden p-2 -mr-2 text-foreground hover:bg-muted rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel"
           aria-label={open ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={open}
           aria-controls="mobile-menu"
@@ -105,7 +106,7 @@ export function Header() {
                   className={cn(
                     "text-base py-3 px-3 rounded-lg transition-colors",
                     isActive
-                      ? "text-coffee-dark font-medium bg-sage/10"
+                      ? "text-coffee-dark font-medium bg-brand-caramel/10"
                       : "text-foreground/80 hover:bg-muted"
                   )}
                   aria-current={isActive ? "page" : undefined}

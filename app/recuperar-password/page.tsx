@@ -227,7 +227,7 @@ export default function RecoverPasswordPage() {
 
         <form onSubmit={handleSendCode} className="bg-background rounded-2xl p-8 shadow-soft border border-border/50">
           {sent && (
-            <div className="mb-6 p-4 rounded-xl bg-green-100 flex items-center gap-3 text-sm text-green-700">
+            <div className="mb-6 p-4 rounded-xl bg-brand-caramel/20 flex items-center gap-3 text-sm text-brand-brown border border-brand-caramel/30">
               <CheckCircle className="size-4 shrink-0" />
               <span>Código enviado a tu correo</span>
             </div>

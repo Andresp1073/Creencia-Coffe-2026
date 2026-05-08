@@ -13,11 +13,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   try {
     const { id } = await params;
+    console.log("PUT mark as read - id:", id);
     const numericId = sanitizeNumericId(id);
+    console.log("numericId:", numericId);
     if (!numericId) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
+    console.log("Executing UPDATE for id:", numericId);
     await query("UPDATE notifications SET is_read = 1 WHERE id = ?", [numericId]);
+    console.log("UPDATE completed");
     return NextResponse.json({ message: "Notificación marcada como leída" });
   } catch (error: any) {
     console.error("Error marking as read:", error);

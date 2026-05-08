@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
     { label: "Ventas hoy", value: stats.salesToday, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
     { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "text-brand-caramel" },
     { label: "Ventas del mes", value: stats.salesMonth, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "vs mes anterior", icon: TrendingUp, color: "text-sage" },
+    { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "vs mes anterior", icon: TrendingUp, color: "text-brand-caramel" },
   ];
 
   return (
@@ -49,7 +49,7 @@ export default async function AdminDashboard() {
               <h2 className="font-display text-xl">Más vendidos</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Productos con mayor rotación</p>
             </div>
-            <Link href="/admin/productos" className="text-sm text-sage hover:underline">
+            <Link href="/admin/productos" className="text-sm text-brand-caramel hover:text-coffee-dark hover:underline">
               Ver todos
             </Link>
           </div>
@@ -148,7 +148,7 @@ export default async function AdminDashboard() {
           </div>
           {alerts.length > 0 && (
             <div className="px-6 py-4 border-t border-border/50">
-              <Link href="/admin/inventario" className="text-sm text-sage hover:underline">
+              <Link href="/admin/inventario" className="text-sm text-brand-caramel hover:text-coffee-dark hover:underline">
                 Ver inventario completo →
               </Link>
             </div>
