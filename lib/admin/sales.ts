@@ -44,17 +44,18 @@ export async function getSales(): Promise<Sale[]> {
 export async function getProducts(): Promise<Product[]> {
   try {
     const products = await queryMany<any>(
-      `SELECT p.id, p.name, p.price, p.stock, p.presentation, 
+      `SELECT p.id, p.name, p.price, p.stock, p.presentation, p.active,
               c.name as category, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
-       WHERE p.active = TRUE
        ORDER BY p.name ASC`
     );
     return products.map(p => {
       const price = Number(p.price) || 0;
+      const isActive = p.active === true || p.active === 1 || p.active === '1';
       return {
         ...p,
+        active: isActive,
         price,
         price_500g: price,
         price_250g: Math.round(price * 0.55),
