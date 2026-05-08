@@ -44,8 +44,8 @@ export async function getSales(): Promise<Sale[]> {
 export async function getProducts(): Promise<Product[]> {
   try {
     const products = await queryMany<any>(
-      `SELECT p.id, p.name, p.price, p.price_500g, p.price_250g, p.price_125g, 
-              p.stock, p.presentation, c.name as category, c.slug as category_slug 
+      `SELECT p.id, p.name, p.price, p.stock, p.presentation, 
+              c.name as category, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
        WHERE p.active = TRUE
@@ -53,16 +53,12 @@ export async function getProducts(): Promise<Product[]> {
     );
     return products.map(p => {
       const price = Number(p.price) || 0;
-      const price500 = Number(p.price_500g) || 0;
-      const price250 = Number(p.price_250g) || 0;
-      const price125 = Number(p.price_125g) || 0;
-      const base = price500 || price;
       return {
         ...p,
-        price: base || price,
-        price_500g: base || price,
-        price_250g: price250 || Math.round((price500 || price) * 0.55),
-        price_125g: price125 || Math.round((price500 || price) * 0.3),
+        price,
+        price_500g: price,
+        price_250g: Math.round(price * 0.55),
+        price_125g: Math.round(price * 0.3),
         stock: Number(p.stock) || 0,
         presentation: p.presentation || '500g'
       };

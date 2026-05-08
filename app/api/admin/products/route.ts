@@ -44,18 +44,21 @@ FROM products p
       return img.startsWith("/") ? img : "/" + img;
     };
 
-    const productsWithPrices = products.map(p => ({
-      ...p,
-      category_id: (p as any).category_id,
-      category_slug: (p as any).category_slug,
-      price: Number(p.price) || 0,
-      stock: Number(p.stock) || 0,
-      presentation: p.presentation || '500g',
-      price_500g: Number(p.price_500g) || Number(p.price) || 0,
-      price_250g: Number(p.price_250g) || Math.round(Number(p.price) * 0.55),
-      price_125g: Number(p.price_125g) || Math.round(Number(p.price) * 0.3),
-      image: getImageUrl(p.image),
-    }));
+    const productsWithPrices = products.map(p => {
+      const basePrice = Number(p.price) || 0;
+      return {
+        ...p,
+        category_id: (p as any).category_id,
+        category_slug: (p as any).category_slug,
+        price: basePrice,
+        stock: Number(p.stock) || 0,
+        presentation: p.presentation || '500g',
+        price_500g: basePrice,
+        price_250g: Math.round(basePrice * 0.55),
+        price_125g: Math.round(basePrice * 0.3),
+        image: getImageUrl(p.image),
+      };
+    });
     
     return NextResponse.json({ products: productsWithPrices });
   } catch (error) {
