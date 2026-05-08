@@ -300,7 +300,7 @@ export default function AdminLayoutClient({
               >
                 <Bell className="size-5 text-muted-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs font-bold text-white">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-white text-[10px] font-bold shadow-elevated">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
