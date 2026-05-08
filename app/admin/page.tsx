@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Package, ShoppingCart, TrendingUp, AlertTriangle } from "lucide-react";
+import { Package, ShoppingCart, TrendingUp, AlertTriangle, ArrowRight } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard/dashboard.service";
 import { requireAdminSession } from "@/lib/auth/require-admin";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -12,148 +14,141 @@ export default async function AdminDashboard() {
   const { alerts, topProducts, stats } = await getDashboardData();
 
   const statsCards = [
-    { label: "Ventas hoy", value: stats.salesToday, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "text-brand-caramel" },
-    { label: "Ventas del mes", value: stats.salesMonth, hint: "pedidos", icon: ShoppingCart, color: "text-coffee-dark" },
-    { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "vs mes anterior", icon: TrendingUp, color: "text-brand-caramel" },
+    { label: "Ventas hoy", value: stats.salesToday, hint: "pedidos hoy", icon: ShoppingCart, color: "bg-brand-caramel/10 text-brand-caramel" },
+    { label: "Ingresos hoy", value: formatCOP(stats.revenueToday), hint: "del día", icon: TrendingUp, color: "bg-success/10 text-success" },
+    { label: "Ventas del mes", value: stats.salesMonth, hint: "pedidos este mes", icon: ShoppingCart, color: "bg-info/10 text-info" },
+    { label: "Ingresos del mes", value: formatCOP(stats.revenueMonth), hint: "este mes", icon: TrendingUp, color: "bg-coffee-dark/10 text-coffee-dark" },
   ];
 
   return (
-    <div>
-      <div className="mb-8">
+    <div className="space-y-8">
+      <div>
         <h1 className="font-display text-3xl text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">Resumen de actividad y alertas</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {statsCards.map((stat) => (
-          <div
-            key={stat.label}
-            className="p-6 rounded-2xl bg-card shadow-soft border border-border/50"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-muted-foreground">{stat.label}</span>
-              <stat.icon className={`size-5 ${stat.color}`} strokeWidth={1.75} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {statsCards.map((stat, index) => (
+          <Card key={stat.label} className="group hover:shadow-warm transition-all duration-300">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">{stat.label}</p>
+                <p className="font-display text-2xl lg:text-3xl text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.hint}</p>
+              </div>
+              <div className={`size-11 rounded-xl flex items-center justify-center ${stat.color}`}>
+                <stat.icon className="size-5" strokeWidth={1.75} />
+              </div>
             </div>
-            <div className="font-display text-2xl">{stat.value}</div>
-            <div className="text-xs text-muted-foreground mt-1">{stat.hint}</div>
-          </div>
+          </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Products */}
-        <div className="lg:col-span-2 bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
-          <div className="px-6 py-5 border-b border-border/50 flex items-center justify-between">
+        <Card variant="default" padding="none" className="lg:col-span-2 overflow-hidden">
+          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="font-display text-xl">Más vendidos</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Productos con mayor rotación</p>
+              <h2 className="font-display text-xl text-foreground">Productos más vendidos</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Ranking de rotación</p>
             </div>
-            <Link href="/admin/productos" className="text-sm text-brand-caramel hover:text-coffee-dark hover:underline">
+            <Link 
+              href="/admin/productos" 
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-caramel hover:text-coffee-dark transition-colors"
+            >
               Ver todos
+              <ArrowRight className="size-4" />
             </Link>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/50">
-                <th className="px-6 py-3 font-normal">Producto</th>
-                <th className="px-6 py-3 font-normal">Presentación</th>
-                <th className="px-6 py-3 font-normal text-right">Stock</th>
-                <th className="px-6 py-3 font-normal text-right">Precio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
-                    No hay productos disponibles
-                  </td>
-                </tr>
-              ) : (
-                topProducts.map((product, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-border/40 last:border-0 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-6 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-lg bg-muted flex items-center justify-center">
-                          <Package className="size-4 text-muted-foreground" />
-                        </div>
-                        <div className="font-medium text-foreground">{product.name}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3.5 text-muted-foreground">{product.presentation}</td>
-                    <td className="px-6 py-3.5 text-right">
-                      <span className="font-medium text-foreground">
-                        {product.stock}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-right font-medium text-coffee-dark">
-                      {formatCOP(product.price)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+          {topProducts.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <Package className="size-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No hay productos disponibles</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {topProducts.map((product, i) => (
+                <div key={i} className="px-6 py-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="size-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Package className="size-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{product.name}</p>
+                    <p className="text-sm text-muted-foreground">{product.presentation}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-medium text-foreground">{product.stock} unid</p>
+                    <p className="text-sm text-brand-caramel font-medium">{formatCOP(product.price)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Alerts */}
-        <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
-          <div className="px-6 py-5 border-b border-border/50 flex items-center justify-between">
+        <Card variant="default" padding="none" className="overflow-hidden">
+          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="font-display text-xl">Alertas</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Stock que requiere atención</p>
+              <h2 className="font-display text-xl text-foreground">Alertas de inventario</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Requieren atención</p>
             </div>
             {alerts.length > 0 && (
-              <span className="px-2 py-1 text-xs font-medium bg-brand-terracotta/20 text-brand-terracotta rounded-full">
-                {alerts.length}
-              </span>
+              <Badge variant="danger" size="sm">{alerts.length} nuevas</Badge>
             )}
           </div>
-          <div className="divide-y divide-border/40">
+          <div className="divide-y divide-border/50">
             {alerts.length === 0 ? (
-              <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-                Todo en orden ✓
+              <div className="px-6 py-12 text-center">
+                <div className="size-12 rounded-full bg-success/10 mx-auto mb-3 flex items-center justify-center">
+                  <svg className="size-6 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-foreground">Todo en orden</p>
+                <p className="text-xs text-muted-foreground mt-1">Sin alertas pendientes</p>
               </div>
             ) : (
               alerts.map((alert) => (
-                <div key={alert.id} className="px-6 py-4 flex items-start justify-between gap-3">
+                <div key={alert.id} className="px-6 py-4 flex items-start justify-between gap-4 hover:bg-muted/30 transition-colors">
                   <div className="flex items-start gap-3">
-                    <div className={`size-9 rounded-full flex items-center justify-center shrink-0 ${
-                      alert.status === "sin-stock" ? "bg-brand-terracotta/20" : "bg-amber-100"
+                    <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      alert.status === "sin-stock" ? "bg-danger/10" : "bg-warning/10"
                     }`}>
-                      <AlertTriangle className={`size-4 ${
-                        alert.status === "sin-stock" ? "text-brand-terracotta" : "text-amber-700"
+                      <AlertTriangle className={`size-5 ${
+                        alert.status === "sin-stock" ? "text-danger" : "text-warning"
                       }`} strokeWidth={1.75} />
                     </div>
                     <div>
-                      <div className="text-sm font-medium leading-tight">{alert.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
+                      <p className="font-medium text-foreground text-sm">{alert.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {alert.presentation} · {alert.stock} unid
-                      </div>
+                      </p>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    alert.status === "sin-stock" 
-                      ? "bg-brand-terracotta/20 text-brand-terracotta" 
-                      : "bg-amber-100 text-amber-700"
-                  }`}>
-                    {alert.status === "sin-stock" ? "Sin stock" : "Bajo"}
-                  </span>
+                  <Badge 
+                    variant={alert.status === "sin-stock" ? "danger" : "warning"} 
+                    size="sm"
+                  >
+                    {alert.status === "sin-stock" ? "Sin stock" : "Stock bajo"}
+                  </Badge>
                 </div>
               ))
             )}
           </div>
           {alerts.length > 0 && (
-            <div className="px-6 py-4 border-t border-border/50">
-              <Link href="/admin/inventario" className="text-sm text-brand-caramel hover:text-coffee-dark hover:underline">
-                Ver inventario completo →
+            <div className="px-6 py-4 border-t border-border bg-muted/30">
+              <Link 
+                href="/admin/inventario" 
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-caramel hover:text-coffee-dark transition-colors"
+              >
+                Ver inventario completo
+                <ArrowRight className="size-4" />
               </Link>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

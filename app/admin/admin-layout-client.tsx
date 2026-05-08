@@ -20,6 +20,7 @@ import {
   Tag,
   Check,
   Trash2,
+  X,
 } from "lucide-react";
 
 const navItems = [
@@ -95,22 +96,11 @@ export default function AdminLayoutClient({
     if (typeof window === "undefined") return;
 
     const handleNotificationUpdate = () => fetchNotifications();
-    const handleForceRefresh = () => fetchNotifications();
 
     window.addEventListener("notifications:update", handleNotificationUpdate);
-    window.addEventListener("force-notif-refresh", handleForceRefresh);
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if ((e.key === "admin-unread-count" || e.key === "notif-unread-count") && e.newValue) {
-        setUnreadCount(0);
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
 
     return () => {
       window.removeEventListener("notifications:update", handleNotificationUpdate);
-      window.removeEventListener("force-notif-refresh", handleForceRefresh);
-      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 
@@ -128,14 +118,11 @@ export default function AdminLayoutClient({
     }
   };
 
-const handleMarkAsRead = async (id: number) => {
-    console.log("handleMarkAsRead called:", id);
+  const handleMarkAsRead = async (id: number) => {
     if (processingId) return;
     setProcessingId(id);
     try {
-      console.log("Fetching PUT /api/admin/notifications/" + id);
       const res = await fetch(`/api/admin/notifications/${id}`, { method: 'PUT', credentials: 'include' });
-      console.log("Response:", res.status, res.ok);
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -148,7 +135,7 @@ const handleMarkAsRead = async (id: number) => {
     }
   };
 
-const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = async () => {
     if (processingAll) return;
     setProcessingAll(true);
     try {
@@ -166,7 +153,7 @@ const handleMarkAllAsRead = async () => {
     }
   };
 
-const handleDeleteOne = async (id: number) => {
+  const handleDeleteOne = async (id: number) => {
     if (!confirm("¿Eliminar esta notificación?")) return;
     if (processingId) return;
     setProcessingId(id);
@@ -187,7 +174,7 @@ const handleDeleteOne = async (id: number) => {
     }
   };
 
-const handleDeleteAll = async () => {
+  const handleDeleteAll = async () => {
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     if (processingAll) return;
     setProcessingAll(true);
@@ -220,6 +207,7 @@ const handleDeleteAll = async () => {
 
   return (
     <div className="min-h-screen flex bg-muted/30">
+      {/* Sidebar */}
       <aside
         className={cn(
           "shrink-0 bg-coffee-dark text-cream flex flex-col transition-all duration-300 sticky top-0 h-screen z-40",
@@ -227,7 +215,7 @@ const handleDeleteAll = async () => {
           showMobileMenu ? "fixed inset-0 w-64" : "hidden md:flex"
         )}
       >
-        <div className="h-18 flex items-center justify-between px-5 border-b border-cream/10 py-4">
+        <div className="h-18 flex items-center justify-between px-5 py-4 border-b border-cream/10">
           <Link href="/admin" className="flex items-center gap-2.5 overflow-hidden">
             <img
               src="/imagenes/LOGO-CC.png"
@@ -236,14 +224,14 @@ const handleDeleteAll = async () => {
             />
             {!collapsed && (
               <div className="leading-tight">
-                <div className="font-display text-base">Creencia</div>
+                <div className="font-display text-base text-cream">Creencia</div>
                 <div className="text-[10px] uppercase tracking-[0.18em] text-cream/50">Admin</div>
               </div>
             )}
           </Link>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="size-7 rounded-md hover:bg-cream/10 flex items-center justify-center text-cream/70 hover:text-cream transition-smooth"
+            className="size-7 rounded-md hover:bg-cream/10 flex items-center justify-center text-cream/70 hover:text-cream transition-colors"
             aria-label="Colapsar"
           >
             <ChevronLeft
@@ -260,10 +248,10 @@ const handleDeleteAll = async () => {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-smooth",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                   active
-                    ? "bg-cream text-coffee-dark font-medium shadow-soft"
-                    : "text-cream/75 hover:bg-cream/10 hover:text-cream"
+                    ? "bg-cream text-coffee-dark shadow-warm-sm"
+                    : "text-cream/70 hover:text-cream hover:bg-cream/10"
                 )}
               >
                 <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
@@ -277,16 +265,18 @@ const handleDeleteAll = async () => {
           onClick={() => setShowMobileMenu(false)}
           className="md:hidden p-4 text-cream/70 hover:text-cream border-t border-cream/10"
         >
-          Cerrar menú
+          <X className="size-5" />
         </button>
       </aside>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
         <header className="h-18 bg-background border-b border-border sticky top-0 z-30 flex items-center justify-between px-4 md:px-8 py-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowMobileMenu(true)}
-              className="md:hidden p-2 hover:bg-muted rounded-lg"
+              className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
             >
               <Menu className="size-5" />
             </button>
@@ -294,21 +284,23 @@ const handleDeleteAll = async () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Buscar productos, ventas..."
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-full bg-muted border border-transparent focus:bg-background focus:border-border outline-none transition-smooth"
+                placeholder="Buscar..."
+                className="w-full pl-10 pr-4 py-2 text-sm rounded-full bg-muted border border-transparent focus:bg-background focus:border-border outline-none transition-all"
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 hover:bg-muted rounded-full transition-smooth cursor-pointer"
+                className="relative p-2.5 hover:bg-muted rounded-xl transition-colors cursor-pointer"
                 aria-label="Notificaciones"
               >
                 <Bell className="size-5 text-muted-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-xs font-bold text-white">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs font-bold text-white">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -316,57 +308,55 @@ const handleDeleteAll = async () => {
 
               {showNotifications && (
                 <>
-                  {/* ✅ Un solo overlay para cerrar al hacer clic afuera */}
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setShowNotifications(false)}
                   />
-                  {/* ✅ z-50 garantiza que el dropdown quede encima del overlay */}
-                  <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
-                      <span className="font-semibold text-sm text-coffee-dark">Notificaciones</span>
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-border rounded-2xl shadow-elevated z-50 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/50">
+                      <h3 className="font-semibold text-sm text-foreground">Notificaciones</h3>
                       <div className="flex gap-2">
                         <button
-                          type="button"
                           onClick={handleMarkAllAsRead}
                           disabled={unreadCount === 0 || processingAll}
-                          className="px-3 py-1.5 text-xs font-medium rounded-md bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-coffee-dark text-cream hover:bg-coffee-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
-                          <Check className="size-3" />
-                          <span>Leer todo</span>
+                          <span className="flex items-center gap-1.5">
+                            <Check className="size-3" />
+                            Todo leído
+                          </span>
                         </button>
                         <button
-                          type="button"
                           onClick={handleDeleteAll}
                           disabled={processingAll || notifications.length === 0}
-                          className="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-terracotta text-cream hover:opacity-90 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50 flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Trash2 className="size-3" />
-                          <span>Eliminar</span>
                         </button>
                       </div>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                          No hay notificaciones
+                        <div className="px-5 py-10 text-center">
+                          <Bell className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No hay notificaciones</p>
                         </div>
                       ) : (
-                        <div className="p-2">
+                        <div className="p-3">
                           {notifications.map((notif) => (
                             <div
                               key={notif.id}
                               className={cn(
-                                "flex items-start gap-2 rounded-lg p-3 mb-1 cursor-default",
-                                notif.is_read ? "bg-muted/30 opacity-60" : "bg-yellow-50/50"
+                                "flex items-start gap-3 p-3 rounded-xl mb-2 last:mb-0 transition-colors",
+                                notif.is_read ? "bg-muted/30 opacity-60" : "bg-brand-caramel/5 border border-brand-caramel/20"
                               )}
                             >
                               {!notif.is_read && (
-                                <div className="mt-0.5 h-2 w-2 rounded-full bg-brand-terracotta shrink-0" />
+                                <div className="mt-0.5 h-2 w-2 rounded-full bg-brand-caramel shrink-0" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
-                                  {notif.title || notif.product_name}
+                                  {notif.product_name || notif.title || 'Notificación'}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                                   {notif.message}
@@ -385,26 +375,26 @@ const handleDeleteAll = async () => {
                                   <button
                                     onClick={() => handleMarkAsRead(notif.id)}
                                     disabled={processingId === notif.id}
-                                    className="size-7 rounded-full bg-brand-caramel/20 text-brand-caramel hover:bg-brand-caramel/40 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                                    className="size-7 rounded-lg bg-success/10 text-success hover:bg-success/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                                     title="Marcar como leída"
                                   >
                                     {processingId === notif.id ? (
-                                      <span className="size-3 border border-brand-caramel/30 border-t-brand-caramel rounded-full animate-spin block" />
+                                      <span className="size-3 border-2 border-success/30 border-t-success rounded-full animate-spin" />
                                     ) : (
-                                      <Check className="size-3" />
+                                      <Check className="size-3.5" />
                                     )}
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleDeleteOne(notif.id)}
                                   disabled={processingId === notif.id}
-                                  className="size-7 rounded-full bg-brand-terracotta/20 text-brand-terracotta hover:bg-brand-terracotta/40 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                                  className="size-7 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                                   title="Eliminar"
                                 >
                                   {processingId === notif.id ? (
-                                    <span className="size-3 border border-brand-terracotta/30 border-t-brand-terracotta rounded-full animate-spin block" />
+                                    <span className="size-3 border-2 border-danger/30 border-t-danger rounded-full animate-spin" />
                                   ) : (
-                                    <Trash2 className="size-3" />
+                                    <Trash2 className="size-3.5" />
                                   )}
                                 </button>
                               </div>
@@ -416,43 +406,44 @@ const handleDeleteAll = async () => {
                     <Link
                       href="/admin/notificaciones"
                       onClick={() => setShowNotifications(false)}
-                      className="block px-4 py-3 text-center text-sm text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border cursor-pointer"
+                      className="block px-5 py-3.5 text-center text-sm font-medium text-brand-caramel hover:text-coffee-dark hover:bg-muted border-t border-border transition-colors"
                     >
-                      Ver todas
+                      Ver todas las notificaciones
                     </Link>
                   </div>
                 </>
               )}
             </div>
 
+            {/* User Menu */}
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2.5 pl-2 hover:opacity-75 transition-opacity"
+                className="flex items-center gap-2 pl-2 hover:opacity-80 transition-opacity"
               >
                 <img
                   src="/imagenes/LOGO-CC.png"
                   alt="Admin"
                   className="h-9 w-9 rounded-full object-cover"
                 />
-                <div className="hidden sm:block leading-tight">
-                  <div className="text-sm font-medium">Admin</div>
+                <div className="hidden sm:block leading-tight text-left">
+                  <div className="text-sm font-medium text-foreground">Admin</div>
                   <div className="text-[11px] text-muted-foreground">Cafe Creencia</div>
                 </div>
               </button>
               {showUserMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-cream border border-border rounded-lg shadow-lg z-50 min-w-[160px]">
+                <div className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-elevated z-50 min-w-[180px] overflow-hidden">
                   <Link
                     href="/"
                     onClick={() => setShowUserMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-coffee-dark hover:bg-coffee-dark/10 rounded-lg transition-colors w-full"
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
                   >
                     <ArrowLeft className="size-4" strokeWidth={1.75} />
-                    Volver al sitio
+                    Ver sitio
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors w-full border-t border-border"
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors w-full border-t border-border"
                   >
                     <LogOut className="size-4" strokeWidth={1.75} />
                     Cerrar sesión
@@ -463,12 +454,13 @@ const handleDeleteAll = async () => {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full">
+        {/* Main */}
+        <main className="flex-1 p-6 md:p-8 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>
 
-      {/* Overlay menú mobile */}
+      {/* Mobile Overlay */}
       {showMobileMenu && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"

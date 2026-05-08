@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { ArrowUp, ArrowDown, X } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface Product {
   id: number;
@@ -79,67 +82,59 @@ function StockModal({ product, type, onClose, onSaved }: { product: Product; typ
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-coffee-dark/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-up">
-      <div className="bg-background w-full max-w-sm rounded-3xl shadow-elevated overflow-hidden">
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-display text-lg">
-            {type === "entrada" ? "Entrada de stock" : "Salida de stock"}
-          </h3>
-          <button onClick={onClose} className="size-8 rounded-full hover:bg-muted flex items-center justify-center">
-            <X className="size-4" />
-          </button>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={type === "entrada" ? "Entrada de stock" : "Salida de stock"}
+      description={`${product.name} - ${product.presentation}`}
+      size="sm"
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Cantidad</label>
+          <input
+            type="number"
+            min={1}
+            value={qty || ""}
+            onChange={(e) => setQty(parseInt(e.target.value) || 0)}
+            placeholder="0"
+            className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+          />
         </div>
-        <div className="p-6 space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Producto: <span className="font-medium text-foreground">{product.name} - {product.presentation}</span>
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.14em] text-muted-foreground mb-2">Cantidad</label>
-            <input
-              type="number"
-              min={1}
-              value={qty || ""}
-              onChange={(e) => setQty(parseInt(e.target.value) || 0)}
-              placeholder="0"
-              className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.14em] text-muted-foreground mb-2">Nota (opcional)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Ej: Compra semanal"
-              className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none"
-            />
-          </div>
-          <button
-            onClick={handleSubmit}
-            disabled={saving || qty <= 0}
-            className="w-full py-2.5 rounded-xl bg-coffee-dark text-white text-sm font-medium shadow-soft hover:shadow-warm transition-smooth disabled:opacity-50"
-          >
-            {saving ? "Guardando..." : "Registrar"}
-          </button>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Nota (opcional)</label>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Ej: Compra semanal"
+            className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+          />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button onClick={handleSubmit} loading={saving} disabled={qty <= 0} className="flex-1">
+            Registrar
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 export function AdminInventoryClient({ initialProducts, initialMovements }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [movements, setMovements] = useState<Movement[]>(initialMovements);
+  const [movements] = useState<Movement[]>(initialMovements);
   const [stockModal, setStockModal] = useState<{ product: Product; type: "entrada" | "salida" } | null>(null);
 
   const stockStatus = (stock: number) => {
-    if (stock === 0) return { label: "Sin stock", variant: "danger" };
-    if (stock <= 5) return { label: "Stock bajo", variant: "warning" };
-    return { label: "Normal", variant: "success" };
+    if (stock === 0) return { label: "Sin stock", variant: "danger" as const };
+    if (stock <= 5) return { label: "Stock bajo", variant: "warning" as const };
+    return { label: "Normal", variant: "success" as const };
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       {stockModal && (
         <StockModal
           product={stockModal.product}
@@ -153,59 +148,60 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
         />
       )}
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl">Inventario</h1>
-          <p className="text-muted-foreground mt-1">Controla el stock y los movimientos de cada producto</p>
+          <h1 className="font-display text-3xl text-foreground">Inventario</h1>
+          <p className="text-sm text-muted-foreground mt-1">Controla el stock y los movimientos de cada producto</p>
         </div>
       </div>
 
-      <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden mb-8">
-        <div className="px-6 py-5 border-b border-border/50">
-          <h2 className="font-display text-xl">Stock por producto</h2>
+      {/* Stock Table */}
+      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+        <div className="px-6 py-5 border-b border-border">
+          <h2 className="font-display text-xl text-foreground">Stock por producto</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/50">
-                <th className="px-6 py-3 font-normal">Producto</th>
-                <th className="px-6 py-3 font-normal">Presentación</th>
-                <th className="px-6 py-3 font-normal text-right">Stock</th>
-                <th className="px-6 py-3 font-normal text-center">Estado</th>
-                <th className="px-6 py-3 font-normal text-right">Acciones</th>
+              <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-6 py-4 font-medium text-left">Producto</th>
+                <th className="px-6 py-4 font-medium text-left">Presentación</th>
+                <th className="px-6 py-4 font-medium text-right">Stock</th>
+                <th className="px-6 py-4 font-medium text-center">Estado</th>
+                <th className="px-6 py-4 font-medium text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/50">
               {products.map((p) => {
                 const status = stockStatus(p.stock || 0);
                 return (
-                  <tr key={p.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium">{p.name}</td>
+                  <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-foreground">{p.name}</td>
                     <td className="px-6 py-4 text-muted-foreground">{p.presentation}</td>
-                    <td className="px-6 py-4 text-right tabular-nums font-medium">{p.stock || 0}</td>
+                    <td className="px-6 py-4 text-right tabular-nums font-medium text-foreground">{p.stock || 0}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        status.variant === "danger" ? "bg-brand-terracotta/20 text-brand-terracotta" :
-                        status.variant === "warning" ? "bg-amber-100 text-amber-700" :
-                        "bg-brand-caramel/20 text-brand-brown"
-                      }`}>
-                        {status.label}
-                      </span>
+                      <Badge variant={status.variant} size="sm">{status.label}</Badge>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setStockModal({ product: p, type: "entrada" })}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-brand-caramel/20 text-brand-brown hover:bg-brand-caramel/30 transition-smooth"
+                          className="gap-1.5"
                         >
-                          <ArrowUp className="size-3.5" /> Entrada
-                        </button>
-                        <button
+                          <ArrowUp className="size-3.5" />
+                          Entrada
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setStockModal({ product: p, type: "salida" })}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-brand-terracotta/20 text-brand-terracotta hover:bg-brand-terracotta/30 transition-smooth"
+                          className="gap-1.5 text-danger hover:text-danger"
                         >
-                          <ArrowDown className="size-3.5" /> Salida
-                        </button>
+                          <ArrowDown className="size-3.5" />
+                          Salida
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -216,34 +212,33 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
         </div>
       </div>
 
-      <div className="bg-card rounded-2xl shadow-soft border border-border/50 overflow-hidden">
-        <div className="px-6 py-5 border-b border-border/50">
-          <h2 className="font-display text-xl">Movimientos recientes</h2>
+      {/* Movements Table */}
+      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+        <div className="px-6 py-5 border-b border-border">
+          <h2 className="font-display text-xl text-foreground">Movimientos recientes</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/50">
-              <th className="px-6 py-3 font-normal">Fecha</th>
-              <th className="px-6 py-3 font-normal">Producto</th>
-              <th className="px-6 py-3 font-normal">Tipo</th>
-              <th className="px-6 py-3 font-normal text-right">Cantidad</th>
-              <th className="px-6 py-3 font-normal">Nota</th>
+            <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-6 py-3.5 font-medium text-left">Fecha</th>
+              <th className="px-6 py-3.5 font-medium text-left">Producto</th>
+              <th className="px-6 py-3.5 font-medium text-left">Tipo</th>
+              <th className="px-6 py-3.5 font-medium text-right">Cantidad</th>
+              <th className="px-6 py-3.5 font-medium text-left">Nota</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border/50">
             {movements.map((m) => (
-              <tr key={m.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+              <tr key={m.id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-6 py-4 text-muted-foreground">{m.date}</td>
-                <td className="px-6 py-4 font-medium">{m.product_name}</td>
+                <td className="px-6 py-4 font-medium text-foreground">{m.product_name}</td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                    m.type === "entrada" ? "bg-brand-caramel/20 text-brand-brown" : "bg-brand-terracotta/20 text-brand-terracotta"
-                  }`}>
+                  <Badge variant={m.type === "entrada" ? "success" : "danger"} size="sm">
                     {m.type === "entrada" ? "Entrada" : "Salida"}
-                  </span>
+                  </Badge>
                 </td>
-                <td className="px-6 py-4 text-right font-medium">{m.qty}</td>
-                <td className="px-6 py-4 text-muted-foreground text-xs">{m.note || "-"}</td>
+                <td className="px-6 py-4 text-right font-medium text-foreground">{m.qty}</td>
+                <td className="px-6 py-4 text-muted-foreground text-sm">{m.note || "-"}</td>
               </tr>
             ))}
           </tbody>
