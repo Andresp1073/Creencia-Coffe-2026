@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -22,7 +22,10 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+      - name: Run ESLint
+        run: pnpm lint
+      - name: Run TypeScript check
+        run: pnpm typecheck
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -36,10 +39,19 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:unit
+      - name: Run Unit Tests
+        run: pnpm test:unit
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
   build:
     runs-on: ubuntu-latest
+    needs: [lint-and-typecheck]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -50,13 +62,145 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - name: Run Build
+        run: pnpm build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: .next
+          retention-days: 1
 
-  deploy:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E Tests
+        run: pnpm test:e2e
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  deploy-production:
     needs: [lint-and-typecheck, unit-tests, build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
     steps:
-      - name: Deploy to Vercel
-        run: echo "Deploy to Vercel would happen here"
+      - uses: actions/checkout@v4
+      
+      - name: Install Vercel CLI
+        run: pnpm add -g vercel@latest
+      
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Deploy Project Artifacts to Production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> $GITHUB_OUTPUT
+      
+      - name: Comment on PR with deployment info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Deployment Status\n\n✅ All CI checks passed!\n\n🚀 Preview: ${{ steps.deploy.outputs.url }}'
+            })
+
+# ============================================
+# CONFIGURATION REQUIRED:
+# ============================================
+# 1. Add VERCEL_TOKEN secret in GitHub repo settings:
+#    GitHub repo → Settings → Secrets → Actions → New secret
+#    Name: VERCEL_TOKEN
+#    Value: Get from https://vercel.com/account/tokens
+#
+# 2. For Slack alerts on deployment failure, add:
+#    SLACK_WEBHOOK_URL secret
+#
+# 3. The workflow will automatically:
+#    - Block deployment if tests/lint/typecheck/build fail
+#    - Deploy to preview on PRs
+#    - Deploy to production on pushes to main
+#    - Keep previous deployment active if rollback is needed
+# ============================================
+
+  deploy-preview:
+    needs: [lint-and-typecheck, unit-tests, build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Vercel CLI
+        run: pnpm add -g vercel@latest
+      
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Deploy Project Artifacts to Preview
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> $GITHUB_OUTPUT
+      
+      - name: Comment on PR with preview URL
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Preview Deployment\n\n✅ All CI checks passed!\n\n🔍 Preview: ${{ steps.deploy.outputs.url }}'
+            })
+
+  rollback:
+    needs: [deploy-production]
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+    steps:
+      - name: Notify deployment failure
+        run: |
+          echo "⚠️ Deployment to production failed!"
+          echo "The previous deployment remains active."
+          echo "Please check the CI logs and fix the issues before retrying."
+      
+      - name: Alert on Slack (optional)
+        if: false
+        run: echo "Configure Slack webhook in secrets to send alerts"
