@@ -13,34 +13,52 @@ jobs:
   lint-and-typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
       - name: Run ESLint
         run: pnpm lint
+      
       - name: Run TypeScript check
         run: pnpm typecheck
 
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
       - name: Run Unit Tests
         run: pnpm test:unit
+      
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,20 +68,29 @@ jobs:
           retention-days: 7
 
   build:
-    runs-on: ubuntu-latest
     needs: [lint-and-typecheck]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
       - name: Run Build
         run: pnpm build
+      
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -72,23 +99,33 @@ jobs:
           retention-days: 1
 
   e2e-tests:
-    runs-on: ubuntu-latest
-    needs: [build]
+    needs: [lint-and-typecheck, build]
     if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
+      
       - name: Run E2E Tests
         run: pnpm test:e2e
+      
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -97,29 +134,89 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  deploy-preview:
+    needs: [lint-and-typecheck, unit-tests, build]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Pull Vercel Environment Information
+        run: pnpm dlx vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Build Project Artifacts
+        run: pnpm dlx vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: Deploy Project Artifacts to Preview
+        id: deploy
+        run: |
+          url=$(pnpm dlx vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> $GITHUB_OUTPUT
+      
+      - name: Comment on PR with preview URL
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Preview Deployment\n\n✅ All CI checks passed!\n\n🔍 Preview: ${{ steps.deploy.outputs.url }}'
+            })
+
   deploy-production:
     needs: [lint-and-typecheck, unit-tests, build]
-    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       
-      - name: Install Vercel CLI
-        run: pnpm add -g vercel@latest
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: pnpm dlx vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       
       - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: pnpm dlx vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
       
       - name: Deploy Project Artifacts to Production
         id: deploy
         run: |
-          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(pnpm dlx vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> $GITHUB_OUTPUT
       
       - name: Comment on PR with deployment info
@@ -134,64 +231,10 @@ jobs:
               body: '## Deployment Status\n\n✅ All CI checks passed!\n\n🚀 Preview: ${{ steps.deploy.outputs.url }}'
             })
 
-# ============================================
-# CONFIGURATION REQUIRED:
-# ============================================
-# 1. Add VERCEL_TOKEN secret in GitHub repo settings:
-#    GitHub repo → Settings → Secrets → Actions → New secret
-#    Name: VERCEL_TOKEN
-#    Value: Get from https://vercel.com/account/tokens
-#
-# 2. For Slack alerts on deployment failure, add:
-#    SLACK_WEBHOOK_URL secret
-#
-# 3. The workflow will automatically:
-#    - Block deployment if tests/lint/typecheck/build fail
-#    - Deploy to preview on PRs
-#    - Deploy to production on pushes to main
-#    - Keep previous deployment active if rollback is needed
-# ============================================
-
-  deploy-preview:
-    needs: [lint-and-typecheck, unit-tests, build]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    environment:
-      name: preview
-      url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Vercel CLI
-        run: pnpm add -g vercel@latest
-      
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: Deploy Project Artifacts to Preview
-        id: deploy
-        run: |
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$url" >> $GITHUB_OUTPUT
-      
-      - name: Comment on PR with preview URL
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '## Preview Deployment\n\n✅ All CI checks passed!\n\n🔍 Preview: ${{ steps.deploy.outputs.url }}'
-            })
-
-  rollback:
+  rollback-notify:
     needs: [deploy-production]
-    runs-on: ubuntu-latest
     if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     environment:
       name: production
     steps:
@@ -200,7 +243,18 @@ jobs:
           echo "⚠️ Deployment to production failed!"
           echo "The previous deployment remains active."
           echo "Please check the CI logs and fix the issues before retrying."
-      
-      - name: Alert on Slack (optional)
-        if: false
-        run: echo "Configure Slack webhook in secrets to send alerts"
+
+# ============================================
+# CONFIGURATION REQUIRED:
+# ============================================
+# 1. Add VERCEL_TOKEN secret in GitHub repo settings:
+#    GitHub repo → Settings → Secrets → Actions → New secret
+#    Name: VERCEL_TOKEN
+#    Value: Get from https://vercel.com/account/tokens
+#
+# 2. The workflow will automatically:
+#    - Block deployment if tests/lint/typecheck/build fail
+#    - Deploy to preview on PRs
+#    - Deploy to production on pushes to main
+#    - Keep previous deployment active if rollback is needed
+# ============================================
