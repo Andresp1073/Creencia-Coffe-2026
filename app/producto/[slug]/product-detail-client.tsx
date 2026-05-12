@@ -39,7 +39,7 @@ export function ProductDetailClient({ product, related }: Props) {
 
           <div className="flex flex-col lg:flex-row gap-8 items-stretch">
             <div className="lg:w-1/2">
-              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center aspect-square relative">
+              <div className="bg-coffee-medium/40 rounded-xl shadow-soft overflow-hidden flex items-start justify-center aspect-[4/3] sm:aspect-square relative">
                 <Image
                   src={product.image || "/imagenes/Producto.jpg"}
                   alt={product.name}
