@@ -111,12 +111,12 @@ export default function LoginPage() {
     <main id="main-content" className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
       <div className="w-full max-w-md">
 <div className="text-center mb-8">
-          <div className="mx-auto size-14 rounded-full flex items-center justify-center mb-4 bg-transparent" aria-hidden="true">
-            <img 
-              src="/imagenes/LOGO-CC.png" 
-              alt="Café Creencia" 
-              width={512} 
-              height={512} 
+          <div className="mx-auto size-28 rounded-full flex items-center justify-center mb-4 bg-transparent" aria-hidden="true">
+            <img
+              src="/favicon.png"
+              alt="Café Creencia"
+              width={512}
+              height={512}
               className="object-contain h-full w-full"
             />
           </div>
