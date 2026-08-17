@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AdminSession } from "@/components/admin-session";
 import { SkipLinks } from "@/components/ui/skip-link";
 import { OrganizationSchema, WebSiteSchema } from "@/components/seo";
 
@@ -139,6 +140,24 @@ export default function RootLayout({
         <WebSiteSchema />
       </head>
       <body className="min-h-screen bg-background antialiased">
+        {/* Script inline: redirige al login inmediato si hay nueva pestaña sin sesión.
+            Se coloca al inicio para ejecutarse antes de que React hidrate el componente. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                'use strict'
+                // Solo ejecutarse en el navegador (no en SSR)
+                if (typeof window !== 'undefined') {
+                  if (window.location.pathname.startsWith('/admin') && !sessionStorage.getItem('adminTabId')) {
+                    window.location.replace('/login')
+                  }
+                }
+              })()
+            `,
+          }}
+        />
+        <AdminSession />
         <SkipLinks />
         {children}
       </body>

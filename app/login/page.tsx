@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Coffee, ArrowLeft, Loader2, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -80,6 +80,10 @@ export default function LoginPage() {
         const passwordInput = document.getElementById("password") as HTMLInputElement;
         passwordInput?.focus();
       } else {
+        // ⭐ Guardar identificador de sesión por pestaña (solo en la pestaña actual)
+        try {
+          sessionStorage.setItem("adminTabId", crypto.randomUUID());
+        } catch {}
         window.location.href = "/admin";
       }
     } catch {
@@ -106,12 +110,15 @@ export default function LoginPage() {
   return (
     <main id="main-content" className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div 
-            className="mx-auto size-14 rounded-full bg-coffee-dark/10 flex items-center justify-center mb-4" 
-            aria-hidden="true"
-          >
-            <Coffee className="size-7 text-coffee-dark" strokeWidth={1.5} />
+<div className="text-center mb-8">
+          <div className="mx-auto size-14 rounded-full flex items-center justify-center mb-4 bg-transparent" aria-hidden="true">
+            <img 
+              src="/imagenes/LOGO-CC.png" 
+              alt="Café Creencia" 
+              width={512} 
+              height={512} 
+              className="object-contain h-full w-full"
+            />
           </div>
           <h1 className="font-display text-2xl text-foreground">Admin</h1>
           <p className="text-sm text-muted-foreground mt-1">Ingresa tus credenciales</p>
