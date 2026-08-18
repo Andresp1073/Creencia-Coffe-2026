@@ -17,9 +17,36 @@ interface Product {
   stock: number;
   active: boolean;
   featured: boolean;
+  code_reference?: string | null;
+  unit_measure_code?: string | null;
+  standard_code?: string | null;
+  tax_code?: string | null;
+  tax_rate?: string | number | null;
 }
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Campos fiscales Factus (Fase 4B): code_reference / unit_measure_code /
+ * standard_code / tax_code / tax_rate. tax_rate: NULL = no configurado (no
+ * facturable) · 0.00 = excluido · 19.00 = IVA 19%. Nunca se convierte NULL->0
+ * ni se asume 19%.
+ */
+function parseFiscalFields(body: Record<string, unknown>) {
+  const rawRate = body?.tax_rate;
+  let taxRate: number | null = null;
+  if (rawRate !== null && rawRate !== undefined && rawRate !== "") {
+    const n = Number(rawRate);
+    if (Number.isFinite(n) && n >= 0) taxRate = n;
+  }
+  return {
+    codeReference: sanitizeString(body?.code_reference, 50) || null,
+    unitMeasureCode: sanitizeString(body?.unit_measure_code, 4) || "94",
+    standardCode: sanitizeString(body?.standard_code, 4) || "999",
+    taxCode: sanitizeString(body?.tax_code, 4) || null,
+    taxRate,
+  };
+}
 
 // GET all products
 export async function GET(request: NextRequest) {
@@ -94,11 +121,15 @@ export async function POST(request: NextRequest) {
     }
 
     const slug = sanitizeSlug(`${name}-${presentation}`);
-    
+
+    const fiscal = parseFiscalFields(body);
+
     const result: any = await query(
-      `INSERT INTO products (name, slug, category_id, presentation, price, stock, image, featured, active, description) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
-      [name, slug, categoryId, presentation, price, stock, image, featured, description]
+      `INSERT INTO products (name, slug, category_id, presentation, price, stock, image, featured, active, description,
+                             code_reference, unit_measure_code, standard_code, tax_code, tax_rate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?)`,
+      [name, slug, categoryId, presentation, price, stock, image, featured, description,
+       fiscal.codeReference, fiscal.unitMeasureCode, fiscal.standardCode, fiscal.taxCode, fiscal.taxRate]
     );
     
     return NextResponse.json({ id: result.insertId, message: "Producto creado" });
@@ -153,11 +184,16 @@ export async function PUT(request: NextRequest) {
     const featured = body?.featured !== undefined ? Boolean(body?.featured) : false;
     const active = body?.active !== undefined ? Boolean(body?.active) : true;
 
+    const fiscal = parseFiscalFields(body);
+
     console.log("Updating product:", { id, name, slug, presentation });
 
     await query(
-      `UPDATE products SET name = ?, slug = ?, category_id = ?, presentation = ?, price = ?, stock = ?, image = ?, featured = ?, active = ?, description = ? WHERE id = ?`,
-      [name, slug, categoryId, presentation, price, stock, image, featured, active, description, id]
+      `UPDATE products SET name = ?, slug = ?, category_id = ?, presentation = ?, price = ?, stock = ?, image = ?, featured = ?, active = ?, description = ?,
+              code_reference = ?, unit_measure_code = ?, standard_code = ?, tax_code = ?, tax_rate = ?
+       WHERE id = ?`,
+      [name, slug, categoryId, presentation, price, stock, image, featured, active, description,
+       fiscal.codeReference, fiscal.unitMeasureCode, fiscal.standardCode, fiscal.taxCode, fiscal.taxRate, id]
     );
     
     return NextResponse.json({ message: "Producto actualizado" });

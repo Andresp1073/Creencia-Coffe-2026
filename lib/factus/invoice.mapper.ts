@@ -33,6 +33,8 @@ export interface InvoicePaymentSeed {
   paymentForm: string;
   paymentMethodCode: string;
   referenceCode?: string | null;
+  /** Vencimiento YYYY-MM-DD, requerido por Factus cuando payment_form = "2" (crédito). */
+  dueDate?: string | null;
 }
 
 export interface InvoiceItemSeed {
@@ -137,6 +139,7 @@ function mapPayments(input: InvoiceMappingInput) {
       payment_method_code: input.payment.paymentMethodCode,
       amount: toMoneyString(input.orderTotalCents),
       ...(input.payment.referenceCode ? { reference_code: input.payment.referenceCode } : {}),
+      ...(input.payment.dueDate ? { due_date: input.payment.dueDate } : {}),
     },
   ];
 }

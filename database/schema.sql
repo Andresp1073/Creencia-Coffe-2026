@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS orders (
     payment_form VARCHAR(1) DEFAULT NULL,
     payment_method_code VARCHAR(4) DEFAULT NULL,
     payment_reference VARCHAR(50) DEFAULT NULL,
+    -- Campos Fase 4B Factus: vencimiento para ventas a crédito (payment_form = "2").
+    -- Obligatorio antes de facturar si es crédito; NULL si contado o venta histórica.
+    payment_due_date DATE DEFAULT NULL,
     subtotal DECIMAL(12, 2) DEFAULT NULL,
     tax_total DECIMAL(12, 2) DEFAULT NULL,
     discount_total DECIMAL(12, 2) NOT NULL DEFAULT 0.00,

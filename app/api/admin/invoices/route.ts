@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryMany } from "@/lib/db";
 import { requireApiAuth } from "@/lib/security/api-auth";
 import { sanitizeNumericId } from "@/lib/security/sanitize";
 import { handleApiError } from "@/lib/security/safe-error";
 import { generateInvoice } from "@/lib/factus/invoice.service";
+import { getInvoices } from "@/lib/admin/invoices";
 
 export const dynamic = "force-dynamic";
 
@@ -41,14 +41,7 @@ export async function GET(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const invoices = await queryMany<any>(
-      `SELECT i.id, i.order_id, i.customer_id, i.reference_code, i.status, i.number, i.cufe,
-              i.is_validated, i.validated_at, i.totals, i.links, i.error, i.attempts,
-              i.last_attempt_at, i.created_at, o.customer_name AS order_customer
-       FROM invoices i
-       LEFT JOIN orders o ON o.id = i.order_id
-       ORDER BY i.id DESC`
-    );
+    const invoices = await getInvoices();
     return NextResponse.json({ invoices });
   } catch (error) {
     const { error: message, statusCode } = handleApiError(error);

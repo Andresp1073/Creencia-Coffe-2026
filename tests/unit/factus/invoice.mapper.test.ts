@@ -215,6 +215,25 @@ describe("invoice.mapper.mapInvoicePayload", () => {
     expect(payload.payment_details[0].reference_code).toBe("pago-1");
   });
 
+  it("payment_details con due_date para crédito (payment_form=2)", () => {
+    const payload = mapInvoicePayload(
+      baseInput({ payment: { paymentForm: "2", paymentMethodCode: "10", dueDate: "2026-06-30" } })
+    );
+    expect(payload.payment_details[0]).toEqual({
+      payment_form: "2",
+      payment_method_code: "10",
+      amount: "50000.00",
+      due_date: "2026-06-30",
+    });
+  });
+
+  it("payment_details omite due_date en contado", () => {
+    const payload = mapInvoicePayload(
+      baseInput({ payment: { paymentForm: "1", paymentMethodCode: "10", dueDate: null } })
+    );
+    expect(payload.payment_details[0]).not.toHaveProperty("due_date");
+  });
+
   it("cash_rounding_amount fijo en 0.00 (sin redondeo)", () => {
     expect(mapInvoicePayload(baseInput()).cash_rounding_amount).toBe("0.00");
   });

@@ -1,0 +1,22 @@
+-- ============================================================
+-- Migración incremental · Fase 4B · Vencimiento de crédito (Factus)
+-- Archivo: database/migrations/002_fase4b_factus.sql
+-- DB objetivo: cafe_creencia (TiDB Cloud, MySQL compatible)
+--
+-- Naturaleza: SOLO ADITIVO (agrega una columna nueva, no toca las existentes).
+-- NO elimina columnas, NO borra datos, NO modifica valores existentes.
+-- Es idempotente: puede ejecutarse de nuevo sin errores.
+--
+-- Contexto: para facturar a crédito (payment_form = "2"), Factus exige
+-- payment_details.due_date (YYYY-MM-DD). Las ventas históricas quedan con
+-- payment_due_date NULL (no se inventan datos).
+--   - payment_form = "2" (crédito)  -> payment_due_date OBLIGATORIO antes de facturar
+--   - payment_form = "1" (contado)  -> payment_due_date NULL
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1. orders.payment_due_date
+--    Fecha de vencimiento del pago para ventas a crédito.
+--    NULL en ventas históricas y en ventas de contado.
+-- ------------------------------------------------------------
+ALTER TABLE orders ADD COLUMN payment_due_date DATE DEFAULT NULL;

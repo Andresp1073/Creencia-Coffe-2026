@@ -11,6 +11,7 @@ import {
   Package,
   Boxes,
   Receipt,
+  FileText,
   Search,
   ChevronLeft,
   ArrowLeft,
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/admin/categorias", label: "Categorías", icon: Tag },
   { href: "/admin/inventario", label: "Inventario", icon: Boxes },
   { href: "/admin/ventas", label: "Ventas", icon: Receipt },
+  { href: "/admin/facturas", label: "Facturas", icon: FileText },
 ];
 
 interface Notification {

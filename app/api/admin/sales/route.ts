@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const orders = await queryMany<Order>(
-      `SELECT id, customer_name as customer, total, items, created_at as date, status
+      `SELECT id, customer_name as customer, total, items, created_at as date, status,
+              payment_form, payment_method_code, payment_reference, payment_due_date
        FROM orders
        ORDER BY id DESC`
     );
@@ -160,8 +161,8 @@ export async function POST(request: NextRequest) {
       }));
 
       const [insertResult] = await conn.execute<RowDataPacket[]>(
-        `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total, payment_form, payment_method_code, payment_reference)
-         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total, payment_form, payment_method_code, payment_reference, payment_due_date)
+         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
         [
           customer,
           totalNumber,
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
           payment.paymentForm,
           payment.paymentMethodCode,
           payment.paymentReference,
+          payment.paymentDueDate,
         ]
       );
 

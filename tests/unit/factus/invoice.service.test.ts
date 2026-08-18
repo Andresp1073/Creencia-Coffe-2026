@@ -432,3 +432,145 @@ describe("invoice.service.generateInvoice", () => {
     expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 });
+
+describe("Fase 4B - vencimiento de crédito (payment_due_date)", () => {
+  it("crédito sin due_date: bloquea antes de llamar Factus y NO toca órdenes/stock", async () => {
+    vi.mocked(queryOne).mockImplementation((sql: string) => {
+      if (String(sql).includes("FROM orders WHERE")) {
+        return Promise.resolve({ ...orderRow, payment_form: "2", payment_due_date: null });
+      }
+      return Promise.resolve(null);
+    });
+
+    await expect(generateInvoice(5)).rejects.toThrow(/payment_due_date/i);
+
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    const updateCalls = vi.mocked(query).mock.calls.map(([sql]) => String(sql));
+    expect(updateCalls.some((sql) => sql.includes("UPDATE orders"))).toBe(false);
+    expect(updateCalls.some((sql) => sql.includes("UPDATE products"))).toBe(false);
+    expect(updateCalls.some((sql) => /inventory_movements/.test(sql))).toBe(false);
+  });
+
+  it("crédito con due_date de la orden: lo envía en payment_details", async () => {
+    vi.mocked(queryOne).mockImplementation((sql: string) => {
+      if (String(sql).includes("FROM orders WHERE")) {
+        return Promise.resolve({ ...orderRow, payment_form: "2", payment_due_date: "2026-06-30" });
+      }
+      if (String(sql).includes("FROM customers WHERE id")) return Promise.resolve(customerRow);
+      if (String(sql).includes("SELECT * FROM invoices WHERE")) return Promise.resolve(currentInvoice);
+      return Promise.resolve(null);
+    });
+    currentInvoice = invoiceRow() as any;
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(createInvoiceMock.mock.calls[0][0].payment_details[0]).toEqual({
+      payment_form: "2",
+      payment_method_code: "10",
+      amount: "50000.00",
+      due_date: "2026-06-30",
+    });
+  });
+
+  it("crédito con due_date desde el request cuando la orden no lo tiene", async () => {
+    vi.mocked(queryOne).mockImplementation((sql: string) => {
+      if (String(sql).includes("FROM orders WHERE")) {
+        return Promise.resolve({ ...orderRow, payment_form: null, payment_method_code: null });
+      }
+      if (String(sql).includes("FROM customers WHERE id")) return Promise.resolve(customerRow);
+      if (String(sql).includes("SELECT * FROM invoices WHERE")) return Promise.resolve(currentInvoice);
+      return Promise.resolve(null);
+    });
+    currentInvoice = invoiceRow() as any;
+
+    const result = await generateInvoice(5, {
+      payment: { payment_form: "2", payment_method_code: "10", payment_due_date: "2026-08-01" },
+    });
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock.mock.calls[0][0].payment_details[0].due_date).toBe("2026-08-01");
+  });
+
+  it("contado sin due_date: factura normal sin due_date en el payload", async () => {
+    currentInvoice = invoiceRow() as any;
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock.mock.calls[0][0].payment_details[0]).toEqual({
+      payment_form: "1",
+      payment_method_code: "10",
+      amount: "50000.00",
+    });
+  });
+});
+
+describe("Fase 4B - validación fiscal de productos y clientes", () => {
+  it("producto sin code_reference: bloquea la factura", async () => {
+    vi.mocked(queryMany).mockResolvedValue([
+      { ...productRows[0], code_reference: null },
+    ] as any);
+
+    await expect(generateInvoice(5)).rejects.toThrow(/code_reference/);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("cliente jurídico: company + dv viajan en el payload y snapshot exacto", async () => {
+    const juridicalRow = {
+      id: 20,
+      identification_document_code: "31",
+      identification: "901234567",
+      dv: "5",
+      legal_organization_code: "1",
+      tribute_code: "ZZ",
+      responsibilities: '["R-99-PN"]',
+      company: "Alan Company SAS",
+      trade_name: "Alan",
+      names: null,
+      address: null,
+      email: "alan@email.com",
+      phone: null,
+      country_code: "CO",
+      municipality_code: null,
+    };
+    vi.mocked(queryOne).mockImplementation((sql: string) => {
+      const text = String(sql);
+      if (text.includes("FROM orders WHERE")) {
+        return Promise.resolve({ ...orderRow, customer_id: null });
+      }
+      if (text.includes("FROM customers WHERE identification")) return Promise.resolve(null);
+      if (text.includes("FROM customers WHERE id")) return Promise.resolve(juridicalRow);
+      if (text.includes("SELECT * FROM invoices WHERE")) return Promise.resolve(currentInvoice);
+      return Promise.resolve(null);
+    });
+    currentInvoice = invoiceRow() as any;
+
+    const result = await generateInvoice(5, {
+      customer: {
+        identification_document_code: "31",
+        identification: "901234567",
+        dv: "5",
+        legal_organization_code: "1",
+        company: "Alan Company SAS",
+        email: "alan@email.com",
+      },
+    });
+
+    expect(result.submitted).toBe(true);
+    const sent = createInvoiceMock.mock.calls[0][0];
+    expect(sent.customer.legal_organization_code).toBe("1");
+    expect(sent.customer.company).toBe("Alan Company SAS");
+    expect(sent.customer.dv).toBe("5");
+    expect(sent.customer).not.toHaveProperty("names");
+
+    const snapshotCall = vi.mocked(query).mock.calls.find((call) =>
+      String(call[0]).includes("customer_snapshot")
+    );
+    expect(snapshotCall).toBeTruthy();
+    const snapshotParams = (snapshotCall as unknown[])[1] as unknown[];
+    const snapshot = JSON.parse(String(snapshotParams[1]));
+    expect(snapshot).toEqual(sent.customer);
+  });
+});

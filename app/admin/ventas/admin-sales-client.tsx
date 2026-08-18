@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { Plus, Eye, X, Trash2, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { Plus, Eye, X, Trash2, CheckCircle, AlertCircle, FileText, RefreshCw } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,11 @@ interface Sale {
   customer: string;
   items: { id: string; qty: number; price?: number; name?: string; presentation?: string }[];
   total: number;
+  customer_id?: number | null;
+  payment_form?: string | null;
+  payment_method_code?: string | null;
+  payment_reference?: string | null;
+  payment_due_date?: string | null;
 }
 
 interface Props {
@@ -43,6 +49,62 @@ interface Props {
 interface Toast {
   message: string;
   type: "success" | "error";
+}
+
+const DOCUMENT_CODES = [
+  { code: "31", label: "NIT" },
+  { code: "13", label: "Cédula de ciudadanía" },
+  { code: "22", label: "Cédula de extranjería" },
+  { code: "41", label: "Pasaporte" },
+  { code: "50", label: "NIT de otro país" },
+];
+
+const defaultCustomerForm = {
+  legal: "2",
+  docCode: "13",
+  identification: "",
+  dv: "",
+  company: "",
+  names: "",
+  tradeName: "",
+  address: "",
+  email: "",
+  phone: "",
+  countryCode: "CO",
+  municipalityCode: "",
+};
+
+type CustomerForm = typeof defaultCustomerForm;
+
+function InvoiceAction({ status, onInvoice }: { status: string; onInvoice: () => void }) {
+  if (status === "validated") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+        <CheckCircle className="size-3.5" aria-hidden="true" />
+        Facturada
+      </span>
+    );
+  }
+  if (status === "processing") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+        Procesando
+      </span>
+    );
+  }
+  if (status === "cancelled") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+        Cancelada
+      </span>
+    );
+  }
+  return (
+    <Button variant="ghost" size="sm" onClick={onInvoice} aria-label="Reintentar facturación">
+      <RefreshCw className="size-4" aria-hidden="true" />
+      {status === "failed" ? "Reintentar" : "Generar"}
+    </Button>
+  );
 }
 
 export function AdminSalesClient({ initialSales, initialProducts }: Props) {
@@ -56,6 +118,11 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
   const [paymentForm, setPaymentForm] = useState("1");
   const [paymentMethodCode, setPaymentMethodCode] = useState("10");
   const [paymentReference, setPaymentReference] = useState("");
+  const [paymentDueDate, setPaymentDueDate] = useState("");
+  const [showInvoice, setShowInvoice] = useState<Sale | null>(null);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [invoiceByOrder, setInvoiceByOrder] = useState<Record<number, { status: string; id: number }>>({});
+  const [custForm, setCustForm] = useState<CustomerForm>(defaultCustomerForm);
   const [toast, setToast] = useState<Toast | null>(null);
 
   const inStockProducts = useMemo(() => 
@@ -119,6 +186,26 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     }
   }, []);
 
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/invoices", { credentials: "include", cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        const map: Record<number, { status: string; id: number }> = {};
+        for (const inv of data.invoices || []) {
+          if (inv.order_id) map[Number(inv.order_id)] = { status: inv.status, id: Number(inv.id) };
+        }
+        setInvoiceByOrder(map);
+      }
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
+
   const updateItemProduct = useCallback((idx: number, productId: number) => {
     const product = products.find(p => p.id === productId);
     if (product) {
@@ -159,6 +246,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     setPaymentForm("1");
     setPaymentMethodCode("10");
     setPaymentReference("");
+    setPaymentDueDate("");
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -180,6 +268,10 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     }
     if (selectedPaymentMethod?.requiresReference && !paymentReference.trim()) {
       showToast("Ingresa la referencia de pago", "error");
+      return;
+    }
+    if (paymentForm === "2" && !paymentDueDate) {
+      showToast("Para crédito (payment_form=2) ingresa la fecha de vencimiento", "error");
       return;
     }
 
@@ -215,7 +307,8 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
           items: saleItems,
           payment_form: paymentForm,
           payment_method_code: paymentMethodCode,
-          payment_reference: selectedPaymentMethod?.requiresReference ? paymentReference.trim() : undefined
+          payment_reference: selectedPaymentMethod?.requiresReference ? paymentReference.trim() : undefined,
+          payment_due_date: paymentForm === "2" ? paymentDueDate : undefined,
         })
       });
 
@@ -241,7 +334,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [customer, items, products, showToast, total, resetForm, fetchSales, selectedPaymentMethod, paymentForm, paymentMethodCode, paymentReference]);
+  }, [customer, items, products, showToast, total, resetForm, fetchSales, selectedPaymentMethod, paymentForm, paymentMethodCode, paymentReference, paymentDueDate]);
 
   const getUnitPrice = useCallback((item: any, saleTotal: number, saleItems: any[]) => {
     if (item.price && item.price > 0) return item.price;
@@ -253,6 +346,117 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     const totalQty = saleItems.reduce((sum: number, i: any) => sum + (i.qty || 0), 0);
     return totalQty > 0 ? Math.round(saleTotal / totalQty) : 0;
   }, [products]);
+
+  const openInvoiceModal = useCallback(async (sale: Sale) => {
+    setShowInvoice(sale);
+    setCustForm({ ...defaultCustomerForm });
+    try {
+      const res = await fetch(`/api/admin/invoices/${sale.id}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        const inv = data.invoice;
+        if (inv?.customer_snapshot) {
+          const snap = typeof inv.customer_snapshot === "string" ? JSON.parse(inv.customer_snapshot) : inv.customer_snapshot;
+          if (snap && typeof snap === "object") {
+            setCustForm({
+              legal: String(snap.legal_organization_code || "2"),
+              docCode: String(snap.identification_document_code || "13"),
+              identification: String(snap.identification || ""),
+              dv: String(snap.dv || ""),
+              company: String(snap.company || ""),
+              names: String(snap.names || ""),
+              tradeName: String(snap.trade_name || ""),
+              address: String(snap.address || ""),
+              email: String(snap.email || ""),
+              phone: String(snap.phone || ""),
+              countryCode: "CO",
+              municipalityCode: String(snap.municipality_code || ""),
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading existing invoice:", error);
+    }
+  }, []);
+
+  const handleGenerateInvoice = useCallback(async () => {
+    if (!showInvoice) return;
+    const docCode = custForm.docCode.trim();
+    const identification = custForm.identification.trim();
+    if (!docCode || !identification) {
+      sonnerToast.error("Requerimos el tipo y número de identificación del cliente");
+      return;
+    }
+    if (custForm.legal === "1" && !custForm.company.trim()) {
+      sonnerToast.error("Para persona jurídica se requiere la razón social (company)");
+      return;
+    }
+    if (custForm.legal === "2" && !custForm.names.trim()) {
+      sonnerToast.error("Para persona natural se requiere el nombre (names)");
+      return;
+    }
+
+    const isCredit = showInvoice.payment_form === "2";
+    if (isCredit && !showInvoice.payment_due_date) {
+      sonnerToast.error("La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar.");
+      return;
+    }
+
+    setInvoiceBusy(true);
+    try {
+      const res = await fetch(`/api/admin/invoices/${showInvoice.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          customer: {
+            identification_document_code: docCode,
+            identification: identification,
+            dv: custForm.legal === "1" && custForm.dv.trim() ? custForm.dv.trim() : null,
+            legal_organization_code: custForm.legal,
+            company: custForm.legal === "1" ? custForm.company.trim() : null,
+            trade_name: custForm.tradeName.trim() || null,
+            names: custForm.legal === "2" ? custForm.names.trim() : null,
+            address: custForm.address.trim() || null,
+            email: custForm.email.trim() || null,
+            phone: custForm.phone.trim() || null,
+            country_code: "CO",
+            municipality_code: custForm.municipalityCode.trim() || null,
+          },
+          payment: {
+            payment_form: showInvoice.payment_form || undefined,
+            payment_method_code: showInvoice.payment_method_code || undefined,
+            payment_reference: showInvoice.payment_reference || undefined,
+            payment_due_date: isCredit ? showInvoice.payment_due_date || undefined : undefined,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        sonnerToast.error(data.error || "No se pudo generar la factura");
+        return;
+      }
+
+      const next = data.invoice as { status?: string; number?: string | null } | undefined;
+      if (next?.status === "processing") {
+        sonnerToast.warning("Factura en procesamiento. No se reenviará automáticamente para evitar duplicados.");
+      } else if (next?.status === "validated") {
+        sonnerToast.success(data.message || `Factura ${next.number} validada y enviada a DIAN`);
+      } else {
+        sonnerToast.success(data.message || "Factura generada");
+      }
+      setShowInvoice(null);
+      await fetchSales();
+      await fetchInvoices();
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      sonnerToast.error("Error al generar la factura");
+    } finally {
+      setInvoiceBusy(false);
+    }
+  }, [showInvoice, custForm, fetchSales, fetchInvoices]);
 
   return (
     <div className="space-y-6">
@@ -317,7 +521,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                   {formatCOP(s.total)}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex justify-end">
+                  <div className="flex justify-end items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -327,6 +531,22 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                       <Eye className="size-4" aria-hidden="true" />
                       Ver
                     </Button>
+                    {invoiceByOrder[s.id] ? (
+                      <InvoiceAction
+                        status={invoiceByOrder[s.id].status}
+                        onInvoice={() => openInvoiceModal(s)}
+                      />
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openInvoiceModal(s)}
+                        aria-label={`Generar factura de la venta #${s.id}`}
+                      >
+                        <FileText className="size-4" aria-hidden="true" />
+                        Generar factura
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -413,6 +633,19 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                       onChange={(e) => setPaymentReference(e.target.value)}
                       placeholder="N° de consignación"
                       maxLength={50}
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      required
+                    />
+                  </div>
+                )}
+                {paymentForm === "2" && (
+                  <div className="mt-3">
+                    <label htmlFor="payment-due-date" className="block text-sm font-medium text-foreground mb-2">Fecha de vencimiento (crédito)</label>
+                    <input
+                      id="payment-due-date"
+                      type="date"
+                      value={paymentDueDate}
+                      onChange={(e) => setPaymentDueDate(e.target.value)}
                       className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                       required
                     />
@@ -547,6 +780,211 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
               <p className="text-sm text-muted-foreground">Total</p>
               <p className="font-display text-2xl text-foreground">{formatCOP(showDetail.total)}</p>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {showInvoice && (
+        <Modal
+          isOpen
+          onClose={() => setShowInvoice(null)}
+          title={`Generar factura electrónica · Venta #${showInvoice.id}`}
+          description={`Cliente: ${showInvoice.customer} · Total: ${formatCOP(showInvoice.total)}`}
+          size="xl"
+        >
+          <div className="space-y-5">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Forma de pago</span>
+                <span className="font-medium">
+                  {PAYMENT_FORMS.find((f) => f.code === showInvoice.payment_form)?.label ||
+                    (showInvoice.payment_form ? `Código ${showInvoice.payment_form}` : "—")}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Método de pago</span>
+                <span className="font-medium">
+                  {PAYMENT_METHODS.find((m) => m.code === showInvoice.payment_method_code)?.label ||
+                    (showInvoice.payment_method_code ? `Código ${showInvoice.payment_method_code}` : "—")}
+                </span>
+              </div>
+              {showInvoice.payment_reference && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Referencia</span>
+                  <span className="font-medium font-mono text-xs">{showInvoice.payment_reference}</span>
+                </div>
+              )}
+              {showInvoice.payment_form === "2" && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Vencimiento (crédito)</span>
+                  <span className="font-medium">{showInvoice.payment_due_date || "—"}</span>
+                </div>
+              )}
+            </div>
+
+            {!showInvoice.payment_form || !showInvoice.payment_method_code ? (
+              <p className="text-sm rounded-xl border border-danger/20 bg-danger/5 text-danger px-4 py-3">
+                Esta venta no tiene datos de pago (payment_form/payment_method_code). Regístrala con datos de pago antes de facturar.
+              </p>
+            ) : showInvoice.payment_form === "2" && !showInvoice.payment_due_date ? (
+              <p className="text-sm rounded-xl border border-danger/20 bg-danger/5 text-danger px-4 py-3">
+                La venta es a crédito (payment_form=2) y requiere fecha de vencimiento. Edita la venta antes de facturar.
+              </p>
+            ) : (
+              <>
+                <fieldset>
+                  <legend className="text-sm font-medium text-foreground mb-3">Datos fiscales del cliente</legend>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setCustForm((f) => ({ ...f, legal: "2", docCode: f.docCode === "31" ? "13" : f.docCode }))}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel ${
+                        custForm.legal === "2" ? "bg-coffee-dark text-cream shadow-soft" : "border border-border hover:bg-muted text-foreground"
+                      }`}
+                      aria-pressed={custForm.legal === "2"}
+                    >
+                      Persona natural
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustForm((f) => ({ ...f, legal: "1", docCode: f.docCode === "13" ? "31" : f.docCode }))}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel ${
+                        custForm.legal === "1" ? "bg-coffee-dark text-cream shadow-soft" : "border border-border hover:bg-muted text-foreground"
+                      }`}
+                      aria-pressed={custForm.legal === "1"}
+                    >
+                      Persona jurídica
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="invoice-doc-code" className="block text-sm font-medium text-foreground mb-2">Tipo de documento *</label>
+                      <select
+                        id="invoice-doc-code"
+                        value={custForm.docCode}
+                        onChange={(e) => setCustForm((f) => ({ ...f, docCode: e.target.value }))}
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all cursor-pointer"
+                        required
+                      >
+                        {DOCUMENT_CODES.map((d) => (
+                          <option key={d.code} value={d.code}>{d.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="invoice-identification" className="block text-sm font-medium text-foreground mb-2">Número de identificación *</label>
+                      <input
+                        id="invoice-identification"
+                        type="text"
+                        value={custForm.identification}
+                        onChange={(e) => setCustForm((f) => ({ ...f, identification: e.target.value }))}
+                        placeholder="Sin dígito de verificación"
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                        required
+                      />
+                    </div>
+
+                    {custForm.legal === "1" && (
+                      <>
+                        <div>
+                          <label htmlFor="invoice-company" className="block text-sm font-medium text-foreground mb-2">Razón social *</label>
+                          <input
+                            id="invoice-company"
+                            type="text"
+                            value={custForm.company}
+                            onChange={(e) => setCustForm((f) => ({ ...f, company: e.target.value }))}
+                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="invoice-dv" className="block text-sm font-medium text-foreground mb-2">DV (dígito de verificación)</label>
+                          <input
+                            id="invoice-dv"
+                            type="text"
+                            value={custForm.dv}
+                            onChange={(e) => setCustForm((f) => ({ ...f, dv: e.target.value }))}
+                            placeholder="Opcional, Factus lo calcula"
+                            className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {custForm.legal === "2" && (
+                      <div className="sm:col-span-2">
+                        <label htmlFor="invoice-names" className="block text-sm font-medium text-foreground mb-2">Nombre completo *</label>
+                        <input
+                          id="invoice-names"
+                          type="text"
+                          value={custForm.names}
+                          onChange={(e) => setCustForm((f) => ({ ...f, names: e.target.value }))}
+                          className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="invoice-trade-name" className="block text-sm font-medium text-foreground mb-2">Nombre comercial</label>
+                      <input
+                        id="invoice-trade-name"
+                        type="text"
+                        value={custForm.tradeName}
+                        onChange={(e) => setCustForm((f) => ({ ...f, tradeName: e.target.value }))}
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="invoice-email" className="block text-sm font-medium text-foreground mb-2">Correo (para enviar la factura)</label>
+                      <input
+                        id="invoice-email"
+                        type="email"
+                        value={custForm.email}
+                        onChange={(e) => setCustForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="invoice-phone" className="block text-sm font-medium text-foreground mb-2">Teléfono</label>
+                      <input
+                        id="invoice-phone"
+                        type="text"
+                        value={custForm.phone}
+                        onChange={(e) => setCustForm((f) => ({ ...f, phone: e.target.value }))}
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="invoice-municipality" className="block text-sm font-medium text-foreground mb-2">Municipio (código DIAN)</label>
+                      <input
+                        id="invoice-municipality"
+                        type="text"
+                        value={custForm.municipalityCode}
+                        onChange={(e) => setCustForm((f) => ({ ...f, municipalityCode: e.target.value }))}
+                        placeholder="Ej. 68679 San Gil"
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </fieldset>
+
+                <div className="pt-4 border-t border-border mt-2 flex items-center justify-between gap-4">
+                  <p className="text-xs text-muted-foreground">
+                    La factura se generará con el código de referencia FACT-{showInvoice.id}. No se reenviará automáticamente si ya está en procesamiento.
+                  </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Button variant="ghost" onClick={() => setShowInvoice(null)} aria-label="Cancelar facturación">
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleGenerateInvoice} loading={invoiceBusy} aria-busy={invoiceBusy}>
+                      Generar factura
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}

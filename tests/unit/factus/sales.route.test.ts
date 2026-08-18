@@ -96,7 +96,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/admin/sales - datos de pago", () => {
-  it("registra la venta y persiste payment_form, payment_method_code y payment_reference", async () => {
+  it("registra la venta y persiste payment_form, payment_method_code, payment_reference y payment_due_date", async () => {
     const { res, conn } = await postSale(
       {
         customer: "Cliente A",
@@ -111,9 +111,35 @@ describe("POST /api/admin/sales - datos de pago", () => {
     expect(res.status).toBe(200);
     const insert = ordersInsert(conn);
     expect(insert).toBeDefined();
-    expect(insert!.params.slice(-3)).toEqual(["1", "42", "CONS-9"]);
+    expect(insert!.params.slice(-4)).toEqual(["1", "42", "CONS-9", null]);
     const data = (await res.json()) as { id: number };
     expect(data.id).toBe(77);
+  });
+
+  it("crédito (payment_form=2) sin payment_due_date: rechaza", async () => {
+    const { res } = await postSale(
+      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "2", payment_method_code: "10" },
+      [product]
+    );
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain("payment_due_date");
+  });
+
+  it("crédito con payment_due_date: lo persiste", async () => {
+    const { res, conn } = await postSale(
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_form: "2",
+        payment_method_code: "10",
+        payment_due_date: "2026-06-30",
+      },
+      [product]
+    );
+    expect(res.status).toBe(200);
+    const insert = ordersInsert(conn);
+    expect(insert!.params.slice(-4)).toEqual(["2", "10", null, "2026-06-30"]);
   });
 
   it("rechaza si payment_form falta", async () => {
@@ -173,13 +199,14 @@ describe("POST /api/admin/sales - datos de pago", () => {
         payment_form: "1",
         payment_method_code: "10",
         payment_reference: "sobra",
+        payment_due_date: "2026-06-30",
       },
       [product]
     );
     expect(res.status).toBe(200);
     const insert = ordersInsert(conn);
     expect(insert).toBeDefined();
-    expect(insert!.params.slice(-3)).toEqual(["1", "10", null]);
+    expect(insert!.params.slice(-4)).toEqual(["1", "10", null, null]);
   });
 });
 

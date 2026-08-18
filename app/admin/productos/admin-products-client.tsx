@@ -27,6 +27,11 @@ interface Product {
   active: boolean;
   featured: boolean;
   description?: string;
+  code_reference?: string | null;
+  unit_measure_code?: string | null;
+  standard_code?: string | null;
+  tax_code?: string | null;
+  tax_rate?: string | number | null;
 }
 
 const presentations = ["500g", "250g", "125g"];
@@ -56,6 +61,11 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     description: "",
     image: defaultImage,
     featured: false,
+    codeReference: "",
+    unitMeasureCode: "94",
+    standardCode: "999",
+    taxCode: "01",
+    taxRate: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +91,11 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       image: imageUrl,
       featured: form.featured,
       active: true,
+      code_reference: form.codeReference.trim() || null,
+      unit_measure_code: form.unitMeasureCode.trim() || "94",
+      standard_code: form.standardCode.trim() || "999",
+      tax_code: form.taxCode.trim() || null,
+      tax_rate: form.taxRate === "" ? null : Number(form.taxRate),
     };
 
     try {
@@ -128,6 +143,11 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       description: "",
       image: defaultImage,
       featured: false,
+      codeReference: "",
+      unitMeasureCode: "94",
+      standardCode: "999",
+      taxCode: "01",
+      taxRate: "",
     });
   };
 
@@ -145,6 +165,11 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       description: product.description || "",
       image: product.image || defaultImage,
       featured: product.featured,
+      codeReference: String(product.code_reference || ""),
+      unitMeasureCode: String(product.unit_measure_code || "94"),
+      standardCode: String(product.standard_code || "999"),
+      taxCode: String(product.tax_code || "01"),
+      taxRate: product.tax_rate === null || product.tax_rate === undefined || product.tax_rate === "" ? "" : String(product.tax_rate),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -403,6 +428,74 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none resize-none"
                     />
                   </div>
+
+                  <fieldset className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
+                    <legend className="text-sm font-semibold text-foreground px-1">Configuración fiscal (Factus)</legend>
+                    <div>
+                      <label htmlFor="code-reference" className="block text-sm font-medium mb-2">Código de referencia (code_reference) *</label>
+                      <input
+                        id="code-reference"
+                        type="text"
+                        value={form.codeReference}
+                        onChange={(e) => setForm({ ...form, codeReference: e.target.value })}
+                        placeholder="Ej: CAFE-500"
+                        maxLength={50}
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Obligatorio para facturar.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="unit-measure-code" className="block text-sm font-medium mb-2">Unidad de medida</label>
+                        <input
+                          id="unit-measure-code"
+                          type="text"
+                          value={form.unitMeasureCode}
+                          onChange={(e) => setForm({ ...form, unitMeasureCode: e.target.value })}
+                          maxLength={4}
+                          className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="standard-code" className="block text-sm font-medium mb-2">Código estándar</label>
+                        <input
+                          id="standard-code"
+                          type="text"
+                          value={form.standardCode}
+                          onChange={(e) => setForm({ ...form, standardCode: e.target.value })}
+                          maxLength={4}
+                          className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="tax-code" className="block text-sm font-medium mb-2">Código de impuesto</label>
+                        <input
+                          id="tax-code"
+                          type="text"
+                          value={form.taxCode}
+                          onChange={(e) => setForm({ ...form, taxCode: e.target.value })}
+                          maxLength={4}
+                          className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="tax-rate" className="block text-sm font-medium mb-2">Tasa de impuesto (%)</label>
+                        <input
+                          id="tax-rate"
+                          type="number"
+                          value={form.taxRate}
+                          onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
+                          placeholder="19"
+                          min="0"
+                          step="any"
+                          className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Vacío = no configurado (no facturable). 0 = excluido de impuestos. 19 = IVA 19%.
+                        </p>
+                      </div>
+                    </div>
+                  </fieldset>
 
                   <div className="flex items-center gap-3">
                     <input

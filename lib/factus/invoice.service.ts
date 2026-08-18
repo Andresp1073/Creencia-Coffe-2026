@@ -39,6 +39,8 @@ export interface PaymentInput {
   payment_form?: string;
   payment_method_code?: string;
   payment_reference?: string;
+  /** Vencimiento (YYYY-MM-DD) para crédito (payment_form="2"). */
+  payment_due_date?: string;
 }
 
 export interface GenerateInvoiceOptions {
@@ -286,15 +288,38 @@ async function resolveNumberingRangeId(): Promise<number | undefined> {
   return ranges[0].id;
 }
 
+function normalizeDueDateValue(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value.trim())) {
+    return value.trim().slice(0, 10);
+  }
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    // mysql2 entrega columnas DATE como Date a medianoche UTC: getters UTC
+    // preservan el calendario "YYYY-MM-DD" sin corrimientos de zona horaria.
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(value.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
 function resolvePayment(
-  order: { total: number | string; payment_form: string | null; payment_method_code: string | null; payment_reference: string | null },
+  order: {
+    total: number | string;
+    payment_form: string | null;
+    payment_method_code: string | null;
+    payment_reference: string | null;
+    payment_due_date: unknown;
+  },
   options: GenerateInvoiceOptions
-): { paymentForm: string; paymentMethodCode: string; referenceCode?: string } {
+): { paymentForm: string; paymentMethodCode: string; referenceCode?: string; dueDate?: string } {
   const provided = options.payment || {};
   // Precedencia: datos capturados en la orden > request. NO se inventan defaults.
   const paymentForm = order.payment_form || provided.payment_form || "";
   const paymentMethodCode = order.payment_method_code || provided.payment_method_code || "";
   const referenceCode = order.payment_reference || provided.payment_reference || undefined;
+  const rawDueDate = normalizeDueDateValue(order.payment_due_date) || normalizeDueDateValue(provided.payment_due_date) || null;
 
   if (!paymentForm) {
     throw new ValidationError(
@@ -309,7 +334,22 @@ function resolvePayment(
       "payment_method_code es requerido: la venta necesita un medio de pago antes de facturarse."
     );
   }
-  return { paymentForm, paymentMethodCode, referenceCode };
+
+  // Crédito (payment_form="2"): Factus exige payment_details.due_date.
+  let dueDate: string | undefined;
+  if (paymentForm === "2") {
+    if (!rawDueDate) {
+      throw new ValidationError(
+        "La venta es a crédito (payment_form=2) y requiere payment_due_date (YYYY-MM-DD) antes de facturarse."
+      );
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDueDate)) {
+      throw new ValidationError("payment_due_date debe tener formato YYYY-MM-DD");
+    }
+    dueDate = rawDueDate;
+  }
+
+  return { paymentForm, paymentMethodCode, referenceCode, dueDate };
 }
 
 function toSafeInvoiceError(error: unknown): Record<string, unknown> {
@@ -367,7 +407,7 @@ export async function generateInvoice(
   options: GenerateInvoiceOptions = {}
 ): Promise<GenerateInvoiceResult> {
   const order = await queryOne<any>(
-    `SELECT id, total, items, customer_id, payment_form, payment_method_code, payment_reference
+    `SELECT id, total, items, customer_id, payment_form, payment_method_code, payment_reference, payment_due_date
      FROM orders WHERE id = ?`,
     [orderId]
   );

@@ -15,6 +15,7 @@ describe("resolvePaymentData", () => {
       paymentForm: "1",
       paymentMethodCode: "10",
       paymentReference: null,
+      paymentDueDate: null,
     });
   });
 
@@ -23,10 +24,12 @@ describe("resolvePaymentData", () => {
       payment_form: "2",
       payment_method_code: "42",
       payment_reference: "  CONS-123  ",
+      payment_due_date: "2026-06-30",
     });
     expect(payment.paymentForm).toBe("2");
     expect(payment.paymentMethodCode).toBe("42");
     expect(payment.paymentReference).toBe("CONS-123");
+    expect(payment.paymentDueDate).toBe("2026-06-30");
   });
 
   it("rechaza si payment_form falta", () => {
@@ -68,6 +71,48 @@ describe("resolvePaymentData", () => {
     expect(payment.paymentReference).toBeNull();
   });
 
+  it("crédito (payment_form=2) sin due_date: rechaza", () => {
+    expect(() =>
+      resolvePaymentData({ payment_form: "2", payment_method_code: "42", payment_reference: "X" })
+    ).toThrow(/payment_due_date es requerido/);
+  });
+
+  it("crédito con due_date inválido: rechaza con formato esperado", () => {
+    expect(() =>
+      resolvePaymentData({
+        payment_form: "2",
+        payment_method_code: "42",
+        payment_reference: "X",
+        payment_due_date: "30/06/2026",
+      })
+    ).toThrow(/YYYY-MM-DD/);
+    expect(() =>
+      resolvePaymentData({
+        payment_form: "2",
+        payment_method_code: "10",
+        payment_due_date: "2026-02-30",
+      })
+    ).toThrow(/YYYY-MM-DD/);
+  });
+
+  it("crédito con due_date válido: lo preserva", () => {
+    const payment = resolvePaymentData({
+      payment_form: "2",
+      payment_method_code: "10",
+      payment_due_date: " 2026-07-15 ",
+    });
+    expect(payment.paymentDueDate).toBe("2026-07-15");
+  });
+
+  it("contado (payment_form=1) descarta payment_due_date enviado", () => {
+    const payment = resolvePaymentData({
+      payment_form: "1",
+      payment_method_code: "10",
+      payment_due_date: "2026-07-15",
+    });
+    expect(payment.paymentDueDate).toBeNull();
+  });
+
   it("lanza ValidationError", () => {
     try {
       resolvePaymentData({ payment_form: "1" });
@@ -95,9 +140,9 @@ describe("catálogo de pagos", () => {
     expect(PAYMENT_FORMS.map((f) => f.code)).toEqual(["1", "2"]);
   });
 
-  it("tiene métodos de pago definidos y explícitamente marcados como pendientes de verificación DIAN", () => {
+  it("tiene métodos de pago definidos, verificados contra la doc oficial de Factus", () => {
     expect(PAYMENT_METHODS.length).toBeGreaterThan(0);
-    expect(PAYMENT_METHODS_PENDING_DIAN_VERIFICATION).toBe(true);
+    expect(PAYMENT_METHODS_PENDING_DIAN_VERIFICATION).toBe(false);
     for (const method of PAYMENT_METHODS) {
       expect(method.code).toBeTruthy();
       expect(method.label).toBeTruthy();
