@@ -4,6 +4,7 @@ import {
   getNumberingRanges,
   createInvoice,
   invalidateTokenCache,
+  FACTUS_HTTP_TIMEOUT_MS,
 } from "@/lib/factus/factus.client";
 import {
   FactusAuthError,
@@ -270,5 +271,153 @@ describe("factus.client.getNumberingRanges", () => {
     const ranges = await getNumberingRanges();
 
     expect(ranges).toHaveLength(2);
+  });
+});
+
+describe("factus.client - timeout HTTP (F1)", () => {
+  function abortError(): Error {
+    const err = new Error("The operation was aborted.");
+    err.name = "AbortError";
+    return err;
+  }
+
+  /** Vacía la cola de microtasks para que las cadenas async registren sus timers antes de avanzar el reloj fake. */
+  function flushMicrotasks(): Promise<void> {
+    let chain: Promise<void> = Promise.resolve();
+    for (let i = 0; i < 10; i++) chain = chain.then(() => undefined);
+    return chain;
+  }
+
+  /** Simula un endpoint que nunca responde pero reacciona al abort del signal. */
+  function hangingFetch(validateCalls?: { count: number }) {
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      if (validateCalls) validateCalls.count += 1;
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+  }
+
+  it("respuesta normal antes del timeout: comportamiento idéntico y sin abort", async () => {
+    let aborted = false;
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      signal?.addEventListener("abort", () => {
+        aborted = true;
+      });
+      return Promise.resolve(
+        jsonResponse({ data: { reference_code: "FACT-1", number: "SETP1", is_validated: true, cufe: "cufe-1" } })
+      );
+    });
+
+    const result = await createInvoice(minimalPayload());
+
+    expect(result.data.is_validated).toBe(true);
+    expect(aborted).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("al superar el timeout aborta el request (AbortController cancela el fetch)", async () => {
+    let aborted = false;
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          aborted = true;
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = createInvoice(minimalPayload()).then(
+      () => null,
+      (error) => error
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    expect(aborted).toBe(true);
+    expect(await promise).toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("timeout en API: FactusClientUnavailableError con mensaje seguro y SIN retry de la factura", async () => {
+    const validateCalls = { count: 0 };
+    hangingFetch(validateCalls);
+
+    const promise = createInvoice(minimalPayload()).then(
+      () => null,
+      (error) => error
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
+    const message = (error as Error).message;
+    expect(message).toMatch(/Factus|tiempo/i);
+    expect(message).not.toContain("tok-1");
+    expect(message).not.toContain("test-secret");
+    expect(message).not.toContain("test-password");
+
+    expect(validateCalls.count).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // 1 OAuth + 1 validate; sin retry tras timeout
+  });
+
+  it("timeout en OAuth: FactusClientUnavailableError sin exponer credenciales", async () => {
+    fetchMock.mockImplementation((input, init) => {
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = getAccessToken().then(
+      () => null,
+      (error) => error
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
+    const message = (error as Error).message;
+    expect(message).not.toContain("test-client");
+    expect(message).not.toContain("test-secret");
+    expect(message).not.toContain("test-password");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

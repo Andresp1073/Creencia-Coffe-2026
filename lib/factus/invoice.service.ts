@@ -552,13 +552,43 @@ export async function generateInvoice(
     items,
   });
 
-  const attempts = (invoice.attempts || 0) + 1;
-  await query(
+  // Reclamación atómica: solo la ejecución que pasa la fila de pending/failed a
+  // processing obtiene permiso para llamar a Factus. Si affectedRows es 0,
+  // otra ejecución ya la reclamó (o el estado cambió) y NO se debe enviar.
+  const claim = await query<{ affectedRows: number }>(
     `UPDATE invoices SET status = 'processing', customer_id = ?, customer_snapshot = ?,
-            attempts = ?, last_attempt_at = NOW(), error = NULL
-     WHERE id = ?`,
-    [customerId ?? order.customer_id, JSON.stringify(payload.customer), attempts, invoice.id]
+            attempts = attempts + 1, last_attempt_at = NOW(), error = NULL
+     WHERE id = ? AND status IN ('pending', 'failed')`,
+    [customerId ?? order.customer_id, JSON.stringify(payload.customer), invoice.id]
   );
+
+  if (!claim || claim.affectedRows !== 1) {
+    const current = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
+    if (!current) {
+      throw new InvoicePayloadError("No se pudo recuperar la factura local");
+    }
+    if (current.status === "validated") {
+      return {
+        invoice: current,
+        created,
+        submitted: false,
+        message: `La factura ${current.reference_code} ya está validada`,
+      };
+    }
+    if (current.status === "cancelled") {
+      throw new ConflictError(`La factura ${current.reference_code} está cancelada; no se reenvía automáticamente`);
+    }
+    return {
+      invoice: current,
+      created,
+      submitted: false,
+      message:
+        current.status === "processing"
+          ? `La factura ${current.reference_code} quedó en procesamiento; no se reenvía para evitar duplicados. Requiere reconciliación (revisar en Factus).`
+          : `La factura ${current.reference_code} no se pudo reclamar (estado ${current.status}); no se reenvía para evitar duplicados.`,
+    };
+  }
+
   const refreshed = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
   if (!refreshed) {
     throw new InvoicePayloadError("No se pudo recuperar la factura local");
@@ -571,7 +601,7 @@ export async function generateInvoice(
   } catch (error) {
     await query(
       `UPDATE invoices SET status = 'failed', attempts = ?, last_attempt_at = NOW(), error = ? WHERE id = ?`,
-      [attempts, JSON.stringify(toSafeInvoiceError(error)), invoice.id]
+      [invoice.attempts, JSON.stringify(toSafeInvoiceError(error)), invoice.id]
     );
     throw error;
   }

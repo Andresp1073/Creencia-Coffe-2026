@@ -107,9 +107,9 @@ beforeEach(() => {
         status: "processing",
         customer_id: params?.[0],
         customer_snapshot: params?.[1],
-        attempts: params?.[2],
+        attempts: (currentInvoice.attempts || 0) + 1,
       };
-      return {} as any;
+      return { affectedRows: 1 } as any;
     }
     if (text.includes("status = 'validated'")) {
       currentInvoice = {
@@ -572,5 +572,191 @@ describe("Fase 4B - validación fiscal de productos y clientes", () => {
     const snapshotParams = (snapshotCall as unknown[])[1] as unknown[];
     const snapshot = JSON.parse(String(snapshotParams[1]));
     expect(snapshot).toEqual(sent.customer);
+  });
+});
+
+describe("F2 - reclamación atómica (race condition)", () => {
+  function atomicMock(opts: {
+    initialStatus?: string;
+    initialAttempts?: number;
+    onClaim?: (affectedRows: number, attempts: number) => void;
+  }) {
+    currentInvoice = invoiceRow({
+      status: opts.initialStatus ?? "pending",
+      attempts: opts.initialAttempts ?? 0,
+    });
+
+    let claimCount = 0;
+
+    vi.mocked(query).mockImplementation(async (sql: string, params?: any[]) => {
+      const text = String(sql);
+      if (text.includes("INSERT INTO invoices")) {
+        throw new Error("no debería insertarse: la invoice ya existe");
+      }
+      if (text.includes("status = 'processing'")) {
+        claimCount += 1;
+        if (claimCount === 1) {
+          currentInvoice = {
+            ...currentInvoice,
+            status: "processing",
+            customer_id: params?.[0],
+            customer_snapshot: params?.[1],
+            attempts: (currentInvoice.attempts || 0) + 1,
+          };
+          opts.onClaim?.(1, currentInvoice.attempts);
+          return { affectedRows: 1 } as any;
+        }
+        opts.onClaim?.(0, currentInvoice.attempts);
+        return { affectedRows: 0 } as any;
+      }
+      if (text.includes("status = 'validated'")) {
+        currentInvoice = {
+          ...currentInvoice,
+          status: "validated",
+          number: params?.[0],
+          cufe: params?.[1],
+          is_validated: params?.[2],
+          validated_at: params?.[3],
+          totals: params?.[4],
+          links: params?.[5],
+        };
+        return { affectedRows: 1 } as any;
+      }
+      if (text.includes("status = 'failed'")) {
+        currentInvoice = { ...currentInvoice, status: "failed", attempts: params?.[0], error: params?.[1] };
+        return { affectedRows: 1 } as any;
+      }
+      return { affectedRows: 1 } as any;
+    });
+  }
+
+  it("pending + una llamada: Factus se llama UNA vez y attempts avanza de 0 a 1", async () => {
+    atomicMock({ initialStatus: "pending", initialAttempts: 0 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(result.invoice.status).toBe("validated");
+    expect(result.invoice.attempts).toBe(1);
+  });
+
+  it("failed + retry: Factus se llama UNA vez y attempts avanza de 1 a 2", async () => {
+    atomicMock({ initialStatus: "failed", initialAttempts: 1 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(result.invoice.status).toBe("validated");
+    expect(result.invoice.attempts).toBe(2);
+  });
+
+  it("validated: Factus se llama 0 veces y no hay reclamación", async () => {
+    atomicMock({ initialStatus: "validated", initialAttempts: 2 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(false);
+    expect(result.message).toContain("ya está validada");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    const claims = vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("status = 'processing'"));
+    expect(claims).toHaveLength(0);
+  });
+
+  it("processing: Factus se llama 0 veces y pide reconciliación", async () => {
+    atomicMock({ initialStatus: "processing", initialAttempts: 1 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(false);
+    expect(result.message).toMatch(/reconciliaci/i);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    const claims = vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("status = 'processing'"));
+    expect(claims).toHaveLength(0);
+  });
+
+  it("cancelled: Factus se llama 0 veces y lanza ConflictError", async () => {
+    atomicMock({ initialStatus: "cancelled", initialAttempts: 0 });
+
+    await expect(generateInvoice(5)).rejects.toBeInstanceOf(ConflictError);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("dos llamadas concurrentes sobre pending: Factus se llama EXACTAMENTE 1 vez", async () => {
+    const claimResults: number[] = [];
+    atomicMock({
+      initialStatus: "pending",
+      initialAttempts: 0,
+      onClaim: (affectedRows) => claimResults.push(affectedRows),
+    });
+
+    createInvoiceMock.mockResolvedValue({
+      data: { reference_code: "FACT-5", number: "SETP-CC", is_validated: true },
+    } as any);
+
+    const [a, b] = await Promise.all([generateInvoice(5), generateInvoice(5)]);
+
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(claimResults).toHaveLength(2);
+    expect(claimResults.filter((r) => r === 1)).toHaveLength(1);
+    expect(claimResults.filter((r) => r === 0)).toHaveLength(1);
+    expect(a.submitted ? a.submitted !== b.submitted : b.submitted).toBe(true);
+    expect(a.invoice.reference_code).toBe("FACT-5");
+    expect(b.invoice.reference_code).toBe("FACT-5");
+    expect(a.invoice.attempts).toBe(1);
+    expect(b.invoice.attempts).toBe(1);
+    expect(createInvoiceMock.mock.calls[0][0].reference_code).toBe("FACT-5");
+  });
+
+  it("dos llamadas concurrentes sobre failed: Factus se llama EXACTAMENTE 1 vez", async () => {
+    const claimResults: number[] = [];
+    atomicMock({
+      initialStatus: "failed",
+      initialAttempts: 1,
+      onClaim: (affectedRows) => claimResults.push(affectedRows),
+    });
+
+    createInvoiceMock.mockResolvedValue({
+      data: { reference_code: "FACT-5", number: "SETP-CC-2", is_validated: true },
+    } as any);
+
+    const [a, b] = await Promise.all([generateInvoice(5), generateInvoice(5)]);
+
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(claimResults).toHaveLength(2);
+    const winner = claimResults.findIndex((r) => r === 1);
+    expect(winner).toBeGreaterThanOrEqual(0);
+    const loser = winner === 0 ? 1 : 0;
+    expect(claimResults[loser]).toBe(0);
+    expect(a.invoice.attempts).toBe(2);
+    expect(b.invoice.attempts).toBe(2);
+  });
+
+  it("segunda llamada tras una reclamación ganada NO incrementa attempts ni reenvía", async () => {
+    const claimResults: number[] = [];
+    atomicMock({
+      initialStatus: "pending",
+      initialAttempts: 0,
+      onClaim: (affectedRows) => claimResults.push(affectedRows),
+    });
+
+    createInvoiceMock.mockResolvedValue({
+      data: { reference_code: "FACT-5", number: "SETP-SEQ", is_validated: true },
+    } as any);
+
+    const first = await generateInvoice(5);
+    const second = await generateInvoice(5);
+
+    expect(first.submitted).toBe(true);
+    expect(first.invoice.status).toBe("validated");
+    expect(first.invoice.attempts).toBe(1);
+
+    expect(second.submitted).toBe(false);
+    expect(second.invoice.status).toBe("validated");
+    expect(second.invoice.attempts).toBe(1);
+
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(claimResults).toEqual([1]);
   });
 });

@@ -25,7 +25,36 @@ interface TokenCacheEntry {
 
 const TOKEN_FRESH_BUFFER_MS = 60_000;
 
+/** Timeout centralizado para todas las llamadas HTTP a Factus (OAuth + API). */
+export const FACTUS_HTTP_TIMEOUT_MS = 15_000;
+
 let tokenCache: TokenCacheEntry | null = null;
+
+/**
+ * fetch con timeout centralizado.
+ *
+ * Si Factus no responde en FACTUS_HTTP_TIMEOUT_MS, se aborta el request y se
+ * convierte el AbortError en FactusClientUnavailableError con un mensaje
+ * seguro (sin token, credenciales ni body). Este error NO dispara el retry
+ * por 401 de authenticatedRequest, por lo que el timeout nunca provoca un
+ * segundo envío de factura.
+ */
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FACTUS_HTTP_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new FactusClientUnavailableError(
+        "Factus no respondió a tiempo. Revisa la conectividad con Factus e inténtalo nuevamente."
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function readEnvConfig() {
   const baseUrl = process.env.FACTUS_BASE_URL?.trim().replace(/\/+$/, "");
@@ -69,7 +98,7 @@ async function requestOAuthToken(): Promise<string> {
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/oauth/token`, {
+    response = await fetchWithTimeout(`${baseUrl}/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -77,7 +106,8 @@ async function requestOAuthToken(): Promise<string> {
       },
       body,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof FactusClientUnavailableError) throw error;
     throw new FactusClientUnavailableError("No se pudo contactar a Factus para autenticación");
   }
 
@@ -132,7 +162,7 @@ async function requestWithBearer(path: string, init?: RequestInit): Promise<Resp
   const { baseUrl } = readEnvConfig();
   const token = await getAccessToken();
 
-  return fetch(`${baseUrl}${path}`, {
+  return fetchWithTimeout(`${baseUrl}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
