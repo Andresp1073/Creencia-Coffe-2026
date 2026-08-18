@@ -21,15 +21,23 @@ export interface AdminInvoice {
   payment_method_code: string | null;
 }
 
+function parseJsonColumn<T>(value: unknown, fallback: T): T {
+  if (typeof value === "string" && value.trim() !== "") return safeJsonParse<T>(value, fallback);
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as T;
+  return fallback;
+}
+
+/** Convierte valores Date de mysql2 (TiDB) a ISO string para render seguro en cliente. */
+function toIsoString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string" && value.trim() !== "") return value;
+  return String(value);
+}
+
 export function mapInvoiceForAdmin(row: Record<string, any>): AdminInvoice {
-  const totals = safeJsonParse<{ total?: string | number } | null>(
-    typeof row.totals === "string" ? row.totals : "",
-    null
-  );
-  const snapshot = safeJsonParse<Record<string, any> | null>(
-    typeof row.customer_snapshot === "string" ? row.customer_snapshot : "",
-    null
-  );
+  const totals = parseJsonColumn<{ total?: string | number } | null>(row.totals, null);
+  const snapshot = parseJsonColumn<Record<string, any> | null>(row.customer_snapshot, null);
   const customer =
     (snapshot?.names as string) ||
     (snapshot?.company as string) ||
@@ -45,8 +53,8 @@ export function mapInvoiceForAdmin(row: Record<string, any>): AdminInvoice {
     number: row.number ?? null,
     cufe: row.cufe ?? null,
     is_validated: Number(row.is_validated) === 1,
-    validated_at: row.validated_at ?? null,
-    created_at: row.created_at ?? null,
+    validated_at: toIsoString(row.validated_at),
+    created_at: toIsoString(row.created_at) ?? "",
     customer,
     total: totals && totals.total !== undefined ? Number(totals.total) : null,
     error: row.error ?? null,

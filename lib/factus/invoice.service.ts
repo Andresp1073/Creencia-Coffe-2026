@@ -359,6 +359,38 @@ function toSafeInvoiceError(error: unknown): Record<string, unknown> {
   return { phase: "factus", name: "FactusError", message: "Error desconocido" };
 }
 
+/**
+ * Normaliza el timestamp que devuelve Factus en data.validated_at a un
+ * formato aceptado por la columna DATETIME de MySQL (YYYY-MM-DD HH:mm:ss).
+ *
+ * Factus V2 responde por ejemplo "13-05-2026 08:21:49 AM" (DD-MM-YYYY hh:mm:ss
+ * AM/PM, ver skill). Pasarlo crudo causa ER_TRUNCATED_WRONG_VALUE. Si Factus
+ * algún día devuelve un formato ISO (YYYY-MM-DD...) se conserva tal cual.
+ */
+function normalizeValidatedAt(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const s = value.trim();
+
+  // ISO/MySQL: "2026-05-13T08:21:49" o "2026-05-13 08:21:49"
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?/.test(s)) {
+    return s.replace("T", " ").slice(0, 19);
+  }
+
+  // Factus V2: "DD-MM-YYYY hh:mm:ss AM|PM"
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+  if (m) {
+    let hour = Number(m[4]);
+    const minute = m[5];
+    const second = m[6];
+    const half = m[7].toUpperCase();
+    if (half === "PM" && hour < 12) hour += 12;
+    if (half === "AM" && hour === 12) hour = 0;
+    return `${m[3]}-${m[2]}-${m[1]} ${String(hour).padStart(2, "0")}:${minute}:${second}`;
+  }
+
+  return null;
+}
+
 /* ---------------------------------------------------------------------------
  * Customer: API pública (usada también por app/api/admin/customers)
  * ------------------------------------------------------------------------- */
@@ -553,7 +585,7 @@ export async function generateInvoice(
       d.number ?? null,
       d.cufe ?? null,
       d.is_validated ? 1 : 0,
-      d.validated_at ?? null,
+      normalizeValidatedAt(d.validated_at),
       JSON.stringify(d.totals ?? null),
       JSON.stringify(d.links ?? null),
       invoice.id,
