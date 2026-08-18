@@ -5,6 +5,7 @@ import { Plus, Eye, X, Trash2, CheckCircle, AlertCircle } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { PAYMENT_FORMS, PAYMENT_METHODS } from "@/lib/factus/payment";
 
 interface Product {
   id: number;
@@ -52,11 +53,19 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [customer, setCustomer] = useState("");
+  const [paymentForm, setPaymentForm] = useState("1");
+  const [paymentMethodCode, setPaymentMethodCode] = useState("10");
+  const [paymentReference, setPaymentReference] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
 
   const inStockProducts = useMemo(() => 
     products.filter(p => p.stock > 0), 
     [products]
+  );
+
+  const selectedPaymentMethod = useMemo(
+    () => PAYMENT_METHODS.find(m => m.code === paymentMethodCode),
+    [paymentMethodCode]
   );
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
@@ -147,6 +156,9 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     setShowModal(false);
     setItems([]);
     setCustomer("");
+    setPaymentForm("1");
+    setPaymentMethodCode("10");
+    setPaymentReference("");
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -156,6 +168,18 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     }
     if (items.length === 0) {
       showToast("Agrega al menos un producto", "error");
+      return;
+    }
+    if (!paymentForm) {
+      showToast("Selecciona la forma de pago", "error");
+      return;
+    }
+    if (!paymentMethodCode) {
+      showToast("Selecciona el método de pago", "error");
+      return;
+    }
+    if (selectedPaymentMethod?.requiresReference && !paymentReference.trim()) {
+      showToast("Ingresa la referencia de pago", "error");
       return;
     }
 
@@ -188,7 +212,10 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
         body: JSON.stringify({
           customer: customer,
           total: total,
-          items: saleItems
+          items: saleItems,
+          payment_form: paymentForm,
+          payment_method_code: paymentMethodCode,
+          payment_reference: selectedPaymentMethod?.requiresReference ? paymentReference.trim() : undefined
         })
       });
 
@@ -214,7 +241,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [customer, items, products, showToast, total, resetForm, fetchSales]);
+  }, [customer, items, products, showToast, total, resetForm, fetchSales, selectedPaymentMethod, paymentForm, paymentMethodCode, paymentReference]);
 
   const getUnitPrice = useCallback((item: any, saleTotal: number, saleItems: any[]) => {
     if (item.price && item.price > 0) return item.price;
@@ -343,6 +370,55 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                   required
                 />
               </div>
+
+              <fieldset>
+                <legend className="block text-sm font-medium text-foreground mb-3">Datos de pago</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="payment-form" className="block text-sm font-medium text-foreground mb-2">Forma de pago</label>
+                    <select
+                      id="payment-form"
+                      value={paymentForm}
+                      onChange={(e) => setPaymentForm(e.target.value)}
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all cursor-pointer"
+                      required
+                    >
+                      {PAYMENT_FORMS.map((form) => (
+                        <option key={form.code} value={form.code}>{form.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="payment-method" className="block text-sm font-medium text-foreground mb-2">Método de pago</label>
+                    <select
+                      id="payment-method"
+                      value={paymentMethodCode}
+                      onChange={(e) => setPaymentMethodCode(e.target.value)}
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all cursor-pointer"
+                      required
+                    >
+                      {PAYMENT_METHODS.map((method) => (
+                        <option key={method.code} value={method.code}>{method.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {selectedPaymentMethod?.requiresReference && (
+                  <div className="mt-3">
+                    <label htmlFor="payment-reference" className="block text-sm font-medium text-foreground mb-2">Referencia de pago</label>
+                    <input
+                      id="payment-reference"
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="N° de consignación"
+                      maxLength={50}
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
+                      required
+                    />
+                  </div>
+                )}
+              </fieldset>
 
               <fieldset>
                 <legend className="block text-sm font-medium text-foreground mb-3">Productos</legend>

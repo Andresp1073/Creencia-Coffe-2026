@@ -6,6 +6,7 @@ import { RowDataPacket, PoolConnection } from "mysql2/promise";
 import { toCents, toMoneyString, eq } from "@/lib/factus/money";
 import { parseSaleItems, computeOrderFigures, OrderLine } from "@/lib/factus/order";
 import { canonicalPresentation } from "@/lib/factus/presentation";
+import { resolvePaymentData } from "@/lib/factus/payment";
 import { ValidationError, AppError, handleApiError } from "@/lib/security/safe-error";
 
 interface Order {
@@ -85,6 +86,10 @@ export async function POST(request: NextRequest) {
       throw new ValidationError("Cliente es requerido");
     }
 
+    // Los datos de pago son obligatorios en ventas nuevas (dejar preparadas para
+    // facturación). El cliente NO es autoridad aquí: se revalidan y normalizan.
+    const payment = resolvePaymentData(body);
+
     // El cliente NO es autoridad de precios/total: solo aporta qué productos y cuántas unidades.
     const lines: OrderLine[] = parseSaleItems(body?.items);
 
@@ -155,9 +160,19 @@ export async function POST(request: NextRequest) {
       }));
 
       const [insertResult] = await conn.execute<RowDataPacket[]>(
-        `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total)
-         VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
-        [customer, totalNumber, itemsJson, subtotalNumber, taxNumber, 0]
+        `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total, payment_form, payment_method_code, payment_reference)
+         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        [
+          customer,
+          totalNumber,
+          itemsJson,
+          subtotalNumber,
+          taxNumber,
+          0,
+          payment.paymentForm,
+          payment.paymentMethodCode,
+          payment.paymentReference,
+        ]
       );
 
       const orderId = (insertResult as any).insertId;
