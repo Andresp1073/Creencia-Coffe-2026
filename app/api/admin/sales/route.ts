@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryMany, query, withTransaction } from "@/lib/db";
+import { queryMany, withTransaction } from "@/lib/db";
 import { requireApiAuth } from "@/lib/security/api-auth";
 import { sanitizeString } from "@/lib/security/sanitize";
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
+import { toCents, toMoneyString, eq } from "@/lib/factus/money";
+import { parseSaleItems, computeOrderFigures, OrderLine } from "@/lib/factus/order";
+import { canonicalPresentation } from "@/lib/factus/presentation";
+import { ValidationError, AppError, handleApiError } from "@/lib/security/safe-error";
 
 interface Order {
   id: number;
@@ -13,20 +17,13 @@ interface Order {
   created_at: string;
 }
 
-interface ProductStock extends RowDataPacket {
+interface ProductRow extends RowDataPacket {
   id: number;
   name: string;
   stock: number;
-  price: number;
-  presentation?: string;
-}
-
-interface SaleItem {
-  id: string;
-  qty: number;
-  price?: number;
-  name?: string;
-  presentation?: string;
+  price: string;
+  presentation: string;
+  tax_rate: string | null;
 }
 
 interface LowStockProduct {
@@ -39,42 +36,35 @@ const LOW_STOCK_THRESHOLD = 5;
 
 export async function GET(request: NextRequest) {
   const auth = await requireApiAuth(request);
-  if (auth instanceof NextResponse) {
-    console.log("Auth failed:", auth.status, auth.statusText);
-    return auth;
-  }
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const orders = await queryMany<Order>(
       `SELECT id, customer_name as customer, total, items, created_at as date, status
-       FROM orders 
+       FROM orders
        ORDER BY id DESC`
     );
-    
-    console.log("Orders raw:", orders);
-    
+
     const parsedOrders = orders.map(o => {
       let items = [];
       try {
         if (o.items) {
           items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
         }
-      } catch (e) {
-        console.log("Error parsing items:", e);
+      } catch {
         items = [];
       }
-      return { 
-        ...o, 
+      return {
+        ...o,
         items,
         total: Number(o.total) || 0
       };
     });
-    
+
     return NextResponse.json({ sales: parsedOrders });
-  } catch (error: any) {
-    console.error("Error fetching sales:", error);
-    console.error("Error message:", error.message);
-    return NextResponse.json({ error: error.message, sales: [] });
+  } catch (error) {
+    const { error: message, statusCode } = handleApiError(error);
+    return NextResponse.json({ error: message, sales: [] }, { status: statusCode });
   }
 }
 
@@ -83,129 +73,131 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    let body;
+    let body: Record<string, unknown>;
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+      throw new ValidationError("Datos inválidos");
     }
-
-    console.log("POST sale body:", JSON.stringify(body, null, 2));
 
     const customer = sanitizeString(body?.customer, 100);
-    const total = Number(body?.total) || 0;
-    const items: SaleItem[] = body?.items || [];
-
     if (!customer) {
-      return NextResponse.json({ error: "Cliente es requerido" }, { status: 400 });
+      throw new ValidationError("Cliente es requerido");
     }
 
-    if (items.length === 0) {
-      return NextResponse.json({ error: "Agrega al menos un producto" }, { status: 400 });
-    }
+    // El cliente NO es autoridad de precios/total: solo aporta qué productos y cuántas unidades.
+    const lines: OrderLine[] = parseSaleItems(body?.items);
 
-    const itemIds = items.map(i => parseInt(i.id)).filter(id => !isNaN(id) && id > 0);
-    
-    if (itemIds.length === 0) {
-      return NextResponse.json({ error: "Productos inválidos" }, { status: 400 });
+    let clientTotalCents: bigint | null = null;
+    if (body?.total !== undefined && body?.total !== null && body?.total !== "") {
+      try {
+        clientTotalCents = toCents(body.total as string | number);
+      } catch {
+        throw new ValidationError("Total enviado inválido");
+      }
     }
 
     const result = await withTransaction(async (conn: PoolConnection) => {
-      const [products] = await conn.execute<ProductStock[]>(
-        `SELECT id, name, stock, price, presentation FROM products WHERE id IN (${itemIds.map(() => '?').join(',')}) FOR UPDATE`,
+      const itemIds = [...new Set(lines.map(l => l.productId))];
+
+      const [products] = await conn.execute<ProductRow[]>(
+        `SELECT id, name, stock, price, presentation, tax_rate
+         FROM products WHERE id IN (${itemIds.map(() => '?').join(',')}) FOR UPDATE`,
         itemIds
       );
-
-      console.log("Products fetched for stock:", products);
 
       const productMap = new Map(products.map(p => [p.id, p]));
 
       const stockErrors: string[] = [];
-      
-      for (const item of items) {
-        const productId = parseInt(item.id);
-        const product = productMap.get(productId);
-        
+      for (const line of lines) {
+        const product = productMap.get(line.productId);
         if (!product) {
-          stockErrors.push(`Producto con ID ${productId} no encontrado`);
+          stockErrors.push(`Producto con ID ${line.productId} no encontrado`);
           continue;
         }
-        
-        console.log(`Checking stock for ${product.name}: current=${product.stock}, requested=${item.qty}`);
-        
-        if (product.stock < item.qty) {
-          stockErrors.push(`Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${item.qty}`);
+        if (product.stock < line.qty) {
+          stockErrors.push(`Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${line.qty}`);
         }
       }
-      
+
       if (stockErrors.length > 0) {
-        throw { stockError: true, messages: stockErrors };
+        throw new ValidationError("Stock insuficiente: " + stockErrors.join("; "));
       }
 
-      const itemsJson = JSON.stringify(items.map(i => ({
-        id: String(i.id),
-        qty: Number(i.qty),
-        price: Number(i.price) || 0,
-        name: String(i.name || ""),
-        presentation: String(i.presentation || "")
-      })));
+      const productsById: Record<number, { price: string; taxRate: string | null }> = {};
+      for (const p of products) {
+        productsById[p.id] = { price: p.price, taxRate: p.tax_rate };
+      }
 
-      console.log("Items JSON to save:", itemsJson);
+      const figures = computeOrderFigures(lines, productsById);
+
+      // Autoridad del precio: el cliente DEBE cuadrar con el total recalculado server-side.
+      if (clientTotalCents !== null && !eq(figures.totalCents, clientTotalCents)) {
+        throw new ValidationError("El total enviado no coincide con el total calculado por el servidor");
+      }
+
+      const totalNumber = Number(toMoneyString(figures.totalCents));
+      const subtotalNumber =
+        figures.subtotalCents === null ? null : Number(toMoneyString(figures.subtotalCents));
+      const taxNumber =
+        figures.taxCents === null ? null : Number(toMoneyString(figures.taxCents));
+
+      // Snapshot histórico inmutable: precio REAL server-side, presentación canónica.
+      const itemsJson = JSON.stringify(lines.map(line => {
+        const product = productMap.get(line.productId)!;
+        return {
+          id: String(product.id),
+          qty: line.qty,
+          price: Number(toMoneyString(figures.unitPrices.get(product.id)!)),
+          name: product.name,
+          presentation: canonicalPresentation(product.presentation),
+        };
+      }));
 
       const [insertResult] = await conn.execute<RowDataPacket[]>(
-        `INSERT INTO orders (customer_name, total, items, status) VALUES (?, ?, ?, 'pending')`,
-        [customer, total, itemsJson]
+        `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total)
+         VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
+        [customer, totalNumber, itemsJson, subtotalNumber, taxNumber, 0]
       );
-      
+
       const orderId = (insertResult as any).insertId;
-      console.log("Order inserted with ID:", orderId);
 
       const lowStockProducts: LowStockProduct[] = [];
 
-      for (const item of items) {
-        const productId = parseInt(item.id);
-        const product = productMap.get(productId);
-        
-        if (!product) continue;
-        
+      for (const line of lines) {
+        const product = productMap.get(line.productId)!;
+
         await conn.execute(
           `UPDATE products SET stock = stock - ? WHERE id = ?`,
-          [item.qty, productId]
+          [line.qty, product.id]
         );
-        console.log(`Stock deducted: ${product.name} - ${item.qty}`);
-        
+
         await conn.execute(
           `INSERT INTO inventory_movements (product_id, type, quantity, reason) VALUES (?, 'salida', ?, ?)`,
-          [productId, item.qty, `Venta #${orderId} - ${customer}`]
+          [product.id, line.qty, `Venta #${orderId} - ${customer}`]
         );
-        console.log(`Inventory movement recorded for ${product.name}`);
 
-        const newStock = product.stock - item.qty;
-        console.log(`New stock for ${product.name}: ${newStock}, threshold: ${LOW_STOCK_THRESHOLD}`);
-        console.log(`Condition check: newStock (${newStock}) <= threshold (${LOW_STOCK_THRESHOLD}) && newStock (${newStock}) >= 0: ${newStock <= LOW_STOCK_THRESHOLD && newStock >= 0}`);
+        const newStock = product.stock - line.qty;
         if (newStock <= LOW_STOCK_THRESHOLD && newStock >= 0) {
           await conn.execute(
             `INSERT INTO notifications (type, product_id, message) VALUES ('stock_low', ?, ?)`,
-            [productId, `Stock bajo: ${product.name} tiene solo ${newStock} unidades disponibles`]
+            [product.id, `Stock bajo: ${product.name} tiene solo ${newStock} unidades disponibles`]
           );
-          console.log(`Low stock notification created for ${product.name}`);
           lowStockProducts.push({
             name: product.name,
             stock: newStock,
-            presentation: product.presentation
+            presentation: product.presentation,
           });
         }
       }
 
-      return { orderId, totalItems: items.length, lowStockProducts };
+      return { orderId, totalItems: lines.length, total: totalNumber, lowStockProducts };
     });
 
-    console.log("Sale created successfully:", result);
-    
     if (result.lowStockProducts && result.lowStockProducts.length > 0) {
       const resendApiKey = process.env.RESEND_API_KEY;
       const adminEmail = process.env.ADMIN_EMAIL || "admin@cafecreencia.com";
-      
+
       for (const lowStock of result.lowStockProducts) {
         if (resendApiKey) {
           try {
@@ -222,7 +214,7 @@ export async function POST(request: NextRequest) {
                 html: `
                   <html>
                     <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-                      <h2 style="color: #3E2723;">🚨 Alerta de Stock - Café Creencia</h2>
+                      <h2 style="color: #3E2723;">Alerta de Stock - Café Creencia</h2>
                       <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
                         <p style="margin: 0 0 10px;"><strong>Producto:</strong> ${lowStock.name}</p>
                         <p style="margin: 0 0 10px;"><strong>Stock actual:</strong> <span style="color: #d32f2f; font-weight: bold;">${lowStock.stock} unidades</span></p>
@@ -237,7 +229,6 @@ export async function POST(request: NextRequest) {
                 `
               })
             });
-            console.log(`Email alert sent for ${lowStock.name}`);
           } catch (emailError) {
             console.error("Error sending email:", emailError);
           }
@@ -246,24 +237,19 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    
-    return NextResponse.json({ 
-      id: result.orderId, 
-      message: `Venta #${result.orderId} registrada - ${result.totalItems} productos` 
+
+    return NextResponse.json({
+      id: result.orderId,
+      message: `Venta #${result.orderId} registrada - ${result.totalItems} productos`,
+      total: result.total,
     });
-    
-  } catch (error: any) {
-    console.error("Error creating sale:", error);
-    
-    if (error.stockError && error.messages) {
-      return NextResponse.json({ 
-        error: "Stock insuficiente", 
-        details: error.messages 
-      }, { status: 400 });
+
+  } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }
-    
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
-    return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+
+    console.error("Error creating sale:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
