@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { requireApiAuth } from "@/lib/security/api-auth";
 import { sanitizeNumericId } from "@/lib/security/sanitize";
-import { handleApiError, NotFoundError } from "@/lib/security/safe-error";
+import { handleApiError } from "@/lib/security/safe-error";
 import { generateInvoice } from "@/lib/factus/invoice.service";
+import { mapInvoiceForAdmin } from "@/lib/admin/invoices";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +20,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: "orderId inválido" }, { status: 400 });
     }
 
-    const invoice = await queryOne<any>(
+    const row = await queryOne<any>(
       `SELECT i.*, o.customer_name AS order_customer
        FROM invoices i LEFT JOIN orders o ON o.id = i.order_id
        WHERE i.order_id = ?`,
       [orderId]
     );
 
-    if (!invoice) {
+    if (!row) {
       return NextResponse.json({ error: `No existe factura para la orden ${orderId}`, invoice: null }, { status: 404 });
     }
 
-    return NextResponse.json({ invoice });
+    return NextResponse.json({ invoice: mapInvoiceForAdmin(row) });
   } catch (error) {
     const { error: message, statusCode } = handleApiError(error);
     return NextResponse.json({ error: message, invoice: null }, { status: statusCode });

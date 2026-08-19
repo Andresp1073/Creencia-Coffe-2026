@@ -11,6 +11,8 @@ import {
   FactusConfigError,
   FactusClientUnavailableError,
   FactusValidationError,
+  FactusRateLimitError,
+  FactusNotFoundError,
 } from "@/lib/factus/errors";
 import { FactusInvoicePayload } from "@/lib/factus/types";
 
@@ -19,6 +21,10 @@ const fetchMock = vi.mocked(fetch);
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+function jsonResponseWithHeaders(body: unknown, status: number, headers: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 }
 
 function tokenResponse(accessToken: string, expiresIn = 3600) {
@@ -52,6 +58,19 @@ function minimalPayload(): FactusInvoicePayload {
       },
     ],
   };
+}
+
+function abortError(): Error {
+  const err = new Error("The operation was aborted.");
+  err.name = "AbortError";
+  return err;
+}
+
+/** Vacía la cola de microtasks para que las cadenas async registren sus timers antes de avanzar el reloj fake. */
+function flushMicrotasks(): Promise<void> {
+  let chain: Promise<void> = Promise.resolve();
+  for (let i = 0; i < 10; i++) chain = chain.then(() => undefined);
+  return chain;
 }
 
 beforeEach(() => {
@@ -275,19 +294,6 @@ describe("factus.client.getNumberingRanges", () => {
 });
 
 describe("factus.client - timeout HTTP (F1)", () => {
-  function abortError(): Error {
-    const err = new Error("The operation was aborted.");
-    err.name = "AbortError";
-    return err;
-  }
-
-  /** Vacía la cola de microtasks para que las cadenas async registren sus timers antes de avanzar el reloj fake. */
-  function flushMicrotasks(): Promise<void> {
-    let chain: Promise<void> = Promise.resolve();
-    for (let i = 0; i < 10; i++) chain = chain.then(() => undefined);
-    return chain;
-  }
-
   /** Simula un endpoint que nunca responde pero reacciona al abort del signal. */
   function hangingFetch(validateCalls?: { count: number }) {
     fetchMock.mockImplementation((input, init) => {
@@ -419,5 +425,312 @@ describe("factus.client - timeout HTTP (F1)", () => {
     expect(message).not.toContain("test-password");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("factus.client - extracción de errores (F3)", () => {
+  async function errorFrom(payload: unknown): Promise<Error> {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse(payload, 422))
+    );
+    try {
+      await createInvoice(minimalPayload());
+      throw new Error("debería haber lanzado FactusValidationError");
+    } catch (error) {
+      return error as Error;
+    }
+  }
+
+  it("error simple: message top-level preservado", async () => {
+    const error = await errorFrom({ message: "campo items inválido" });
+    expect(error).toBeInstanceOf(FactusValidationError);
+    expect(error.message).toBe("campo items inválido");
+  });
+
+  it("data.errors como array de strings: errores incluidos", async () => {
+    const error = await errorFrom({
+      message: "falló",
+      data: { errors: ["El campo tax_rate es requerido", "El código de referencia no es válido"] },
+    });
+    expect(error.message).toContain("El campo tax_rate es requerido");
+    expect(error.message).toContain("El código de referencia no es válido");
+  });
+
+  it("data.errors como objetos con message/error/detail: mensajes extraídos", async () => {
+    const error = await errorFrom({
+      data: {
+        errors: [
+          { message: "El campo tax_rate es requerido" },
+          { error: "El código de referencia no es válido" },
+          { detail: "El número de la resolución no existe" },
+        ],
+      },
+    });
+    expect(error.message).toContain("El campo tax_rate es requerido");
+    expect(error.message).toContain("El código de referencia no es válido");
+    expect(error.message).toContain("El número de la resolución no existe");
+  });
+
+  it("data.errors como objeto campo->mensaje: pares preservados", async () => {
+    const error = await errorFrom({
+      data: {
+        errors: { tax_rate: "El campo tax_rate es requerido", reference_code: "El código de referencia no es válido" },
+      },
+    });
+    expect(error.message).toContain("tax_rate: El campo tax_rate es requerido");
+    expect(error.message).toContain("reference_code: El código de referencia no es válido");
+  });
+
+  it("múltiples errores: combinación compacta sin duplicados", async () => {
+    const error = await errorFrom({
+      data: {
+        errors: [
+          { message: "Campo inválido" },
+          { message: "Campo inválido" },
+          "Campo inválido",
+          { error: "Otro problema" },
+        ],
+      },
+    });
+    expect(error.message).toBe("Campo inválido; Otro problema");
+  });
+
+  it("mensaje demasiado largo: truncado a máximo 300 caracteres", async () => {
+    const error = await errorFrom({
+      data: { errors: ["x".repeat(500)] },
+    });
+    expect(error.message.length).toBeLessThanOrEqual(300);
+    expect(error.message).toBe("x".repeat(300));
+  });
+
+  it("sin data.errors: comportamiento anterior conservado", async () => {
+    const error = await errorFrom({ error: "algo falló" });
+    expect(error.message).toBe("algo falló");
+  });
+
+  it("sin mensajes útiles: fallback HTTP status", async () => {
+    const error = await errorFrom({ data: { is_validated: false } });
+    expect(error.message).toBe("Factus respondió con HTTP 422");
+  });
+
+  it("campos sensibles: ningún secreto termina en el mensaje", async () => {
+    const error = await errorFrom({
+      data: {
+        errors: [
+          { message: "validación", access_token: "tok-secreto", client_secret: "secret-secreto" },
+          { detail: "El campo username no es válido", password: "pass-secreto" },
+        ],
+      },
+    });
+    expect(error.message).not.toContain("tok-secreto");
+    expect(error.message).not.toContain("secret-secreto");
+    expect(error.message).not.toContain("pass-secreto");
+    expect(error.message).not.toContain("test-password");
+    expect(error.message).not.toContain("test-secret");
+  });
+
+  it("errores top-level y de data.errors combinados de forma compacta", async () => {
+    const error = await errorFrom({
+      message: "primero",
+      error: "segundo",
+      data: { errors: [{ message: "tercero" }] },
+    });
+    expect(error.message).toBe("primero; segundo; tercero");
+  });
+});
+
+describe("factus.client - manejo semántico 429 y 404 (F4)", () => {
+  async function sentError(payload: unknown, status: number, headers?: Record<string, string>): Promise<Error> {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(headers ? jsonResponseWithHeaders(payload, status, headers) : jsonResponse(payload, status))
+    );
+    try {
+      await createInvoice(minimalPayload());
+      throw new Error("debería haber lanzado un error de Factus");
+    } catch (error) {
+      return error as Error;
+    }
+  }
+
+  it("HTTP 429 → FactusRateLimitError", async () => {
+    const error = (await sentError({ message: "rate limit" }, 429)) as FactusRateLimitError;
+    expect(error).toBeInstanceOf(FactusRateLimitError);
+    expect(error.statusCode).toBe(429);
+    expect(error.code).toBe("FACTUS_RATE_LIMIT");
+  });
+
+  it("HTTP 429 con data.errors → mensaje seguro incluye los errores útiles", async () => {
+    const error = await sentError(
+      { data: { errors: ["Demasiadas solicitudes", "Espera unos segundos"] } },
+      429
+    );
+    expect(error).toBeInstanceOf(FactusRateLimitError);
+    expect(error.message).toContain("Demasiadas solicitudes");
+    expect(error.message).toContain("Espera unos segundos");
+  });
+
+  it("HTTP 429 NO hace retry de autenticación", async () => {
+    let tokenCalls = 0;
+    let validateCalls = 0;
+
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        tokenCalls += 1;
+        return Promise.resolve(tokenResponse(`tok-${tokenCalls}`));
+      }
+      if (url.includes("/v2/bills/validate")) {
+        validateCalls += 1;
+        return Promise.resolve(jsonResponse({ message: "rate limit" }, 429));
+      }
+      return Promise.reject(new Error("unexpected"));
+    });
+
+    await getAccessToken(); // cachea tok-1 (OAuth 1)
+    const error = await createInvoice(minimalPayload()).catch((e) => e);
+
+    expect(error).toBeInstanceOf(FactusRateLimitError);
+    expect(validateCalls).toBe(1);
+    expect(tokenCalls).toBe(1); // SIN reintento de autenticación por 429
+  });
+
+  it("HTTP 429 con Retry-After → retryAfter conservado como metadata", async () => {
+    const error = (await sentError({ message: "lento" }, 429, { "Retry-After": "30" })) as FactusRateLimitError;
+    expect(error).toBeInstanceOf(FactusRateLimitError);
+    expect(error.retryAfter).toBe(30);
+  });
+
+  it("HTTP 429 con Retry-After inválido → retryAfter undefined", async () => {
+    const error = (await sentError({ message: "lento" }, 429, { "Retry-After": "no-en-segundos" })) as FactusRateLimitError;
+    expect(error.retryAfter).toBeUndefined();
+  });
+
+  it("HTTP 404 → FactusNotFoundError diferenciable", async () => {
+    const error = (await sentError({ message: "no existe" }, 404)) as FactusNotFoundError;
+    expect(error).toBeInstanceOf(FactusNotFoundError);
+    expect(error).not.toBeInstanceOf(FactusClientUnavailableError);
+    expect(error.statusCode).toBe(404);
+    expect(error.code).toBe("FACTUS_NOT_FOUND");
+  });
+
+  it("HTTP 404 con mensaje de Factus → mensaje preservado de forma segura", async () => {
+    const error = await sentError({ message: "El rango de numeración no existe" }, 404);
+    expect(error).toBeInstanceOf(FactusNotFoundError);
+    expect(error.message).toBe("El rango de numeración no existe");
+  });
+
+  it("HTTP 404 NO hace retry de autenticación", async () => {
+    let tokenCalls = 0;
+    let validateCalls = 0;
+
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        tokenCalls += 1;
+        return Promise.resolve(tokenResponse(`tok-${tokenCalls}`));
+      }
+      if (url.includes("/v2/bills/validate")) {
+        validateCalls += 1;
+        return Promise.resolve(jsonResponse({ message: "no existe" }, 404));
+      }
+      return Promise.reject(new Error("unexpected"));
+    });
+
+    await getAccessToken(); // cachea tok-1 (OAuth 1)
+    const error = await createInvoice(minimalPayload()).catch((e) => e);
+
+    expect(error).toBeInstanceOf(FactusNotFoundError);
+    expect(validateCalls).toBe(1);
+    expect(tokenCalls).toBe(1); // SIN reintento de autenticación por 404
+  });
+
+  it("HTTP 401 sigue haciendo exactamente un retry", async () => {
+    let tokenCalls = 0;
+    let validateCalls = 0;
+
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        tokenCalls += 1;
+        return Promise.resolve(tokenResponse(`tok-${tokenCalls}`));
+      }
+      if (url.includes("/v2/bills/validate")) {
+        validateCalls += 1;
+        if (validateCalls === 1) {
+          return Promise.resolve(jsonResponse({}, 401));
+        }
+        return Promise.resolve(
+          jsonResponse({ data: { reference_code: "FACT-1", number: "SETP1", is_validated: true } })
+        );
+      }
+      return Promise.reject(new Error("unexpected"));
+    });
+
+    await getAccessToken(); // cachea tok-1
+    const result = await createInvoice(minimalPayload());
+
+    expect(validateCalls).toBe(2);
+    expect(tokenCalls).toBe(2);
+    expect(result.data.is_validated).toBe(true);
+  });
+
+  it("HTTP 401 después del retry mantiene el comportamiento existente", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({}, 401))
+    );
+
+    await expect(createInvoice(minimalPayload())).rejects.toBeInstanceOf(FactusAuthError);
+  });
+
+  it("timeout sigue produciendo FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = getAccessToken().then(() =>
+      createInvoice(minimalPayload()).then(
+        () => null,
+        (error) => error
+      )
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
+    expect(error).not.toBeInstanceOf(FactusRateLimitError);
+    expect(error).not.toBeInstanceOf(FactusNotFoundError);
+  });
+
+  it("HTTP 500/502/503 conserva el comportamiento existente", async () => {
+    for (const status of [500, 502, 503]) {
+      fetchMock.mockImplementation((input) =>
+        String(input).includes("/oauth/token")
+          ? Promise.resolve(tokenResponse("tok-1"))
+          : Promise.resolve(jsonResponse({ message: "boom" }, status))
+      );
+
+      await expect(createInvoice(minimalPayload())).rejects.toBeInstanceOf(FactusClientUnavailableError);
+    }
   });
 });

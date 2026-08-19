@@ -1,30 +1,28 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
+import { requireApiAuth } from "@/lib/security/api-auth";
 
-interface AdminUser {
-  id: number;
-  username: string;
-  password_hash: string;
-}
+/**
+ * Endpoint de diagnóstico. Antes expuesto sin autenticación y devolvía un
+ * fragmento del password_hash y String(error) (riesgo de fuga de credenciales
+ * del usuario admin y de configuración de BD). Ahora exige sesión y NUNCA
+ * devuelve hashes ni mensajes de error crudos.
+ */
+export async function GET(request: NextRequest) {
+  const auth = await requireApiAuth(request);
+  if (auth instanceof NextResponse) return auth;
 
-export async function GET() {
   try {
-    const user = await queryOne<AdminUser>(
-      "SELECT id, username, password_hash FROM admin_users WHERE username = 'creencia' LIMIT 1"
+    const user = await queryOne<{ id: number; username: string }>(
+      "SELECT id, username FROM admin_users WHERE username = 'creencia' LIMIT 1"
     );
-    
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-    
-    return NextResponse.json({ 
-      user: {
-        id: user.id,
-        username: user.username,
-        hash: user.password_hash?.substring(0, 50) + "..."
-      }
-    });
-  } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+
+    return NextResponse.json({ user: { id: user.id, username: user.username } });
+  } catch {
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

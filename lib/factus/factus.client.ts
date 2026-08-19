@@ -15,6 +15,8 @@ import {
   FactusClientUnavailableError,
   FactusAuthError,
   FactusValidationError,
+  FactusRateLimitError,
+  FactusNotFoundError,
 } from "./errors";
 import { FactusInvoicePayload, FactusInvoiceResponse, FactusNumberingRange, FactusTokenResponse } from "./types";
 
@@ -149,13 +151,81 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   }
 }
 
+/** Longitud máxima del mensaje de error almacenable/con visible al usuario. */
+const MAX_ERROR_LENGTH = 300;
+
+/** Campos de Factus que NUNCA pueden terminar en un mensaje de error. */
+export const SENSITIVE_FIELD_RE =
+  /(access_token|refresh_token|client_secret|secret|password|passwd|username|user_name|authorization|bearer|cookie|credential)/i;
+
+/** Claves cuyo valor es texto de mensaje (no metadata con llave). */
+const MESSAGE_KEY_RE = /^(message|error|detail|description|text|reason)$/i;
+
+/** Extrae un mensaje de error solo si es string útil y no parece un secreto. */
+function pushSafeMessage(out: string[], value: unknown): void {
+  if (typeof value !== "string") return;
+  const s = value.trim();
+  if (!s || SENSITIVE_FIELD_RE.test(s)) return;
+  out.push(s);
+}
+
+/**
+ * Recorre data.errors (string, array de strings, array de objetos con
+ * message/error/detail, o mapa campo -> mensaje) extrayendo mensajes útiles.
+ * Profundidad acotada para no volcar respuestas completas.
+ */
+function extractFactusErrors(out: string[], value: unknown, depth = 0): void {
+  if (value == null || depth > 2) return;
+
+  if (typeof value === "string") {
+    pushSafeMessage(out, value);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) extractFactusErrors(out, item, depth + 1);
+    return;
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+
+    // Objeto con message/error/detail/description/...
+    for (const key of Object.keys(record)) {
+      if (MESSAGE_KEY_RE.test(key) && !SENSITIVE_FIELD_RE.test(key)) {
+        pushSafeMessage(out, record[key]);
+      }
+    }
+
+    // Mapa campo -> mensaje (ej. { tax_rate: "El campo tax_rate es requerido" })
+    for (const [key, child] of Object.entries(record)) {
+      if (SENSITIVE_FIELD_RE.test(key)) continue;
+      if (MESSAGE_KEY_RE.test(key)) continue;
+      if (typeof child === "string" && child.trim() && !SENSITIVE_FIELD_RE.test(child)) {
+        out.push(`${key}: ${child.trim()}`);
+      } else if (child !== null && (typeof child === "object" || Array.isArray(child))) {
+        extractFactusErrors(out, child, depth + 1);
+      }
+    }
+  }
+}
+
 function safeErrorMessage(data: unknown, status: number): string {
+  const messages: string[] = [];
+
   if (data && typeof data === "object") {
     const record = data as Record<string, unknown>;
-    if (typeof record.message === "string") return record.message.slice(0, 300);
-    if (typeof record.error === "string") return record.error.slice(0, 300);
+    pushSafeMessage(messages, record.message);
+    pushSafeMessage(messages, record.error);
+
+    const nested = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
+    const errors = nested && "errors" in nested ? nested.errors : record.errors;
+    if (errors !== undefined) extractFactusErrors(messages, errors);
   }
-  return `Factus respondió con HTTP ${status}`;
+
+  const unique = Array.from(new Set(messages));
+  const text = unique.join("; ").slice(0, MAX_ERROR_LENGTH);
+  return text || `Factus respondió con HTTP ${status}`;
 }
 
 async function requestWithBearer(path: string, init?: RequestInit): Promise<Response> {
@@ -193,11 +263,33 @@ async function handleApiResponse<T>(response: Response, kind: "resource" | "vali
     throw new FactusAuthError("Factus rechazó el token de acceso");
   }
 
+  if (response.status === 429) {
+    const retryAfter = parseRetryAfter(response);
+    throw new FactusRateLimitError(safeErrorMessage(data, response.status), retryAfter);
+  }
+
+  if (response.status === 404) {
+    throw new FactusNotFoundError(safeErrorMessage(data, response.status));
+  }
+
   if (kind === "validate" && (response.status === 400 || response.status === 422)) {
     throw new FactusValidationError(safeErrorMessage(data, response.status));
   }
 
   throw new FactusClientUnavailableError(safeErrorMessage(data, response.status));
+}
+
+/**
+ * Extrae de forma segura el header Retry-After de Factus (solo un entero
+ * positivo en segundos). Devuelve undefined si no existe o no es parseable.
+ * Nunca se conservan headers completos.
+ */
+function parseRetryAfter(response: Response): number | undefined {
+  const raw = response.headers.get("retry-after");
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  if (!Number.isInteger(seconds) || seconds <= 0) return undefined;
+  return seconds;
 }
 
 /** Consulta los rangos de numeración disponibles. */

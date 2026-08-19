@@ -3,7 +3,8 @@ import { query, queryOne, queryMany } from "@/lib/db";
 import { createInvoice, getNumberingRanges } from "@/lib/factus/factus.client";
 import { generateInvoice } from "@/lib/factus/invoice.service";
 import { NotFoundError, ConflictError } from "@/lib/security/safe-error";
-import { FactusValidationError } from "@/lib/factus/errors";
+import { FactusValidationError, FactusNotFoundError } from "@/lib/factus/errors";
+import { MAX_INVOICE_SEND_ATTEMPTS } from "@/lib/factus/invoice.service";
 
 vi.mock("@/lib/factus/factus.client", () => ({
   createInvoice: vi.fn(),
@@ -758,5 +759,163 @@ describe("F2 - reclamación atómica (race condition)", () => {
 
     expect(createInvoiceMock).toHaveBeenCalledTimes(1);
     expect(claimResults).toEqual([1]);
+  });
+});
+
+describe("Fase 6E - propagación del 404 de numbering range y límite de reintentos", () => {
+  it("getNumberingRanges 404 → FactusNotFoundError propagado sin convertir ni retry", async () => {
+    delete process.env.FACTUS_NUMBERING_RANGE_ID;
+    currentInvoice = invoiceRow() as any;
+
+    const rangeError = new FactusNotFoundError("El rango de numeración no existe");
+    getNumberingRangesMock.mockRejectedValue(rangeError);
+
+    const error = await generateInvoice(5).catch((e) => e);
+
+    expect(error).toBeInstanceOf(FactusNotFoundError);
+    expect(error).toBe(rangeError);
+    expect(error.statusCode).toBe(404);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    const claims = vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("status = 'processing'"));
+    expect(claims).toHaveLength(0);
+  });
+
+  it("failed con attempts justo bajo el límite: reintentable y alcanza el tope", async () => {
+    currentInvoice = invoiceRow({ status: "failed", attempts: MAX_INVOICE_SEND_ATTEMPTS - 1 });
+    createInvoiceMock.mockResolvedValue({
+      data: { reference_code: "FACT-5", number: "SETP-L2", is_validated: true },
+    } as any);
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(result.invoice.attempts).toBe(MAX_INVOICE_SEND_ATTEMPTS);
+  });
+
+  it("failed con attempts al límite: bloqueada, NO llama a Factus ni hace claim", async () => {
+    currentInvoice = invoiceRow({
+      status: "failed",
+      attempts: MAX_INVOICE_SEND_ATTEMPTS,
+      error: JSON.stringify({ phase: "factus", message: "rechazo" }),
+    });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(false);
+    expect(result.invoice.status).toBe("failed");
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    expect(result.message).toMatch(/límite/i);
+    const claims = vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("status = 'processing'"));
+    expect(claims).toHaveLength(0);
+  });
+
+  it("failed con attempts por encima del límite: bloqueada sin importar intentos extra", async () => {
+    currentInvoice = invoiceRow({ status: "failed", attempts: MAX_INVOICE_SEND_ATTEMPTS + 1 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(false);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+  });
+
+  it("pending con attempts 0 conserva el flujo: el límite NO aplica a pending", async () => {
+    currentInvoice = invoiceRow({ status: "pending", attempts: 0 });
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(result.invoice.attempts).toBe(1);
+  });
+});
+
+describe("Fase 6G - auditoría final (concurrencia, attempts, stock, snapshot)", () => {
+  function claims() {
+    return vi.mocked(query).mock.calls.filter(([sql]) => String(sql).includes("status = 'processing'"));
+  }
+  function stockWrites() {
+    return vi.mocked(query).mock.calls.filter(([sql]) =>
+      /UPDATE products|inventory_movements|UPDATE orders/i.test(String(sql))
+    );
+  }
+
+  it("validated en dos POST concurrentes: 0 llamadas a Factus y 0 claims", async () => {
+    currentInvoice = invoiceRow({ status: "validated", number: "SETP-DUP", is_validated: 1, attempts: 2 });
+
+    const [a, b] = await Promise.all([generateInvoice(5), generateInvoice(5)]);
+
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    expect(claims()).toHaveLength(0);
+    expect(a.submitted).toBe(false);
+    expect(b.submitted).toBe(false);
+    expect(a.invoice.attempts).toBe(2);
+    expect(b.invoice.attempts).toBe(2);
+  });
+
+  it("processing en dos POST concurrentes: 0 llamadas a Factus, ambas piden reconciliación", async () => {
+    currentInvoice = invoiceRow({ status: "processing", attempts: 1 });
+
+    const [a, b] = await Promise.all([generateInvoice(5), generateInvoice(5)]);
+
+    expect(createInvoiceMock).not.toHaveBeenCalled();
+    expect(claims()).toHaveLength(0);
+    expect(a.message).toMatch(/reconciliaci/i);
+    expect(b.message).toMatch(/reconciliaci/i);
+    expect(a.invoice.attempts).toBe(1);
+    expect(b.invoice.attempts).toBe(1);
+  });
+
+  it("attempts no puede manipularse desde el request: los sobrantes del body se ignoran", async () => {
+    currentInvoice = invoiceRow({ status: "pending", attempts: 0 });
+
+    const result = await generateInvoice(5, {
+      hints: { attempts: 999 },
+      attempts: 999,
+      reset: true,
+    } as any);
+
+    expect(result.invoice.attempts).toBe(1);
+    const claimsWithBig = claims();
+    expect(claimsWithBig).toHaveLength(1);
+    expect(Array.from(new Set(claimsWithBig.flatMap((c) => (c[1] as unknown[]).map(String))))).not.toContain("999");
+  });
+
+  it("facturar con éxito NO descuenta stock ni registra movimientos", async () => {
+    currentInvoice = invoiceRow() as any;
+    createInvoiceMock.mockResolvedValue({
+      data: { reference_code: "FACT-5", number: "SETP-STOCK", is_validated: true },
+    } as any);
+
+    const result = await generateInvoice(5);
+
+    expect(result.submitted).toBe(true);
+    expect(stockWrites()).toHaveLength(0);
+  });
+
+  it("la factura fallida NO descuenta stock ni registra movimientos al reintentar", async () => {
+    currentInvoice = invoiceRow({ status: "failed", attempts: 2 });
+    createInvoiceMock.mockRejectedValue(new FactusValidationError("rechazada de nuevo"));
+
+    await expect(generateInvoice(5)).rejects.toBeInstanceOf(FactusValidationError);
+    expect(stockWrites()).toHaveLength(0);
+  });
+
+  it("snapshot inmutable: un POST sobre validated NO reescribe customer_snapshot", async () => {
+    currentInvoice = invoiceRow({
+      status: "validated",
+      number: "SETP-IMMUT",
+      is_validated: 1,
+      customer_snapshot: JSON.stringify({ names: "Snapshot Original" }),
+      attempts: 1,
+    });
+
+    await generateInvoice(5);
+
+    const snapshotWrites = vi.mocked(query).mock.calls.filter(
+      ([sql]) => String(sql).includes("customer_snapshot")
+    );
+    expect(snapshotWrites).toHaveLength(0);
+    expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 });

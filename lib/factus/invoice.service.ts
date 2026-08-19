@@ -75,6 +75,18 @@ export interface GenerateInvoiceResult {
   message: string;
 }
 
+/**
+ * Máximo de envíos a Factus permitidos para una misma factura. Cada claim
+ * atómico incrementa `invoices.attempts`, de modo que una factura puede
+ * enviarse a Factus como máximo `MAX_INVOICE_SEND_ATTEMPTS` veces (envío
+ * inicial + reintentos manuales). Al alcanzarlo, `generateInvoice` bloquea el
+ * reenvío de forma server-side sin llamar a Factus y sin permitir bypass vía
+ * múltiples POST: el claim atómico sigue siendo la única vía de envío y relee
+ * `attempts` en cada request. Se reutiliza la columna existente `attempts`,
+ * por lo que no se requiere migración.
+ */
+export const MAX_INVOICE_SEND_ATTEMPTS = 3;
+
 /* ---------------------------------------------------------------------------
  * Helpers de validación fiscal
  * ------------------------------------------------------------------------- */
@@ -539,6 +551,15 @@ export async function generateInvoice(
   }
   if (invoice.status === "cancelled") {
     throw new ConflictError(`La factura ${invoice.reference_code} está cancelada; no se reenvía automáticamente`);
+  }
+
+  if (invoice.status === "failed" && invoice.attempts >= MAX_INVOICE_SEND_ATTEMPTS) {
+    return {
+      invoice,
+      created,
+      submitted: false,
+      message: `La factura ${invoice.reference_code} alcanzó el límite de ${MAX_INVOICE_SEND_ATTEMPTS} intentos; no se reenvía. Requiere revisión manual.`,
+    };
   }
 
   // --- Construcción del payload (snapshot del cliente = lo EXACTO enviado) ---

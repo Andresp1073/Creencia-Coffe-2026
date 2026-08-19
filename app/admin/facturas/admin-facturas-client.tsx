@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Eye, RefreshCw, FileText, CheckCircle2, AlertTriangle, Clock, Ban } from "lucide-react";
+import { Eye, RefreshCw, FileText, CheckCircle2, AlertTriangle, Clock, Ban, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
@@ -20,7 +20,16 @@ interface InvoiceData {
   created_at: string;
   customer: string | null;
   total: number | null;
-  error: string | null;
+  attempts: number;
+  last_attempt_at: string | null;
+  status_label: string;
+  status_message: string;
+  attempts_label: string;
+  retriable: boolean;
+  blocked_reason: string | null;
+  requires_reconciliation: boolean;
+  error_name: string | null;
+  error_message: string | null;
   payment_form: string | null;
   payment_method_code: string | null;
 }
@@ -29,16 +38,24 @@ interface Props {
   initialInvoices: InvoiceData[];
 }
 
-const STATUS_META: Record<string, { label: string; classes: string }> = {
-  pending: { label: "Pendiente", classes: "bg-muted text-muted-foreground" },
-  processing: { label: "Procesando", classes: "bg-amber-100 text-amber-800" },
-  validated: { label: "Validada", classes: "bg-success/10 text-success" },
-  failed: { label: "Fallida", classes: "bg-danger/10 text-danger" },
-  cancelled: { label: "Cancelada", classes: "bg-gray-100 text-gray-700" },
+const STATUS_META: Record<string, { classes: string }> = {
+  pending: { classes: "bg-muted text-muted-foreground" },
+  processing: { classes: "bg-amber-100 text-amber-800" },
+  validated: { classes: "bg-success/10 text-success" },
+  failed: { classes: "bg-danger/10 text-danger" },
+  cancelled: { classes: "bg-gray-100 text-gray-700" },
 };
 
 const PAYMENT_FORM_LABEL = Object.fromEntries(PAYMENT_FORMS.map((f) => [f.code, f.label]));
 const PAYMENT_METHOD_LABEL = Object.fromEntries(PAYMENT_METHODS.map((m) => [m.code, m.label]));
+
+function StatusIcon({ status }: { status: string }) {
+  if (status === "validated") return <CheckCircle2 className="size-3.5" aria-hidden="true" />;
+  if (status === "processing") return <Clock className="size-3.5" aria-hidden="true" />;
+  if (status === "failed") return <AlertTriangle className="size-3.5" aria-hidden="true" />;
+  if (status === "cancelled") return <Ban className="size-3.5" aria-hidden="true" />;
+  return <FileText className="size-3.5" aria-hidden="true" />;
+}
 
 export function AdminFacturasClient({ initialInvoices }: Props) {
   const [invoices, setInvoices] = useState<InvoiceData[]>(initialInvoices);
@@ -58,7 +75,7 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
   }, []);
 
   const handleRetry = useCallback(async (inv: InvoiceData) => {
-    if (working) return;
+    if (working || !inv.retriable) return;
     setWorking(inv.id);
     try {
       const res = await fetch(`/api/admin/invoices/${inv.order_id}`, {
@@ -75,9 +92,10 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
       }
       const next = data.invoice as InvoiceData | undefined;
       if (next?.status === "processing") {
-        toast.warning(
-          "Factura en procesamiento. No se reenviará automáticamente para evitar duplicados."
-        );
+        toast.warning({
+          title: "Factura en procesamiento",
+          description: "No se reenviará automáticamente para evitar duplicados. Requiere reconciliación.",
+        });
       } else if (next?.status === "validated") {
         toast.success(data.message || `Factura ${next.number} validada`);
       } else {
@@ -114,7 +132,7 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
 
       <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Lista de facturas">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[900px]">
+          <table className="w-full text-sm min-w-[1020px]">
             <thead>
               <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-6 py-4 font-medium text-left" scope="col">Factura</th>
@@ -122,6 +140,7 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                 <th className="px-6 py-4 font-medium text-left" scope="col">Pedido</th>
                 <th className="px-6 py-4 font-medium text-left" scope="col">Cliente</th>
                 <th className="px-6 py-4 font-medium text-left" scope="col">Estado</th>
+                <th className="px-6 py-4 font-medium text-left" scope="col">Intentos</th>
                 <th className="px-6 py-4 font-medium text-left" scope="col">Fecha</th>
                 <th className="px-6 py-4 font-medium text-right" scope="col">Total</th>
                 <th className="px-6 py-4 font-medium text-left" scope="col">CUFE</th>
@@ -131,19 +150,12 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
             <tbody className="divide-y divide-border/50">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
                     No hay facturas aún. Genera una desde la sección Ventas.
                   </td>
                 </tr>
               ) : invoices.map((inv) => {
                 const meta = STATUS_META[inv.status] || STATUS_META.pending;
-                const retriable = inv.status === "failed" || inv.status === "pending";
-                const Icon =
-                  inv.status === "validated" ? CheckCircle2
-                  : inv.status === "processing" ? Clock
-                  : inv.status === "failed" ? AlertTriangle
-                  : inv.status === "cancelled" ? Ban
-                  : FileText;
                 return (
                   <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-medium text-brand-caramel">
@@ -155,10 +167,27 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                     <td className="px-6 py-4">#{inv.order_id}</td>
                     <td className="px-6 py-4 font-medium">{inv.customer || "—"}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${meta.classes}`}>
-                        <Icon className="size-3.5" aria-hidden="true" />
-                        {meta.label}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${meta.classes}`}
+                        title={inv.status_message}
+                      >
+                        <StatusIcon status={inv.status} />
+                        {inv.status_label}
+                        {inv.requires_reconciliation && (
+                          <ShieldAlert className="size-3.5" aria-hidden="true" />
+                        )}
                       </span>
+                      {inv.requires_reconciliation && (
+                        <span className="block mt-1 text-xs font-medium text-amber-700">
+                          Requiere reconciliación
+                        </span>
+                      )}
+                      {inv.blocked_reason && (
+                        <span className="block mt-1 text-xs text-muted-foreground">{inv.blocked_reason}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground text-xs whitespace-nowrap">
+                      {inv.attempts_label}
                     </td>
                     <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
                       {inv.validated_at
@@ -191,7 +220,7 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                           <Eye className="size-4" aria-hidden="true" />
                           Ver
                         </Button>
-                        {retriable && (
+                        {inv.retriable && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -224,28 +253,36 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_META[detail.status]?.classes || ""}`}>
-                {STATUS_META[detail.status]?.label || detail.status}
+                <StatusIcon status={detail.status} />
+                {detail.status_label || detail.status}
               </span>
               <span className="text-sm text-muted-foreground">
                 {detail.is_validated ? "Validada por DIAN" : "Aún no validada"}
               </span>
             </div>
 
-            {detail.status === "processing" && (
-              <p className="text-sm rounded-xl bg-amber-50 text-amber-800 border border-amber-200 px-4 py-3">
-                Factura en procesamiento. No se reenviará automáticamente para evitar duplicados. Verifica el estado en Factus.
-              </p>
-            )}
-            {detail.status === "failed" && (
-              <p className="text-sm rounded-xl bg-danger/5 text-danger border border-danger/20 px-4 py-3">
-                La factura falló. Revisa el detalle en Factus y reintenta desde la lista.
-              </p>
-            )}
-            {detail.status === "cancelled" && (
-              <p className="text-sm rounded-xl bg-muted text-muted-foreground px-4 py-3">
-                Esta factura está cancelada y no se reenviará automáticamente.
-              </p>
-            )}
+            <div className={`text-sm rounded-xl border px-4 py-3 space-y-2 ${
+              detail.requires_reconciliation
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : detail.status === "failed"
+                  ? "bg-danger/5 text-danger border-danger/20"
+                  : detail.status === "validated"
+                    ? "bg-success/5 text-success border-success/20"
+                    : "bg-muted text-muted-foreground border-border"
+            }`}>
+              <p className="font-medium">{detail.status_message}</p>
+              <p>{detail.attempts_label}</p>
+              {detail.blocked_reason && <p>{detail.blocked_reason}</p>}
+              {detail.requires_reconciliation && (
+                <p className="font-medium">Revisa el estado de la factura en Factus (por número o referencia) antes de cualquier acción. No se reenviará automáticamente.</p>
+              )}
+              {detail.error_message && (
+                <p className="break-words">
+                  <span className="font-medium">Último error ({detail.error_name || "FactusError"}): </span>
+                  {detail.error_message}
+                </p>
+              )}
+            </div>
 
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
@@ -264,6 +301,16 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                 <dt className="text-xs uppercase tracking-wider text-muted-foreground">Método de pago</dt>
                 <dd className="mt-1">{detail.payment_method_code ? PAYMENT_METHOD_LABEL[detail.payment_method_code] || detail.payment_method_code : "—"}</dd>
               </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">Intentos</dt>
+                <dd className="mt-1">{detail.attempts_label}</dd>
+              </div>
+              {detail.last_attempt_at && (
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-muted-foreground">Último intento</dt>
+                  <dd className="mt-1">{new Date(detail.last_attempt_at).toLocaleString("es-CO")}</dd>
+                </div>
+              )}
               {detail.number && (
                 <div className="sm:col-span-2">
                   <dt className="text-xs uppercase tracking-wider text-muted-foreground">Número DIAN</dt>

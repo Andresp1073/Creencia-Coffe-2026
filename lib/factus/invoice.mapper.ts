@@ -1,4 +1,4 @@
-import { Cents, splitTaxIncluded, toMoneyString } from "./money";
+import { Cents, divideRound, splitTaxIncluded, toMoneyString } from "./money";
 import { InvoicePayloadError } from "./errors";
 
 /**
@@ -61,6 +61,26 @@ export interface InvoiceMappingInput {
 
 function formatRate(rate: number): string {
   return (Math.round(rate * 100) / 100).toFixed(2);
+}
+
+/**
+ * Total que Factus calcula para una línea: base = price × qty y el IVA se
+ * aplica sobre la base de la línea (no prorrateado por unidad). Factus redondea
+ * el impuesto a centavos, por eso totales con qty > 1 pueden desviarse 1 centavo
+ * del precio con IVA incluido (base + IVA unitarios × qty). Por ejemplo
+ * 4 × 7000 c/IVA 19% => base 23529.40, IVA 23529.40 × 0.19 = 4470.586 → 4470.59,
+ * total línea 27999.99 (en vez de 28000.00).
+ */
+function computeFactusLineTotalCents(seed: InvoiceItemSeed): Cents {
+  const unitSplit = splitTaxIncluded(seed.unitPriceCents, seed.taxRate);
+  if (!unitSplit) {
+    throw new InvoicePayloadError(`tax rate inválido para ${seed.codeReference}`);
+  }
+  const baseLineCents = unitSplit.base * BigInt(seed.quantity);
+  if (seed.taxRate === 0) return baseLineCents;
+  const rateScaled = BigInt(Math.round(seed.taxRate * 100));
+  const taxLineCents = divideRound(baseLineCents * rateScaled, 10000n);
+  return baseLineCents + taxLineCents;
 }
 
 function mapCustomer(seed: InvoiceCustomerSeed) {
@@ -152,13 +172,21 @@ export function mapInvoicePayload(input: InvoiceMappingInput) {
     throw new InvoicePayloadError("items requeridos");
   }
 
+  // Total que Factus sumará por líneas (base + IVA sobre la línea, redondeado).
+  const factusTotalCents = input.items.reduce(
+    (acc, item) => acc + computeFactusLineTotalCents(item),
+    0n
+  );
+  // Diferencia de redondeo entre lo cobrado (order.total) y el total por líneas.
+  const cashRoundingCents = input.orderTotalCents - factusTotalCents;
+
   return {
     reference_code: input.referenceCode,
     document: "01",
     ...(input.numberingRangeId ? { numbering_range_id: input.numberingRangeId } : {}),
     operation_type: "10",
     send_email: input.sendEmail,
-    cash_rounding_amount: "0.00",
+    cash_rounding_amount: toMoneyString(cashRoundingCents),
     payment_details: mapPayments(input),
     customer: mapCustomer(input.customer),
     items: input.items.map(mapItem),

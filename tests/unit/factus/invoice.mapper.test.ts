@@ -42,7 +42,36 @@ describe("invoice.mapper.mapInvoicePayload", () => {
     expect(payload.operation_type).toBe("10");
     expect(payload.numbering_range_id).toBe(389);
     expect(payload.send_email).toBe(true);
+  });
+
+  it("cash_rounding_amount concilia la desviación de 1 centavo con qty > 1 (IVA por línea de Factus)", () => {
+    // 2 × 25000 c/IVA 19% => línea base 42016.80, IVA 42016.80 × 0.19 = 7983.192 → 7983.19,
+    // total línea 49999.99 vs order.total 50000.00 => cash_rounding 0.01.
+    const payload = mapInvoicePayload(baseInput());
+    expect(payload.cash_rounding_amount).toBe("0.01");
+    expect(payload.payment_details[0].amount).toBe("50000.00");
+  });
+
+  it("cash_rounding_amount 0.00 cuando el total por líneas es exacto (qty = 1)", () => {
+    const payload = mapInvoicePayload(
+      baseInput({
+        items: [
+          {
+            codeReference: "CAFE-500",
+            name: "Café Tradicional 500g",
+            quantity: 1,
+            unitPriceCents: toCents(25000),
+            taxRate: 19,
+            taxCode: "01",
+            unitMeasureCode: "94",
+            standardCode: "999",
+          },
+        ],
+        orderTotalCents: toCents(25000),
+      })
+    );
     expect(payload.cash_rounding_amount).toBe("0.00");
+    expect(payload.payment_details[0].amount).toBe("25000.00");
   });
 
   it("omite numbering_range_id cuando no se provee", () => {
@@ -232,9 +261,5 @@ describe("invoice.mapper.mapInvoicePayload", () => {
       baseInput({ payment: { paymentForm: "1", paymentMethodCode: "10", dueDate: null } })
     );
     expect(payload.payment_details[0]).not.toHaveProperty("due_date");
-  });
-
-  it("cash_rounding_amount fijo en 0.00 (sin redondeo)", () => {
-    expect(mapInvoicePayload(baseInput()).cash_rounding_amount).toBe("0.00");
   });
 });
