@@ -2,7 +2,7 @@ import { query, queryOne, queryMany } from "@/lib/db";
 import { NotFoundError, ValidationError, ConflictError, safeJsonParse } from "@/lib/security/safe-error";
 import { toCents, toMoneyString } from "./money";
 import { mapInvoicePayload, InvoiceItemSeed, InvoiceCustomerSeed } from "./invoice.mapper";
-import { createInvoice as sendInvoiceToFactus, getNumberingRanges } from "./factus.client";
+import { createInvoice as sendInvoiceToFactus, getNumberingRanges, getBills } from "./factus.client";
 import { FactusInvoiceResponse } from "./types";
 import {
   InvoicePayloadError,
@@ -652,5 +652,110 @@ export async function generateInvoice(
     created,
     submitted: true,
     message: `Factura ${updated.number || referenceCode} validada`,
+  };
+}
+
+export interface ReconcileResult {
+  invoice: InvoiceRow;
+  reconciled: boolean;
+  message: string;
+}
+
+/**
+ * Reconciliación administrativa de facturas en estado `processing`.
+ *
+ * NUNCA reenvía, recrea ni genera una segunda factura: su única función es
+ * CONSULTAR Factus (solo lectura) y sincronizar el estado local cuando existe
+ * evidencia suficiente de validación.
+ *
+ * - Solo aplica a status === "processing"; cualquier otro estado no consulta
+ *   Factus y devuelve una respuesta segura explicando que no aplica.
+ * - Busca en Factus por reference_code = FACT-{orderId} (nuestra clave de
+ *   idempotencia) usando GET /v2/bills?filter[reference_code]=...
+ * - Ante fallos de consulta (429, timeout, 5xx, red, 401 persistente, 404) el
+ *   error se propaga de forma segura y NO se altera el estado local: jamás se
+ *   marca como failed por un fallo de consulta.
+ * - Solo actualiza campos propios de la fila `invoices` necesarios para la
+ *   sincronización (status, is_validated, number, cufe, validated_at, totals,
+ *   links, error). No modifica orders, stock, inventory_movements, payment data
+ *   ni customer_snapshot.
+ */
+export async function reconcileInvoice(orderId: number): Promise<ReconcileResult> {
+  const invoice = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE order_id = ? ORDER BY id DESC LIMIT 1`,
+    [orderId]
+  );
+  if (!invoice) {
+    throw new NotFoundError(`No existe factura local para la orden ${orderId}`);
+  }
+
+  if (invoice.status !== "processing") {
+    return {
+      invoice,
+      reconciled: false,
+      message: `La factura ${invoice.reference_code} está en estado ${invoice.status}; la reconciliación solo aplica a facturas en procesamiento.`,
+    };
+  }
+
+  const referenceCode = `FACT-${orderId}`;
+
+  // Consulta de SOLO LECTURA. Si falla, el error se propaga de forma segura y
+  // la factura permanece en processing (sin cambio de estado).
+  const bills = await getBills({ referenceCode });
+
+  if (bills.length === 0) {
+    return {
+      invoice,
+      reconciled: false,
+      message: `Factura ${referenceCode} no encontrada en Factus; requiere reconciliación manual.`,
+    };
+  }
+
+  // reference_code es nuestra clave de idempotencia (única por orden), de modo
+  // que no puede haber más de una factura para esta orden. Si Factus devolviera
+  // múltiples documentos, NO se selecciona ninguno: se exige revisión manual.
+  if (bills.length > 1) {
+    return {
+      invoice,
+      reconciled: false,
+      message: `Existen ${bills.length} facturas en Factus para ${referenceCode}; se requiere revisión manual antes de sincronizar.`,
+    };
+  }
+
+  const bill = bills[0];
+  const isValidated = bill.is_validated === true || Number(bill.is_validated) === 1;
+
+  if (!isValidated) {
+    return {
+      invoice,
+      reconciled: false,
+      message: `Factura ${referenceCode} continúa pendiente en Factus; requiere una nueva revisión.`,
+    };
+  }
+
+  await query(
+    `UPDATE invoices SET status = 'validated', is_validated = ?, number = ?, cufe = ?,
+            validated_at = ?, totals = ?, links = ?, error = NULL
+     WHERE id = ?`,
+    [
+      1,
+      bill.number ?? null,
+      bill.cufe ?? null,
+      normalizeValidatedAt(bill.validated_at),
+      JSON.stringify(bill.totals ?? null),
+      JSON.stringify(bill.links ?? null),
+      invoice.id,
+    ]
+  );
+
+  const updated = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
+  if (!updated) {
+    throw new InvoicePayloadError("No se pudo recuperar la factura reconciliada");
+  }
+
+  return {
+    invoice: updated,
+    reconciled: true,
+    message: `Factura ${updated.number || referenceCode} reconciliada y validada por Factus`,
   };
 }

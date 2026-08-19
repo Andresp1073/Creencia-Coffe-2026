@@ -322,3 +322,127 @@ export async function createInvoice(payload: FactusInvoicePayload): Promise<Fact
 
   return result;
 }
+
+/**
+ * Una factura de Factus en modo consulta (GET). Solo los campos mínimos que la
+ * documentación oficial de Factus expone en las respuestas de consulta y que la
+ * reconciliación necesita; no se asume ningún campo inventado.
+ */
+export interface FactusBill {
+  reference_code?: string;
+  number?: string;
+  is_validated?: boolean | number;
+  validated_at?: string | null;
+  cufe?: string;
+  totals?: Record<string, unknown> | null;
+  links?: { qr?: string; public_url?: string } | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Consulta facturas en Factus filtrando por reference_code (nuestra clave de
+ * idempotencia), según la documentación oficial:
+ *
+ *   GET /v2/bills?filter[reference_code]=...
+ *
+ * Respuesta confirmada en Sandbox: `200` con `data.data` = array de facturas
+ * (vacío si no hay coincidencias) además de `data.pagination`. Es una operación
+ * de SOLO LECTURA: nunca emite ni reenvía facturas.
+ */
+export async function getBills(filter: { referenceCode: string }): Promise<FactusBill[]> {
+  const qs = new URLSearchParams({ "filter[reference_code]": filter.referenceCode });
+  const response = await authenticatedRequest(`/v2/bills?${qs.toString()}`);
+  const data = await handleApiResponse<unknown>(response, "resource");
+
+  if (!data || typeof data !== "object") {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente."
+    );
+  }
+
+  const record = data as Record<string, unknown>;
+  const nested = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
+
+  // Estructura documentada y confirmada en Sandbox: data.data = array (puede
+  // ser vacío cuando no hay coincidencias; eso es un resultado VÁLIDO).
+  if (nested && Array.isArray(nested.data)) return nested.data as FactusBill[];
+
+  // Variante defensiva documentada de la misma API: data.list = array.
+  if (nested && Array.isArray(nested.list)) return nested.list as FactusBill[];
+
+  // Variante legada de la misma documentación: data plano como array.
+  if (Array.isArray(record.data)) return record.data as FactusBill[];
+
+  // Contenedor irreconocible: NO se asume "no encontrada" (podría ocultar una
+  // factura pendiente). Error explícito y seguro; la reconciliación preserva
+  // el estado sin cambios.
+  throw new FactusClientUnavailableError(
+    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+  );
+}
+
+/**
+ * Campos de factura con los que se reconoce una factura válida en las
+ * respuestas de consulta (confirmados en Sandbox y en la documentación de
+ * Factus). Si ningún campo está presente, el contenedor no es una factura.
+ */
+const BILL_FIELD_KEYS: readonly string[] = [
+  "reference_code",
+  "number",
+  "is_validated",
+  "validated_at",
+  "cufe",
+  "totals",
+  "links",
+];
+
+function isFactusBillLike(value: Record<string, unknown>): boolean {
+  return BILL_FIELD_KEYS.some((key) => key in value);
+}
+
+/**
+ * Devuelve una factura específica por su número, según la documentación oficial:
+ *
+ *   GET /v2/bills/:number
+ *
+ * Respuesta confirmada en Sandbox: `200` con los datos de la factura en `data`
+ * (campos `number`, `cufe`, `is_validated`, `validated_at`, `totals`, `links`).
+ * SOLO LECTURA. Un 404 se propaga como FactusNotFoundError vía handleApiResponse.
+ *
+ * Envolturas soportadas (todas respaldadas por documentación/sandbox/tests):
+ * - formato v1 legacy: `data.bill` con los campos de la factura;
+ * - formato actual (confirmado en Sandbox): `data` contiene la factura
+ *   directamente.
+ *
+ * Si el contenedor no es reconocible o carece de una factura, se lanza un error
+ * seguro: nunca se devuelve `undefined` ni se asume una factura válida.
+ */
+export async function getBillByNumber(number: string): Promise<FactusBill> {
+  const response = await authenticatedRequest(`/v2/bills/${encodeURIComponent(number)}`);
+  const result = await handleApiResponse<unknown>(response, "resource");
+
+  if (!result || typeof result !== "object") {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió una respuesta interpretable. Revisa la conectividad e inténtalo nuevamente."
+    );
+  }
+
+  const record = result as Record<string, unknown>;
+  if (!record.data || typeof record.data !== "object") {
+    throw new FactusClientUnavailableError(
+      "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+    );
+  }
+
+  const nested = record.data as Record<string, unknown>;
+  const candidate =
+    nested.bill && typeof nested.bill === "object" ? (nested.bill as Record<string, unknown>) : nested;
+
+  if (!isFactusBillLike(candidate)) {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió los datos de la factura solicitada. Se requiere revisión manual."
+    );
+  }
+
+  return candidate as FactusBill;
+}

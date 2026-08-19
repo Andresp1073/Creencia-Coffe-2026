@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Eye, RefreshCw, FileText, CheckCircle2, AlertTriangle, Clock, Ban, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { sileo } from "sileo";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,40 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
     } catch (e) {
       console.error("Error retrying invoice:", e);
       toast.error("Error al intentar facturar");
+    } finally {
+      setWorking(null);
+    }
+  }, [working, refresh]);
+
+  const handleReconcile = useCallback(async (inv: InvoiceData) => {
+    if (working || !inv.requires_reconciliation) return;
+    setWorking(inv.id);
+    try {
+      const res = await fetch(`/api/admin/invoices/${inv.order_id}/reconcile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        sileo.error({ title: data.error || "No se pudo reconciliar la factura" });
+        await refresh();
+        return;
+      }
+      const next = data.invoice as InvoiceData | undefined;
+      if (next?.status === "validated") {
+        sileo.success({
+          title: data.message || "Factura reconciliada y validada",
+          description: next.number ? `Número ${next.number}` : undefined,
+        });
+      } else {
+        sileo.warning({ title: data.message || "La factura continúa pendiente en Factus" });
+      }
+      await refresh();
+    } catch (e) {
+      console.error("Error reconciling invoice:", e);
+      sileo.error({ title: "Error al reconciliar la factura" });
     } finally {
       setWorking(null);
     }
@@ -220,6 +255,18 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                           <Eye className="size-4" aria-hidden="true" />
                           Ver
                         </Button>
+                        {inv.status === "processing" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReconcile(inv)}
+                            disabled={working !== null}
+                            aria-label={`Reconciliar factura ${inv.reference_code}`}
+                          >
+                            <RefreshCw className={`size-4 ${working === inv.id ? "animate-spin" : ""}`} aria-hidden="true" />
+                            Reconciliar
+                          </Button>
+                        )}
                         {inv.retriable && (
                           <Button
                             variant="ghost"

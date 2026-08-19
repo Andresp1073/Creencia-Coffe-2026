@@ -3,6 +3,8 @@ import {
   getAccessToken,
   getNumberingRanges,
   createInvoice,
+  getBills,
+  getBillByNumber,
   invalidateTokenCache,
   FACTUS_HTTP_TIMEOUT_MS,
 } from "@/lib/factus/factus.client";
@@ -732,5 +734,260 @@ describe("factus.client - manejo semántico 429 y 404 (F4)", () => {
 
       await expect(createInvoice(minimalPayload())).rejects.toBeInstanceOf(FactusClientUnavailableError);
     }
+  });
+});
+
+describe("factus.client.getBills (reconciliación 7B)", () => {
+  it("consulta GET /v2/bills filtrando por reference_code y extrae data.data", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(
+            jsonResponse({
+              status: "OK",
+              message: "Solicitud exitosa",
+              data: { data: [{ reference_code: "FACT-5", number: "SETP1", is_validated: true }], pagination: { total: 1 } },
+            })
+          )
+    );
+
+    const bills = await getBills({ referenceCode: "FACT-5" });
+
+    expect(bills).toHaveLength(1);
+    expect(bills[0].number).toBe("SETP1");
+    expect(bills[0].is_validated).toBe(true);
+    const call = fetchMock.mock.calls.find(([url]) => String(url).includes("/v2/bills?"))!;
+    expect(String(call[0])).toContain("filter%5Breference_code%5D=FACT-5");
+  });
+
+  it("devuelve array vacío cuando no hay coincidencias (data.data vacío)", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ status: "OK", data: { data: [], pagination: {} } }))
+    );
+
+    const bills = await getBills({ referenceCode: "FACT-NO" });
+
+    expect(bills).toEqual([]);
+  });
+
+  it("interpreta la variante defensiva data.list con una factura", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(
+            jsonResponse({
+              status: "OK",
+              data: { list: [{ reference_code: "FACT-5", number: "SETP-LIST", is_validated: true }], pagination: {} },
+            })
+          )
+    );
+
+    const bills = await getBills({ referenceCode: "FACT-5" });
+
+    expect(bills).toHaveLength(1);
+    expect(bills[0].number).toBe("SETP-LIST");
+  });
+
+  it("estructura no reconocida lanza FactusClientUnavailableError (no asume no encontrada)", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ status: "OK", data: { foo: [{ number: "X" }] } }))
+    );
+
+    await expect(getBills({ referenceCode: "FACT-5" })).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("cuerpo no objeto lanza FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse("texto plano"))
+    );
+
+    await expect(getBills({ referenceCode: "FACT-5" })).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("propaga FactusNotFoundError ante 404", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ message: "not found" }, 404))
+    );
+
+    await expect(getBills({ referenceCode: "FACT-5" })).rejects.toBeInstanceOf(FactusNotFoundError);
+  });
+});
+
+describe("factus.client.getBillByNumber (reconciliación 7B/7D)", () => {
+  function billsByNumberHandler(responseBody: unknown) {
+    return (input: unknown) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse(responseBody));
+  }
+
+  it("respuesta válida con data.bill: devuelve FactusBill correctamente", async () => {
+    fetchMock.mockImplementation(
+      billsByNumberHandler({
+        status: "OK",
+        data: {
+          bill: { reference_code: "FACT-5", number: "SETP990015609", is_validated: true, cufe: "cufe-1" },
+        },
+      })
+    );
+
+    const bill = await getBillByNumber("SETP990015609");
+
+    expect(bill.number).toBe("SETP990015609");
+    expect(bill.is_validated).toBe(true);
+    expect(bill.cufe).toBe("cufe-1");
+  });
+
+  it("respuesta actual (Sandbox): data contiene la factura con number/cufe/validated_at/is_validated", async () => {
+    fetchMock.mockImplementation(
+      billsByNumberHandler({
+        status: "OK",
+        data: {
+          reference_code: "FACT-5",
+          number: "SETP990015609",
+          is_validated: true,
+          cufe: "2d52fb6c...",
+          validated_at: "18-08-2026 01:34:36 PM",
+        },
+      })
+    );
+
+    const bill = await getBillByNumber("SETP990015609");
+
+    expect(bill.number).toBe("SETP990015609");
+    expect(bill.cufe).toBe("2d52fb6c...");
+    expect(bill.validated_at).toBe("18-08-2026 01:34:36 PM");
+    expect(bill.is_validated).toBe(true);
+    const call = fetchMock.mock.calls.find(([url]) => String(url).includes("/v2/bills/SETP990015609"))!;
+    expect(call).toBeTruthy();
+  });
+
+  it("usa GET /v2/bills/:number y nunca POST", async () => {
+    fetchMock.mockImplementation(
+      billsByNumberHandler({
+        status: "OK",
+        data: { number: "SETP990015609", is_validated: true },
+      })
+    );
+
+    await getBillByNumber("SETP990015609");
+
+    const billCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("/v2/bills/"));
+    expect(billCalls).toHaveLength(1);
+    expect(String(billCalls[0][0])).toContain("/v2/bills/SETP990015609");
+  });
+
+  it("data inexistente: FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(billsByNumberHandler({ status: "OK", message: "sin datos" }));
+
+    await expect(getBillByNumber("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("data.bill inexistente y data sin campos de factura: FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(billsByNumberHandler({ status: "OK", data: { foo: 1 } }));
+
+    await expect(getBillByNumber("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("body no objeto: FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(billsByNumberHandler("texto plano"));
+
+    await expect(getBillByNumber("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("estructura irreconocible (result no objeto): FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(billsByNumberHandler({ data: 42 }));
+
+    await expect(getBillByNumber("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("propaga FactusNotFoundError ante 404", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ message: "factura no existe" }, 404))
+    );
+
+    await expect(getBillByNumber("SETP999")).rejects.toBeInstanceOf(FactusNotFoundError);
+  });
+
+  it("propaga FactusRateLimitError ante 429", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ message: "rate limit" }, 429))
+    );
+
+    await expect(getBillByNumber("SETP990015609")).rejects.toBeInstanceOf(FactusRateLimitError);
+  });
+
+  it("ante 401 invalida el token, obtiene uno nuevo y reintenta UNA vez", async () => {
+    let tokenCalls = 0;
+    let billCalls = 0;
+
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        tokenCalls += 1;
+        return Promise.resolve(tokenResponse(`tok-${tokenCalls}`));
+      }
+      if (url.includes("/v2/bills/SETP990015609")) {
+        billCalls += 1;
+        if (billCalls === 1) {
+          return Promise.resolve(jsonResponse({}, 401));
+        }
+        return Promise.resolve(
+          jsonResponse({ data: { number: "SETP990015609", is_validated: true } })
+        );
+      }
+      return Promise.reject(new Error("unexpected"));
+    });
+
+    await getAccessToken();
+    const bill = await getBillByNumber("SETP990015609");
+
+    expect(billCalls).toBe(2);
+    expect(tokenCalls).toBe(2);
+    expect(bill.number).toBe("SETP990015609");
+  });
+
+  it("timeout: FactusClientUnavailableError y sin reintento", async () => {
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = getAccessToken().then(() =>
+      getBillByNumber("SETP990015609").then(
+        () => null,
+        (error) => error
+      )
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
   });
 });
