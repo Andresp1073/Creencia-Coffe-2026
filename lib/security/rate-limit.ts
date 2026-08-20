@@ -5,8 +5,25 @@ const RATE_LIMITS = {
   "forgot-password": { windowMs: 60 * 60 * 1000, maxAttempts: 3 },
   "verify-otp": { windowMs: 15 * 60 * 1000, maxAttempts: 3 },
   "reset-password": { windowMs: 60 * 60 * 1000, maxAttempts: 3 },
+  api: { windowMs: 60 * 1000, maxAttempts: 60 },
   default: { windowMs: 60 * 1000, maxAttempts: 100 },
 };
+
+const MAX_KEYS = 10000;
+
+export function resetRateLimits(): void {
+  rateLimitStore.clear();
+}
+
+function pruneStore(): void {
+  if (rateLimitStore.size < MAX_KEYS) return;
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore) {
+    if (now > record.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
 
 export interface RateLimitResult {
   success: boolean;
@@ -21,6 +38,7 @@ export function checkRateLimit(key: string, type: keyof typeof RATE_LIMITS = "de
   const record = rateLimitStore.get(key);
 
   if (!record || now > record.resetTime) {
+    pruneStore();
     rateLimitStore.set(key, {
       count: 1,
       resetTime: now + config.windowMs,

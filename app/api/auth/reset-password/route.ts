@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { verifyToken, deleteOTP, ADMIN_EMAIL } from "@/lib/otp";
+import { checkRateLimit, getClientKey, formatRateLimitError } from "@/lib/security/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(getClientKey(request), "reset-password");
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: formatRateLimitError(rateLimit.resetIn) },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)) } }
+      );
+    }
+
     const { password, token } = await request.json();
 
     console.log("[RESET] Starting password reset, token:", token, "admin email:", ADMIN_EMAIL);

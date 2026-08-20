@@ -1,3 +1,5 @@
+import { escapeJsonForScript } from "@/lib/security/sanitize";
+
 interface ProductSchemaProps {
   name: string;
   description?: string;
@@ -38,7 +40,7 @@ export function ProductSchema({ name, description, slug, image, price, category 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: escapeJsonForScript(schema) }}
     />
   );
 }

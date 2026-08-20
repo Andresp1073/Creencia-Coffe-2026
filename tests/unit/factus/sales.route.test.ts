@@ -302,6 +302,9 @@ describe("GET /api/admin/sales - ventas históricas", () => {
       pagination: { page: number; pageSize: number; total: number; totalPages: number };
     };
     expect(data.pagination).toEqual({ page: 3, pageSize: 10, total: 35, totalPages: 4 });
-    expect(queryMany).toHaveBeenCalledWith(expect.stringContaining("LIMIT 10 OFFSET 20"));
+    expect(queryMany).toHaveBeenCalledWith(
+      expect.stringContaining("LIMIT ? OFFSET ?"),
+      [10, 20]
+    );
   });
 });

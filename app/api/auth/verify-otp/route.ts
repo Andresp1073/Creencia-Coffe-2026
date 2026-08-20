@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyOTP, getVerifiedToken, ADMIN_EMAIL } from "@/lib/otp";
+import { checkRateLimit, getClientKey, formatRateLimitError } from "@/lib/security/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(getClientKey(request), "verify-otp");
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: formatRateLimitError(rateLimit.resetIn) },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)) } }
+      );
+    }
+
     const { code } = await request.json();
 
     console.log("[VERIFY] Starting verification, code:", code, "admin email:", ADMIN_EMAIL);

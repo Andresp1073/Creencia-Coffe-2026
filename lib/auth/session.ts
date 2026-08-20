@@ -3,13 +3,29 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-in-production"
-);
+/**
+ * Secreto JWT. En producción es obligatorio que exista JWT_SECRET: sin él se
+ * usaría un valor conocido públicamente y cualquiera podría forjar un token de
+ * administrador. El fallback queda EXCLUSIVO para desarrollo/test.
+ */
+function getJwtSecret(): Uint8Array {
+  const configured = process.env.JWT_SECRET;
+  if (configured) {
+    return new TextEncoder().encode(configured);
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "JWT_SECRET no está configurado. Define la variable de entorno antes de desplegar."
+    );
+  }
+  return new TextEncoder().encode("dev-only-fallback-secret-do-not-use-in-production");
+}
 
 const COOKIE_NAME = "cafe-creencia-session";
 
 const SESSION_EXPIRY = "15m";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 export interface JWTPayload {
   userId: number;
@@ -24,12 +40,12 @@ export async function createToken(payload: Omit<JWTPayload, "iat" | "exp">) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_EXPIRY)
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     return payload as unknown as JWTPayload;
   } catch {
     return null;
@@ -48,7 +64,7 @@ export async function getSession(): Promise<JWTPayload | null> {
 export function setSessionCookie(response: NextResponse, token: string) {
   response.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: false,
+    secure: isProduction,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
@@ -61,7 +77,7 @@ export async function setSession(payload: Omit<JWTPayload, "iat" | "exp">) {
   
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: false,
+    secure: isProduction,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth/session";
 import { handleApiError } from "./safe-error";
+import { checkRateLimit, getClientKey, formatRateLimitError } from "./rate-limit";
 
 const PUBLIC_API_PATHS = [
   "/api/auth/login",
@@ -16,6 +17,25 @@ export async function requireApiAuth(request: NextRequest) {
 
   if (PUBLIC_API_PATHS.some((path) => pathname.startsWith(path))) {
     return null;
+  }
+
+  // Defensa CSRF por origen: si el navegador manda Origin (POST/PUT/DELETE),
+  // debe coincidir con el host servido. Un atacante cross-site envía su propio
+  // origen, que nunca coincide con el del sitio protegido.
+  const originGuard = validateRequestOrigin(request);
+  if (originGuard instanceof NextResponse) return originGuard;
+
+  // Throttle de API autenticada por IP (limitado por minuto) para no saturar
+  // el servidor en caso de abuso/scraping.
+  const rateLimit = checkRateLimit(getClientKey(request), "api");
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: formatRateLimitError(rateLimit.resetIn) },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)) },
+      }
+    );
   }
 
   const token = request.cookies.get("cafe-creencia-session")?.value;
@@ -37,6 +57,35 @@ export async function requireApiAuth(request: NextRequest) {
   }
 
   return session;
+}
+
+/**
+ * Rechaza solicitudes con cabecera `Origin` que no coincida con el host
+ * servido (defensa en profundidad contra CSRF). Sin cabecera Origin (clientes
+ * no navegador, GET) se permite y queda cubierto por `sameSite: "lax"`.
+ */
+function validateRequestOrigin(request: NextRequest): NextResponse | null {
+  const origin = request.headers.get("origin");
+
+  if (!origin) {
+    return null;
+  }
+
+  let originHostname: string | null = null;
+  try {
+    originHostname = new URL(origin).hostname;
+  } catch {
+    return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+  }
+
+  const hostHeader = request.headers.get("host") || request.nextUrl.host;
+  const servedHostname = hostHeader.split(":")[0].toLowerCase();
+
+  if (originHostname !== servedHostname) {
+    return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+  }
+
+  return null;
 }
 
 export function withAuth<T = unknown>(

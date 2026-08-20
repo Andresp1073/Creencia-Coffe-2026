@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setOTP, ADMIN_EMAIL } from "@/lib/otp";
+import { checkRateLimit, getClientKey, formatRateLimitError } from "@/lib/security/rate-limit";
 
 const ADMIN_EMAIL_CHECK = "andresmauriciope1073@gmail.com";
 
@@ -45,6 +46,14 @@ async function sendEmail(to: string, code: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(getClientKey(request), "forgot-password");
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: formatRateLimitError(rateLimit.resetIn) },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)) } }
+      );
+    }
+
     const { email } = await request.json();
 
     if (!email || email.toLowerCase() !== ADMIN_EMAIL_CHECK.toLowerCase()) {

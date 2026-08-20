@@ -40,6 +40,18 @@ export function sanitizeUrl(input: unknown): string {
   return "";
 }
 
+/**
+ * Serializa un objeto a JSON seguro para incrustar dentro de un <script>.
+ * JSON.stringify NO escapa `</script>`, así que un valor con ese texto podría
+ * romper el bloque y ejecutar HTML/JS (XSS). Se escapan `<`, U+2028 y U+2029.
+ */
+export function escapeJsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 export function isValidEmail(email: unknown): boolean {
   if (typeof email !== "string") return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

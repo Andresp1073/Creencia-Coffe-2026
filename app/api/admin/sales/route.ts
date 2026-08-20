@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
               payment_form, payment_method_code, payment_reference, payment_due_date
        FROM orders
        ORDER BY id DESC
-       LIMIT ${pageSize} OFFSET ${offset}`
+       LIMIT ? OFFSET ?`,
+      [pageSize, offset]
     );
 
     const parsedOrders = orders.map(o => {

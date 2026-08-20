@@ -9,6 +9,10 @@ import { requireApiAuth } from "@/lib/security/api-auth";
  * devuelve hashes ni mensajes de error crudos.
  */
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "No disponible" }, { status: 404 });
+  }
+
   const auth = await requireApiAuth(request);
   if (auth instanceof NextResponse) return auth;
 

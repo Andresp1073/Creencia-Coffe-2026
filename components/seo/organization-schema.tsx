@@ -1,3 +1,5 @@
+import { escapeJsonForScript } from "@/lib/security/sanitize";
+
 export function OrganizationSchema() {
   const schema = {
     "@context": "https://schema.org",
@@ -68,7 +70,7 @@ export function OrganizationSchema() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: escapeJsonForScript(schema) }}
     />
   );
 }
