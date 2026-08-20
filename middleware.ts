@@ -62,15 +62,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith(ADMIN_PREFIX)) {
+    const homeUrl = new URL("/", request.url);
     if (!token) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(homeUrl);
     }
 
     const session = await verifyToken(token);
     if (!session) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(homeUrl);
     }
 
     const response = NextResponse.next();

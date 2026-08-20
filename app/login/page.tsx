@@ -84,7 +84,7 @@ export default function LoginPage() {
         try {
           sessionStorage.setItem("adminTabId", crypto.randomUUID());
         } catch {}
-        window.location.href = "/admin";
+        window.location.href = "/panel";
       }
     } catch {
       setError("No se puede conectar al servidor. Verifica tu conexión a internet e intenta nuevamente.");
