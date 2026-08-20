@@ -1,0 +1,1 @@
+Test de verificación: este push a develop debe ser CANCELADO por el Ignored Build Step en Vercel (no debe fallar, ni desplegar).
