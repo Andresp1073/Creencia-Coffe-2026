@@ -30,12 +30,15 @@ interface Product {
 }
 
 interface SaleItem {
+  uid: number;
   productId: number;
   productName: string;
   quantity: number;
   price: number;
   presentation: string;
 }
+
+let saleItemUid = 0;
 
 interface Sale {
   id: number;
@@ -91,6 +94,64 @@ const defaultCustomerForm = {
 };
 
 type CustomerForm = typeof defaultCustomerForm;
+
+interface SaleValidationInput {
+  customer: string;
+  items: SaleItem[];
+  products: Product[];
+  paymentForm: string;
+  paymentMethodCode: string;
+  paymentReference: string;
+  paymentDueDate: string;
+  requiresReference?: boolean;
+}
+
+function validateSale(input: SaleValidationInput): string | null {
+  if (!input.customer.trim()) return "Por favor ingresa el nombre del cliente";
+  if (input.items.length === 0) return "Agrega al menos un producto";
+  if (!input.paymentForm) return "Selecciona la forma de pago";
+  if (!input.paymentMethodCode) return "Selecciona el método de pago";
+  if (input.requiresReference && !input.paymentReference.trim()) {
+    return "Ingresa la referencia de pago";
+  }
+  if (input.paymentForm === "2" && !input.paymentDueDate) {
+    return "Para crédito (payment_form=2) ingresa la fecha de vencimiento";
+  }
+
+  const stockErrors: string[] = [];
+  for (const item of input.items) {
+    const product = input.products.find((p) => p.id === item.productId);
+    if (product && product.stock < item.quantity) {
+      stockErrors.push(`${product.name}: solo ${product.stock} disponibles`);
+    }
+  }
+  if (stockErrors.length > 0) {
+    return "Stock insuficiente:\n" + stockErrors.join("\n");
+  }
+  return null;
+}
+
+function validateCustomerForm(
+  custForm: CustomerForm,
+  isCredit: boolean,
+  paymentDueDate: string | null | undefined,
+): string | null {
+  const docCode = custForm.docCode.trim();
+  const identification = custForm.identification.trim();
+  if (!docCode || !identification) {
+    return "Requerimos el tipo y número de identificación del cliente";
+  }
+  if (custForm.legal === "1" && !custForm.company.trim()) {
+    return "Para persona jurídica se requiere la razón social (company)";
+  }
+  if (custForm.legal === "2" && !custForm.names.trim()) {
+    return "Para persona natural se requiere el nombre (names)";
+  }
+  if (isCredit && !paymentDueDate) {
+    return "La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar.";
+  }
+  return null;
+}
 
 /** '500g'/'250g'/'125g' (catálogo) -> '500grs'/'250grs'/'125grs' (orders.items). */
 function orderPresentationLabel(pres: string): string {
@@ -207,6 +268,7 @@ export function AdminSalesClient({
       setItems((prev) => [
         ...prev,
         {
+          uid: ++saleItemUid,
           productId: product.id,
           productName: product.name,
           quantity: 1,
@@ -350,43 +412,18 @@ export function AdminSalesClient({
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!customer.trim()) {
-      showToast("Por favor ingresa el nombre del cliente", "error");
-      return;
-    }
-    if (items.length === 0) {
-      showToast("Agrega al menos un producto", "error");
-      return;
-    }
-    if (!paymentForm) {
-      showToast("Selecciona la forma de pago", "error");
-      return;
-    }
-    if (!paymentMethodCode) {
-      showToast("Selecciona el método de pago", "error");
-      return;
-    }
-    if (selectedPaymentMethod?.requiresReference && !paymentReference.trim()) {
-      showToast("Ingresa la referencia de pago", "error");
-      return;
-    }
-    if (paymentForm === "2" && !paymentDueDate) {
-      showToast(
-        "Para crédito (payment_form=2) ingresa la fecha de vencimiento",
-        "error",
-      );
-      return;
-    }
-
-    const stockErrors: string[] = [];
-    for (const item of items) {
-      const product = products.find((p) => p.id === item.productId);
-      if (product && product.stock < item.quantity) {
-        stockErrors.push(`${product.name}: solo ${product.stock} disponibles`);
-      }
-    }
-    if (stockErrors.length > 0) {
-      showToast("Stock insuficiente:\n" + stockErrors.join("\n"), "error");
+    const validationError = validateSale({
+      customer,
+      items,
+      products,
+      paymentForm,
+      paymentMethodCode,
+      paymentReference,
+      paymentDueDate,
+      requiresReference: selectedPaymentMethod?.requiresReference,
+    });
+    if (validationError) {
+      showToast(validationError, "error");
       return;
     }
 
@@ -517,31 +554,14 @@ export function AdminSalesClient({
     if (!showInvoice) return;
     const docCode = custForm.docCode.trim();
     const identification = custForm.identification.trim();
-    if (!docCode || !identification) {
-      sileo.error({
-        title: "Requerimos el tipo y número de identificación del cliente",
-      });
-      return;
-    }
-    if (custForm.legal === "1" && !custForm.company.trim()) {
-      sileo.error({
-        title: "Para persona jurídica se requiere la razón social (company)",
-      });
-      return;
-    }
-    if (custForm.legal === "2" && !custForm.names.trim()) {
-      sileo.error({
-        title: "Para persona natural se requiere el nombre (names)",
-      });
-      return;
-    }
-
     const isCredit = showInvoice.payment_form === "2";
-    if (isCredit && !showInvoice.payment_due_date) {
-      sileo.error({
-        title:
-          "La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar.",
-      });
+    const customerError = validateCustomerForm(
+      custForm,
+      isCredit,
+      showInvoice.payment_due_date,
+    );
+    if (customerError) {
+      sileo.error({ title: customerError });
       return;
     }
 
@@ -648,9 +668,8 @@ export function AdminSalesClient({
         </Button>
       </div>
 
-      <div
+      <section
         className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden"
-        role="region"
         aria-label="Lista de ventas"
       >
         <table className="w-full text-sm">
@@ -749,12 +768,12 @@ export function AdminSalesClient({
           onPageChange={(n) => fetchSales(n)}
           loading={loading}
         />
-      </div>
+      </section>
 
       {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 m-0 border-0 bg-transparent"
           aria-modal="true"
           aria-labelledby="new-sale-title"
         >
@@ -899,7 +918,7 @@ export function AdminSalesClient({
 
                 {items.map((item, idx) => (
                   <div
-                    key={idx}
+                    key={item.uid}
                     className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 mb-3"
                   >
                     <label htmlFor={`product-${idx}`} className="sr-only">
@@ -958,7 +977,10 @@ export function AdminSalesClient({
                       max="999"
                       value={item.quantity}
                       onChange={(e) =>
-                        updateQuantity(idx, parseInt(e.target.value) || 1)
+                        updateQuantity(
+                          idx,
+                          Number.parseInt(e.target.value) || 1,
+                        )
                       }
                       className="w-16 px-2 py-2 rounded-lg bg-background border border-border text-sm text-center outline-none focus:border-coffee-medium transition-all"
                       aria-label={`Cantidad para ${item.productName}`}
@@ -1024,7 +1046,7 @@ export function AdminSalesClient({
               </div>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {showDetail && (
@@ -1037,7 +1059,7 @@ export function AdminSalesClient({
         >
           <div className="space-y-4">
             {showDetail.items.length > 0 ? (
-              showDetail.items.map((it: any, i: number) => {
+              showDetail.items.map((it: any) => {
                 const unitPrice = getUnitPrice(
                   it,
                   showDetail.total,
@@ -1047,7 +1069,7 @@ export function AdminSalesClient({
                 const presentation = it.presentation || "";
                 return (
                   <div
-                    key={i}
+                    key={`${it.id}-${productName}`}
                     className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0"
                   >
                     <div>

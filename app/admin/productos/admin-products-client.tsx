@@ -246,6 +246,24 @@ export function AdminProductsClient({
     return { label: "Activo", variant: "success" };
   };
 
+  const statusBadgeClass = (variant: string) => {
+    if (variant === "success") return "bg-brand-caramel/20 text-brand-brown";
+    if (variant === "warning") return "bg-amber-100 text-amber-700";
+    if (variant === "danger")
+      return "bg-brand-terracotta/20 text-brand-terracotta";
+    return "bg-gray-100 text-gray-700";
+  };
+
+  const toggleIcon = (productId: number, active: boolean) => {
+    if (toggling === productId) {
+      return <Loader2 className="size-4 animate-spin" />;
+    }
+    if (active) {
+      return <EyeOff className="size-4" strokeWidth={1.75} />;
+    }
+    return <Eye className="size-4" strokeWidth={1.75} />;
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -329,15 +347,9 @@ export function AdminProductsClient({
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <span
-                          className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${
-                            status.variant === "success"
-                              ? "bg-brand-caramel/20 text-brand-brown"
-                              : status.variant === "warning"
-                                ? "bg-amber-100 text-amber-700"
-                                : status.variant === "danger"
-                                  ? "bg-brand-terracotta/20 text-brand-terracotta"
-                                  : "bg-gray-100 text-gray-700"
-                          }`}
+                          className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${statusBadgeClass(
+                            status.variant,
+                          )}`}
                         >
                           {status.label}
                         </span>
@@ -359,13 +371,7 @@ export function AdminProductsClient({
                               p.active ? "Ocultar producto" : "Mostrar producto"
                             }
                           >
-                            {toggling === p.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : p.active ? (
-                              <EyeOff className="size-4" strokeWidth={1.75} />
-                            ) : (
-                              <Eye className="size-4" strokeWidth={1.75} />
-                            )}
+                            {toggleIcon(p.id, p.active)}
                           </button>
                           <button
                             onClick={() => handleDelete(p.id)}
@@ -412,7 +418,10 @@ export function AdminProductsClient({
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid gap-6 md:grid-cols-3">
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium mb-2">
+                  <label
+                    htmlFor="product-image"
+                    className="block text-sm font-medium mb-2"
+                  >
                     Imagen del producto
                   </label>
                   <ImageUploader
@@ -422,15 +431,20 @@ export function AdminProductsClient({
                     }
                     defaultImage={defaultImage}
                     maxSizeMB={5}
+                    inputId="product-image"
                   />
                 </div>
 
                 <div className="md:col-span-2 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
+                    <label
+                      htmlFor="product-name"
+                      className="block text-sm font-medium mb-2"
+                    >
                       Nombre del producto *
                     </label>
                     <input
+                      id="product-name"
                       type="text"
                       value={form.name}
                       onChange={(e) =>
@@ -444,10 +458,14 @@ export function AdminProductsClient({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label
+                        htmlFor="product-category"
+                        className="block text-sm font-medium mb-2"
+                      >
                         Categoría
                       </label>
                       <select
+                        id="product-category"
                         value={form.category_id}
                         onChange={(e) =>
                           setForm({
@@ -465,10 +483,14 @@ export function AdminProductsClient({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label
+                        htmlFor="product-presentation"
+                        className="block text-sm font-medium mb-2"
+                      >
                         Presentación
                       </label>
                       <select
+                        id="product-presentation"
                         value={form.presentation}
                         onChange={(e) =>
                           setForm({ ...form, presentation: e.target.value })
@@ -484,10 +506,14 @@ export function AdminProductsClient({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label
+                        htmlFor="product-price"
+                        className="block text-sm font-medium mb-2"
+                      >
                         Precio (COP) *
                       </label>
                       <input
+                        id="product-price"
                         type="number"
                         value={form.price_500g}
                         onChange={(e) =>
@@ -504,10 +530,14 @@ export function AdminProductsClient({
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label
+                        htmlFor="product-stock"
+                        className="block text-sm font-medium mb-2"
+                      >
                         Stock *
                       </label>
                       <input
+                        id="product-stock"
                         type="number"
                         value={form.stock}
                         onChange={(e) =>
@@ -522,10 +552,14 @@ export function AdminProductsClient({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">
+                    <label
+                      htmlFor="product-description"
+                      className="block text-sm font-medium mb-2"
+                    >
                       Descripción
                     </label>
                     <textarea
+                      id="product-description"
                       value={form.description}
                       onChange={(e) =>
                         setForm({ ...form, description: e.target.value })

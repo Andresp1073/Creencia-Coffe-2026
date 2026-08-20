@@ -10,7 +10,10 @@ import { ValidationError } from "@/lib/security/safe-error";
 
 describe("resolvePaymentData", () => {
   it("acepta contado/efectivo sin referencia", () => {
-    const payment = resolvePaymentData({ payment_form: "1", payment_method_code: "10" });
+    const payment = resolvePaymentData({
+      payment_form: "1",
+      payment_method_code: "10",
+    });
     expect(payment).toEqual({
       paymentForm: "1",
       paymentMethodCode: "10",
@@ -34,31 +37,31 @@ describe("resolvePaymentData", () => {
 
   it("rechaza si payment_form falta", () => {
     expect(() => resolvePaymentData({ payment_method_code: "10" })).toThrow(
-      /payment_form es requerido/
+      /payment_form es requerido/,
     );
   });
 
   it("rechaza si payment_form es inválido", () => {
-    expect(() => resolvePaymentData({ payment_form: "9", payment_method_code: "10" })).toThrow(
-      /payment_form inválido/
-    );
+    expect(() =>
+      resolvePaymentData({ payment_form: "9", payment_method_code: "10" }),
+    ).toThrow(/payment_form inválido/);
   });
 
   it("rechaza si payment_method_code falta", () => {
     expect(() => resolvePaymentData({ payment_form: "1" })).toThrow(
-      /payment_method_code es requerido/
+      /payment_method_code es requerido/,
     );
   });
 
   it("rechaza si payment_method_code no está en el catálogo", () => {
-    expect(() => resolvePaymentData({ payment_form: "1", payment_method_code: "99" })).toThrow(
-      /no está en el catálogo/
-    );
+    expect(() =>
+      resolvePaymentData({ payment_form: "1", payment_method_code: "99" }),
+    ).toThrow(/no está en el catálogo/);
   });
 
   it("rechaza si falta payment_reference cuando el método la requiere", () => {
     expect(() =>
-      resolvePaymentData({ payment_form: "1", payment_method_code: "42" })
+      resolvePaymentData({ payment_form: "1", payment_method_code: "42" }),
     ).toThrow(/payment_reference es requerido/);
   });
 
@@ -73,7 +76,11 @@ describe("resolvePaymentData", () => {
 
   it("crédito (payment_form=2) sin due_date: rechaza", () => {
     expect(() =>
-      resolvePaymentData({ payment_form: "2", payment_method_code: "42", payment_reference: "X" })
+      resolvePaymentData({
+        payment_form: "2",
+        payment_method_code: "42",
+        payment_reference: "X",
+      }),
     ).toThrow(/payment_due_date es requerido/);
   });
 
@@ -84,14 +91,14 @@ describe("resolvePaymentData", () => {
         payment_method_code: "42",
         payment_reference: "X",
         payment_due_date: "30/06/2026",
-      })
+      }),
     ).toThrow(/YYYY-MM-DD/);
     expect(() =>
       resolvePaymentData({
         payment_form: "2",
         payment_method_code: "10",
         payment_due_date: "2026-02-30",
-      })
+      }),
     ).toThrow(/YYYY-MM-DD/);
   });
 
@@ -130,8 +137,9 @@ describe("resolvePaymentData", () => {
     });
     expect(payment.paymentReference).not.toContain("<");
     expect(payment.paymentReference).not.toContain(">");
-    expect(payment.paymentReference!.length).toBeLessThanOrEqual(PAYMENT_REFERENCE_MAX_LENGTH);
-    expect(payment.paymentReference!.length).toBe(PAYMENT_REFERENCE_MAX_LENGTH);
+    expect(payment.paymentReference!).toHaveLength(
+      PAYMENT_REFERENCE_MAX_LENGTH,
+    );
   });
 });
 

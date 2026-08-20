@@ -10,11 +10,14 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, hint, id, ...props }, ref) => {
     const inputId = id || props.name;
+    let describedBy: string | undefined;
+    if (error) describedBy = `${inputId}-error`;
+    else if (hint) describedBy = `${inputId}-hint`;
 
     return (
       <div className="w-full">
         {label && (
-          <label 
+          <label
             htmlFor={inputId}
             className="block text-sm font-medium text-foreground mb-1.5"
           >
@@ -29,13 +32,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             "placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-brand-caramel/30 focus:border-coffee-medium",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            error 
-              ? "border-danger focus:ring-danger/30 focus:border-danger" 
+            error
+              ? "border-danger focus:ring-danger/30 focus:border-danger"
               : "border-border hover:border-foreground/20",
-            className
+            className,
           )}
           aria-invalid={error ? "true" : undefined}
-          aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
+          aria-describedby={describedBy}
           {...props}
         />
         {error && (
@@ -44,13 +47,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           </p>
         )}
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-muted-foreground">
+          <p
+            id={`${inputId}-hint`}
+            className="mt-1.5 text-xs text-muted-foreground"
+          >
             {hint}
           </p>
         )}
       </div>
     );
-  }
+  },
 );
 
 Input.displayName = "Input";
@@ -68,7 +74,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label 
+          <label
             htmlFor={selectId}
             className="block text-sm font-medium text-foreground mb-1.5"
           >
@@ -82,28 +88,28 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             "w-full px-4 py-2.5 text-sm bg-background rounded-xl border transition-all duration-200 appearance-none cursor-pointer",
             "focus:outline-none focus:ring-2 focus:ring-brand-caramel/30 focus:border-coffee-medium",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            error 
-              ? "border-danger focus:ring-danger/30 focus:border-danger" 
+            error
+              ? "border-danger focus:ring-danger/30 focus:border-danger"
               : "border-border hover:border-foreground/20",
-            className
+            className,
           )}
           aria-invalid={error ? "true" : undefined}
           {...props}
         >
           {options.map((option) => (
-            <option key={option.value} value={option.value} disabled={option.disabled}>
+            <option
+              key={option.value}
+              value={option.value}
+              disabled={option.disabled}
+            >
               {option.label}
             </option>
           ))}
         </select>
-        {error && (
-          <p className="mt-1.5 text-xs text-danger">
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
       </div>
     );
-  }
+  },
 );
 
 Select.displayName = "Select";
@@ -120,7 +126,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full">
         {label && (
-          <label 
+          <label
             htmlFor={textareaId}
             className="block text-sm font-medium text-foreground mb-1.5"
           >
@@ -135,22 +141,18 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             "placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-brand-caramel/30 focus:border-coffee-medium",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            error 
-              ? "border-danger focus:ring-danger/30 focus:border-danger" 
+            error
+              ? "border-danger focus:ring-danger/30 focus:border-danger"
               : "border-border hover:border-foreground/20",
-            className
+            className,
           )}
           aria-invalid={error ? "true" : undefined}
           {...props}
         />
-        {error && (
-          <p className="mt-1.5 text-xs text-danger">
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
       </div>
     );
-  }
+  },
 );
 
 Textarea.displayName = "Textarea";

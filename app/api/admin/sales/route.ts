@@ -50,7 +50,7 @@ function toIsoString(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.trim() !== "") return value;
   if (typeof value === "object") return null;
-  return String(value);
+  return String(value as number | boolean | bigint);
 }
 
 function toDateOnly(value: unknown): string | null {
@@ -86,6 +86,88 @@ function mapParsedOrder(o: Order): ParsedOrder {
     items: parseOrderItems(o.items),
     total: Number(o.total) || 0,
   };
+}
+
+function findStockErrors(
+  lines: OrderLine[],
+  productMap: Map<number, ProductRow>,
+): string[] {
+  const errors: string[] = [];
+  for (const line of lines) {
+    const product = productMap.get(line.productId);
+    if (!product) {
+      errors.push(`Producto con ID ${line.productId} no encontrado`);
+      continue;
+    }
+    if (product.stock < line.qty) {
+      errors.push(
+        `Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${line.qty}`,
+      );
+    }
+  }
+  return errors;
+}
+
+function figuresToNumbers(figures: ReturnType<typeof computeOrderFigures>) {
+  return {
+    total: Number(toMoneyString(figures.totalCents)),
+    subtotal:
+      figures.subtotalCents === null
+        ? null
+        : Number(toMoneyString(figures.subtotalCents)),
+    tax:
+      figures.taxCents === null
+        ? null
+        : Number(toMoneyString(figures.taxCents)),
+  };
+}
+
+async function sendStockAlerts(
+  lowStockProducts: LowStockProduct[],
+  orderId: number,
+): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@cafecreencia.com";
+  for (const lowStock of lowStockProducts) {
+    if (resendApiKey) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "Café Creencia <onboarding@resend.dev>",
+            to: [adminEmail],
+            subject: `Alerta: Stock bajo - ${lowStock.name}`,
+            html: `
+                  <html>
+                    <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #3E2723;">Alerta de Stock - Café Creencia</h2>
+                      <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0 0 10px;"><strong>Producto:</strong> ${lowStock.name}</p>
+                        <p style="margin: 0 0 10px;"><strong>Stock actual:</strong> <span style="color: #d32f2f; font-weight: bold;">${lowStock.stock} unidades</span></p>
+                        <p style="margin: 0 0 10px;"><strong>Presentación:</strong> ${lowStock.presentation || "500g"}</p>
+                      </div>
+                      <p>Esta alerta se generó automáticamente después de la <strong>Venta #${orderId}</strong>.</p>
+                      <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                        Este es un correo automático. Por favor no responder.
+                      </p>
+                    </body>
+                  </html>
+                `,
+          }),
+        });
+      } catch (emailError) {
+        console.error("Error sending email:", emailError);
+      }
+    } else {
+      console.log(
+        `[EMAIL SIMULADO] Alerta de stock para ${adminEmail}: ${lowStock.name} tiene solo ${lowStock.stock} unidades`,
+      );
+    }
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -183,20 +265,7 @@ export async function POST(request: NextRequest) {
 
       const productMap = new Map(products.map((p) => [p.id, p]));
 
-      const stockErrors: string[] = [];
-      for (const line of lines) {
-        const product = productMap.get(line.productId);
-        if (!product) {
-          stockErrors.push(`Producto con ID ${line.productId} no encontrado`);
-          continue;
-        }
-        if (product.stock < line.qty) {
-          stockErrors.push(
-            `Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${line.qty}`,
-          );
-        }
-      }
-
+      const stockErrors = findStockErrors(lines, productMap);
       if (stockErrors.length > 0) {
         throw new ValidationError(
           "Stock insuficiente: " + stockErrors.join("; "),
@@ -223,15 +292,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const totalNumber = Number(toMoneyString(figures.totalCents));
-      const subtotalNumber =
-        figures.subtotalCents === null
-          ? null
-          : Number(toMoneyString(figures.subtotalCents));
-      const taxNumber =
-        figures.taxCents === null
-          ? null
-          : Number(toMoneyString(figures.taxCents));
+      const figuresNumber = figuresToNumbers(figures);
+      const totalNumber = figuresNumber.total;
+      const subtotalNumber = figuresNumber.subtotal;
+      const taxNumber = figuresNumber.tax;
 
       // Snapshot histórico inmutable: precio REAL server-side, presentación canónica.
       const itemsJson = JSON.stringify(
@@ -307,49 +371,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (result.lowStockProducts && result.lowStockProducts.length > 0) {
-      const resendApiKey = process.env.RESEND_API_KEY;
-      const adminEmail = process.env.ADMIN_EMAIL || "admin@cafecreencia.com";
-
-      for (const lowStock of result.lowStockProducts) {
-        if (resendApiKey) {
-          try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${resendApiKey}`,
-              },
-              body: JSON.stringify({
-                from: "Café Creencia <onboarding@resend.dev>",
-                to: [adminEmail],
-                subject: `Alerta: Stock bajo - ${lowStock.name}`,
-                html: `
-                  <html>
-                    <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-                      <h2 style="color: #3E2723;">Alerta de Stock - Café Creencia</h2>
-                      <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <p style="margin: 0 0 10px;"><strong>Producto:</strong> ${lowStock.name}</p>
-                        <p style="margin: 0 0 10px;"><strong>Stock actual:</strong> <span style="color: #d32f2f; font-weight: bold;">${lowStock.stock} unidades</span></p>
-                        <p style="margin: 0 0 10px;"><strong>Presentación:</strong> ${lowStock.presentation || "500g"}</p>
-                      </div>
-                      <p>Esta alerta se generó automáticamente después de la <strong>Venta #${result.orderId}</strong>.</p>
-                      <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                        Este es un correo automático. Por favor no responder.
-                      </p>
-                    </body>
-                  </html>
-                `,
-              }),
-            });
-          } catch (emailError) {
-            console.error("Error sending email:", emailError);
-          }
-        } else {
-          console.log(
-            `[EMAIL SIMULADO] Alerta de stock para ${adminEmail}: ${lowStock.name} tiene solo ${lowStock.stock} unidades`,
-          );
-        }
-      }
+      await sendStockAlerts(result.lowStockProducts, result.orderId);
     }
 
     return NextResponse.json({

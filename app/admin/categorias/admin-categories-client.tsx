@@ -142,10 +142,14 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="category-name"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
                   Nombre
                 </label>
                 <input
+                  id="category-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}

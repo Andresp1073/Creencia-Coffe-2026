@@ -205,9 +205,8 @@ export function AdminInventoryClient({ initialProducts }: Props) {
         </div>
       </div>
 
-      <div
+      <section
         className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden"
-        role="region"
         aria-label="Stock por producto"
       >
         <div className="px-6 py-5 border-b border-border">
@@ -303,7 +302,7 @@ export function AdminInventoryClient({ initialProducts }: Props) {
           totalItems={totalItems}
           onPageChange={setPage}
         />
-      </div>
+      </section>
     </div>
   );
 }

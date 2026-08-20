@@ -58,10 +58,7 @@ export function Modal({
   const descId = description ? "modal-description" : undefined;
 
   return (
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center p-4"
-      role="presentation"
-    >
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-coffee-dark/50 backdrop-blur-sm animate-fade-in"
         onClick={onClose}

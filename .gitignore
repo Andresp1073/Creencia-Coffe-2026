@@ -50,3 +50,4 @@ start-dev.ps1
 # SonarQube / SonarCloud
 .scannerwork/
 sonar-scanner-cache/
+sonar*.log

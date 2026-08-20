@@ -1,6 +1,9 @@
 import { queryMany } from "@/lib/db";
 import { safeJsonParse } from "@/lib/security/safe-error";
-import { getInvoiceStatusInfo, parseInvoiceError } from "@/lib/admin/invoice-status";
+import {
+  getInvoiceStatusInfo,
+  parseInvoiceError,
+} from "@/lib/admin/invoice-status";
 
 /** Fila enriquecida para la pantalla /admin/facturas (Fase 4B + 6F). */
 export interface AdminInvoice {
@@ -40,8 +43,10 @@ export interface AdminInvoice {
 }
 
 function parseJsonColumn<T>(value: unknown, fallback: T): T {
-  if (typeof value === "string" && value.trim() !== "") return safeJsonParse<T>(value, fallback);
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as T;
+  if (typeof value === "string" && value.trim() !== "")
+    return safeJsonParse<T>(value, fallback);
+  if (value && typeof value === "object" && !Array.isArray(value))
+    return value as T;
   return fallback;
 }
 
@@ -51,20 +56,31 @@ function toIsoString(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.trim() !== "") return value;
   if (typeof value === "object") return null;
-  return String(value);
+  return String(value as number | boolean | bigint);
 }
 
 export function mapInvoiceForAdmin(row: Record<string, any>): AdminInvoice {
-  const totals = parseJsonColumn<{ total?: string | number } | null>(row.totals, null);
-  const snapshot = parseJsonColumn<Record<string, any> | null>(row.customer_snapshot, null);
+  const totals = parseJsonColumn<{ total?: string | number } | null>(
+    row.totals,
+    null,
+  );
+  const snapshot = parseJsonColumn<Record<string, any> | null>(
+    row.customer_snapshot,
+    null,
+  );
   const customer =
     (snapshot?.names as string) ||
     (snapshot?.company as string) ||
-    (typeof snapshot?.identification === "string" ? snapshot.identification : null) ||
+    (typeof snapshot?.identification === "string"
+      ? snapshot.identification
+      : null) ||
     (row.order_customer as string) ||
     null;
 
-  const statusInfo = getInvoiceStatusInfo(String(row.status ?? "pending"), Number(row.attempts ?? 0));
+  const statusInfo = getInvoiceStatusInfo(
+    String(row.status ?? "pending"),
+    Number(row.attempts ?? 0),
+  );
   const parsedError = parseInvoiceError(row.error ?? null);
 
   return {
@@ -103,7 +119,7 @@ export async function getInvoices(): Promise<AdminInvoice[]> {
             o.payment_form, o.payment_method_code
      FROM invoices i
      LEFT JOIN orders o ON o.id = i.order_id
-     ORDER BY i.id DESC`
+     ORDER BY i.id DESC`,
   );
   return rows.map(mapInvoiceForAdmin);
 }

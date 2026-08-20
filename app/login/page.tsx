@@ -176,11 +176,11 @@ export default function LoginPage() {
                 htmlFor="username"
                 className="block text-sm font-medium mb-2"
               >
-                Usuario
+                Usuario{" "}
                 <span className="text-destructive ml-1" aria-hidden="true">
                   *
-                </span>
-                <span className="sr-only"> (obligatorio)</span>
+                </span>{" "}
+                <span className="sr-only">(obligatorio)</span>
               </label>
               <Input
                 ref={usernameRef}
@@ -224,11 +224,11 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium mb-2"
               >
-                Contraseña
+                Contraseña{" "}
                 <span className="text-destructive ml-1" aria-hidden="true">
                   *
-                </span>
-                <span className="sr-only"> (obligatoria)</span>
+                </span>{" "}
+                <span className="sr-only">(obligatoria)</span>
               </label>
               <div className="relative">
                 <Input

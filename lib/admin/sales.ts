@@ -6,7 +6,7 @@ function toIsoString(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.trim() !== "") return value;
   if (typeof value === "object") return null;
-  return String(value);
+  return String(value as number | boolean | bigint);
 }
 
 /** Extrae YYYY-MM-DD de un Date/string; null si vacío. */
@@ -21,7 +21,13 @@ export interface Sale {
   id: number;
   date: string;
   customer: string;
-  items: { id: string; qty: number; price?: number; name?: string; presentation?: string }[];
+  items: {
+    id: string;
+    qty: number;
+    price?: number;
+    name?: string;
+    presentation?: string;
+  }[];
   total: number;
   customer_id?: number | null;
   payment_form?: string | null;
@@ -62,7 +68,7 @@ function mapOrderRow(o: any): Sale {
     id: o.id,
     date: toIsoString(o.date) ?? "",
     customer: o.customer,
-    items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items || [],
+    items: typeof o.items === "string" ? JSON.parse(o.items) : o.items || [],
     total: Number(o.total),
     customer_id: o.customer_id ?? null,
     payment_form: o.payment_form ?? null,
@@ -73,12 +79,20 @@ function mapOrderRow(o: any): Sale {
 }
 
 /** Paginación server-side de ventas (para /admin/ventas). */
-export async function getSalesPage(page = 1, pageSize = DEFAULT_SALES_PAGE_SIZE): Promise<SalesPageResult> {
+export async function getSalesPage(
+  page = 1,
+  pageSize = DEFAULT_SALES_PAGE_SIZE,
+): Promise<SalesPageResult> {
   const safePage = Math.max(1, Number(page) || 1);
-  const safePageSize = Math.min(50, Math.max(1, Number(pageSize) || DEFAULT_SALES_PAGE_SIZE));
+  const safePageSize = Math.min(
+    50,
+    Math.max(1, Number(pageSize) || DEFAULT_SALES_PAGE_SIZE),
+  );
   const offset = (safePage - 1) * safePageSize;
   try {
-    const [countRow] = await queryMany<any>("SELECT COUNT(*) AS total FROM orders");
+    const [countRow] = await queryMany<any>(
+      "SELECT COUNT(*) AS total FROM orders",
+    );
     const total = Number(countRow?.total) || 0;
     const totalPages = Math.max(1, Math.ceil(total / safePageSize));
 
@@ -99,7 +113,13 @@ export async function getSalesPage(page = 1, pageSize = DEFAULT_SALES_PAGE_SIZE)
     };
   } catch (error) {
     console.error("Error fetching sales:", error);
-    return { sales: [], total: 0, page: safePage, pageSize: safePageSize, totalPages: 1 };
+    return {
+      sales: [],
+      total: 0,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: 1,
+    };
   }
 }
 
@@ -116,11 +136,11 @@ export async function getProducts(): Promise<Product[]> {
               c.name as category, c.slug as category_slug 
        FROM products p 
        LEFT JOIN categories c ON p.category_id = c.id 
-       ORDER BY p.name ASC`
+       ORDER BY p.name ASC`,
     );
-    return products.map(p => {
+    return products.map((p) => {
       const price = Number(p.price) || 0;
-      const isActive = p.active === true || p.active === 1 || p.active === '1';
+      const isActive = p.active === true || p.active === 1 || p.active === "1";
       return {
         ...p,
         active: isActive,
@@ -129,7 +149,7 @@ export async function getProducts(): Promise<Product[]> {
         price_250g: Math.round(price * 0.55),
         price_125g: Math.round(price * 0.3),
         stock: Number(p.stock) || 0,
-        presentation: p.presentation || '500g',
+        presentation: p.presentation || "500g",
         code_reference: p.code_reference ?? null,
         unit_measure_code: p.unit_measure_code ?? null,
         standard_code: p.standard_code ?? null,

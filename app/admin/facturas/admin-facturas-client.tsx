@@ -58,6 +58,19 @@ const STATUS_META: Record<string, { classes: string }> = {
   cancelled: { classes: "bg-gray-100 text-gray-700" },
 };
 
+function detailBannerClass(invoice: InvoiceData): string {
+  if (invoice.requires_reconciliation) {
+    return "bg-amber-50 text-amber-800 border-amber-200";
+  }
+  if (invoice.status === "failed") {
+    return "bg-danger/5 text-danger border-danger/20";
+  }
+  if (invoice.status === "validated") {
+    return "bg-success/5 text-success border-success/20";
+  }
+  return "bg-muted text-muted-foreground border-border";
+}
+
 const PAYMENT_FORM_LABEL = Object.fromEntries(
   PAYMENT_FORMS.map((f) => [f.code, f.label]),
 );
@@ -481,15 +494,9 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
             </div>
 
             <div
-              className={`text-sm rounded-xl border px-4 py-3 space-y-2 ${
-                detail.requires_reconciliation
-                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                  : detail.status === "failed"
-                    ? "bg-danger/5 text-danger border-danger/20"
-                    : detail.status === "validated"
-                      ? "bg-success/5 text-success border-success/20"
-                      : "bg-muted text-muted-foreground border-border"
-              }`}
+              className={`text-sm rounded-xl border px-4 py-3 space-y-2 ${detailBannerClass(
+                detail,
+              )}`}
             >
               <p className="font-medium">{detail.status_message}</p>
               <p>{detail.attempts_label}</p>

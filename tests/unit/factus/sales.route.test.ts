@@ -107,7 +107,7 @@ describe("POST /api/admin/sales - datos de pago", () => {
         payment_method_code: "42",
         payment_reference: "CONS-9",
       },
-      [product]
+      [product],
     );
 
     expect(res.status).toBe(200);
@@ -118,14 +118,70 @@ describe("POST /api/admin/sales - datos de pago", () => {
     expect(data.id).toBe(77);
   });
 
-  it("crédito (payment_form=2) sin payment_due_date: rechaza", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "2", payment_method_code: "10" },
-      [product]
-    );
+  it.each([
+    [
+      "crédito (payment_form=2) sin payment_due_date",
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_form: "2",
+        payment_method_code: "10",
+      },
+      "payment_due_date",
+    ],
+    [
+      "sin payment_form",
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_method_code: "10",
+      },
+      "payment_form",
+    ],
+    [
+      "sin payment_method_code",
+      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "1" },
+      "payment_method_code",
+    ],
+    [
+      "con payment_method_code fuera del catálogo",
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_form: "1",
+        payment_method_code: "99",
+      },
+      "catálogo",
+    ],
+    [
+      "sin payment_reference cuando el método la requiere",
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_form: "1",
+        payment_method_code: "42",
+      },
+      "payment_reference",
+    ],
+  ] as const)("rechaza: %s", async (_, body, expected) => {
+    const { res } = await postSale(body, [product]);
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("payment_due_date");
+    expect(data.error).toContain(expected);
+  });
+
+  it("no abre la transacción cuando los datos de pago son inválidos", async () => {
+    const { res } = await postSale(
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 1 }],
+        payment_form: "1",
+        payment_method_code: "99",
+      },
+      [product],
+    );
+    expect(res.status).toBe(400);
+    expect(vi.mocked(withTransaction)).not.toHaveBeenCalled();
   });
 
   it("crédito con payment_due_date: lo persiste", async () => {
@@ -137,60 +193,11 @@ describe("POST /api/admin/sales - datos de pago", () => {
         payment_method_code: "10",
         payment_due_date: "2026-06-30",
       },
-      [product]
+      [product],
     );
     expect(res.status).toBe(200);
     const insert = ordersInsert(conn);
     expect(insert!.params.slice(-4)).toEqual(["2", "10", null, "2026-06-30"]);
-  });
-
-  it("rechaza si payment_form falta", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_method_code: "10" },
-      [product]
-    );
-    expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("payment_form");
-  });
-
-  it("rechaza si payment_method_code falta", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "1" },
-      [product]
-    );
-    expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("payment_method_code");
-  });
-
-  it("rechaza si payment_method_code no está en el catálogo", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "1", payment_method_code: "99" },
-      [product]
-    );
-    expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("catálogo");
-  });
-
-  it("no abre la transacción cuando los datos de pago son inválidos", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "1", payment_method_code: "99" },
-      [product]
-    );
-    expect(res.status).toBe(400);
-    expect(vi.mocked(withTransaction)).not.toHaveBeenCalled();
-  });
-
-  it("rechaza si falta payment_reference cuando el método la requiere", async () => {
-    const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 1 }], payment_form: "1", payment_method_code: "42" },
-      [product]
-    );
-    expect(res.status).toBe(400);
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("payment_reference");
   });
 
   it("no persiste payment_reference cuando el método no la requiere", async () => {
@@ -203,7 +210,7 @@ describe("POST /api/admin/sales - datos de pago", () => {
         payment_reference: "sobra",
         payment_due_date: "2026-06-30",
       },
-      [product]
+      [product],
     );
     expect(res.status).toBe(200);
     const insert = ordersInsert(conn);
@@ -215,8 +222,14 @@ describe("POST /api/admin/sales - datos de pago", () => {
 describe("POST /api/admin/sales - autoridad server-side", () => {
   it("rechaza si el total enviado no coincide con el calculado por el servidor", async () => {
     const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 2 }], total: "1", payment_form: "1", payment_method_code: "10" },
-      [product]
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 2 }],
+        total: "1",
+        payment_form: "1",
+        payment_method_code: "10",
+      },
+      [product],
     );
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
@@ -232,7 +245,7 @@ describe("POST /api/admin/sales - autoridad server-side", () => {
         payment_form: "1",
         payment_method_code: "10",
       },
-      [product]
+      [product],
     );
     expect(res.status).toBe(200);
     const insert = ordersInsert(conn);
@@ -245,8 +258,13 @@ describe("POST /api/admin/sales - autoridad server-side", () => {
   it("rechaza la venta si el stock es insuficiente", async () => {
     const scarce = { ...product, stock: 1 };
     const { res } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 5 }], payment_form: "1", payment_method_code: "10" },
-      [scarce]
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 5 }],
+        payment_form: "1",
+        payment_method_code: "10",
+      },
+      [scarce],
     );
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
@@ -255,14 +273,23 @@ describe("POST /api/admin/sales - autoridad server-side", () => {
 
   it("descuenta stock y registra inventory_movements en ventas válidas", async () => {
     const { res, conn } = await postSale(
-      { customer: "A", items: [{ id: "1", qty: 2 }], payment_form: "1", payment_method_code: "10" },
-      [product]
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 2 }],
+        payment_form: "1",
+        payment_method_code: "10",
+      },
+      [product],
     );
     expect(res.status).toBe(200);
-    const update = conn.calls.find((c) => c.sql.includes("UPDATE products SET stock"));
+    const update = conn.calls.find((c) =>
+      c.sql.includes("UPDATE products SET stock"),
+    );
     expect(update).toBeDefined();
     expect(update!.params).toEqual([2, 1]);
-    expect(conn.calls.some((c) => c.sql.includes("INSERT INTO inventory_movements"))).toBe(true);
+    expect(
+      conn.calls.some((c) => c.sql.includes("INSERT INTO inventory_movements")),
+    ).toBe(true);
   });
 });
 
@@ -284,27 +311,58 @@ describe("GET /api/admin/sales - ventas históricas", () => {
     expect(res.status).toBe(200);
     const data = (await res.json()) as {
       sales: { customer: string }[];
-      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+      };
     };
     expect(data.sales).toHaveLength(1);
     expect(data.sales[0].customer).toBe("Histórico");
-    expect(data.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
+    expect(data.pagination).toEqual({
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
   });
 
   it("aplica LIMIT/OFFSET a la página solicitada", async () => {
     vi.mocked(queryMany)
       .mockResolvedValueOnce([{ total: 35 }])
-      .mockResolvedValueOnce([{ id: 4, customer: "Página 4", total: 1000, items: "[]", status: "pending", created_at: "2026-01-01T00:00:00.000Z" }]);
-    const res = await GET(new NextRequest("http://localhost/api/admin/sales?page=3&pageSize=10"));
+      .mockResolvedValueOnce([
+        {
+          id: 4,
+          customer: "Página 4",
+          total: 1000,
+          items: "[]",
+          status: "pending",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ]);
+    const res = await GET(
+      new NextRequest("http://localhost/api/admin/sales?page=3&pageSize=10"),
+    );
     expect(res.status).toBe(200);
     const data = (await res.json()) as {
       sales: { customer: string }[];
-      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+      };
     };
-    expect(data.pagination).toEqual({ page: 3, pageSize: 10, total: 35, totalPages: 4 });
+    expect(data.pagination).toEqual({
+      page: 3,
+      pageSize: 10,
+      total: 35,
+      totalPages: 4,
+    });
     expect(queryMany).toHaveBeenCalledWith(
       expect.stringContaining("LIMIT ? OFFSET ?"),
-      [10, 20]
+      [10, 20],
     );
   });
 });

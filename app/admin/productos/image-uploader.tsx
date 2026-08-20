@@ -9,6 +9,7 @@ interface ImageUploaderProps {
   onChange: (url: string | null) => void;
   defaultImage?: string;
   maxSizeMB?: number;
+  inputId?: string;
 }
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -19,6 +20,7 @@ export function ImageUploader({
   onChange,
   defaultImage,
   maxSizeMB = MAX_SIZE_MB_DEFAULT,
+  inputId,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -26,7 +28,12 @@ export function ImageUploader({
   const [imageError, setImageError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage = value && !imageError ? value : (defaultImage && !imageError ? defaultImage : null);
+  const displayImage =
+    value && !imageError
+      ? value
+      : defaultImage && !imageError
+        ? defaultImage
+        : null;
   const hasImage = !!displayImage;
 
   useEffect(() => {
@@ -98,41 +105,44 @@ export function ImageUploader({
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      const validationError = validateFile(file);
-      if (validationError) {
-        setError(validationError);
-        return;
-      }
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        const validationError = validateFile(file);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
 
-      setError(null);
-      setIsUploading(true);
+        setError(null);
+        setIsUploading(true);
 
-      const formData = new FormData();
-      formData.append("file", file);
+        const formData = new FormData();
+        formData.append("file", file);
 
-      fetch("/api/admin/upload", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      })
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
-        .then((data) => onChange(data.url))
-        .catch(() => {
-          const reader = new FileReader();
-          reader.onloadend = () => onChange(reader.result as string);
-          reader.readAsDataURL(file);
+        fetch("/api/admin/upload", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
         })
-        .finally(() => setIsUploading(false));
-    }
-  }, [onChange]);
+          .then((res) => (res.ok ? res.json() : Promise.reject()))
+          .then((data) => onChange(data.url))
+          .catch(() => {
+            const reader = new FileReader();
+            reader.onloadend = () => onChange(reader.result as string);
+            reader.readAsDataURL(file);
+          })
+          .finally(() => setIsUploading(false));
+      }
+    },
+    [onChange],
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -171,11 +181,14 @@ export function ImageUploader({
           hasImage
             ? "border-transparent cursor-default"
             : "border-border/60 hover:border-brand-caramel/50 hover:bg-muted/50 cursor-pointer",
-          !hasImage && isDragging && "border-brand-caramel bg-brand-caramel/5 scale-[1.02]",
-          error && !hasImage && "border-red-500 bg-red-50/50"
+          !hasImage &&
+            isDragging &&
+            "border-brand-caramel bg-brand-caramel/5 scale-[1.02]",
+          error && !hasImage && "border-red-500 bg-red-50/50",
         )}
       >
         <input
+          id={inputId}
           ref={fileInputRef}
           type="file"
           accept={ACCEPTED_TYPES.join(",")}
@@ -220,7 +233,7 @@ export function ImageUploader({
             <div
               className={cn(
                 "size-16 rounded-2xl flex items-center justify-center mb-4 transition-colors",
-                isDragging ? "bg-brand-caramel/20" : "bg-muted"
+                isDragging ? "bg-brand-caramel/20" : "bg-muted",
               )}
             >
               {isDragging ? (
@@ -229,7 +242,7 @@ export function ImageUploader({
                 <Upload
                   className={cn(
                     "size-8",
-                    error ? "text-red-500" : "text-muted-foreground"
+                    error ? "text-red-500" : "text-muted-foreground",
                   )}
                 />
               )}
@@ -237,7 +250,7 @@ export function ImageUploader({
             <span
               className={cn(
                 "text-sm font-medium text-center mb-1",
-                error ? "text-red-600" : "text-foreground"
+                error ? "text-red-600" : "text-foreground",
               )}
             >
               {error ? "Error" : "Subir imagen"}
