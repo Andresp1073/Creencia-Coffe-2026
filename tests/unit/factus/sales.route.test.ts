@@ -293,6 +293,60 @@ describe("POST /api/admin/sales - autoridad server-side", () => {
   });
 });
 
+describe("POST /api/admin/sales - alerta de stock bajo", () => {
+  it("stock bajo: persiste notification y envía email simulado sin RESEND_API_KEY", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const lowStock = { ...product, stock: 6 };
+    const { res, conn } = await postSale(
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 2 }],
+        payment_form: "1",
+        payment_method_code: "10",
+      },
+      [lowStock],
+    );
+
+    expect(res.status).toBe(200);
+    const notification = conn.calls.find((c) =>
+      c.sql.includes("INSERT INTO notifications"),
+    );
+    expect(notification).toBeDefined();
+    expect(notification!.sql).toContain("'stock_low'");
+    expect(notification!.params[0]).toBe(lowStock.id);
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[EMAIL SIMULADO]"),
+    );
+    logSpy.mockRestore();
+  });
+
+  it("stock bajo con RESEND_API_KEY: llama a la API de resend con el token", async () => {
+    process.env.RESEND_API_KEY = "test-key";
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const lowStock = { ...product, stock: 6 };
+
+    const { res } = await postSale(
+      {
+        customer: "A",
+        items: [{ id: "1", qty: 2 }],
+        payment_form: "1",
+        payment_method_code: "10",
+      },
+      [lowStock],
+    );
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer test-key");
+    expect(String(init.body)).toContain("Café 500g");
+    vi.unstubAllGlobals();
+    delete process.env.RESEND_API_KEY;
+  });
+});
+
 describe("GET /api/admin/sales - ventas históricas", () => {
   it("devuelve ventas históricas sin exigir datos de pago", async () => {
     vi.mocked(queryMany)
@@ -364,5 +418,71 @@ describe("GET /api/admin/sales - ventas históricas", () => {
       expect.stringContaining("LIMIT ? OFFSET ?"),
       [10, 20],
     );
+  });
+
+  it("parsea items JSON válido y recorta payment_due_date a YYYY-MM-DD", async () => {
+    vi.mocked(queryMany)
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([
+        {
+          id: 2,
+          customer: "Fecha",
+          total: 80000,
+          items: '[{"id":"1","qty":2}]',
+          status: "pending",
+          created_at: "2026-01-01T00:00:00.000Z",
+          payment_due_date: "2026-06-30T12:30:00.000Z",
+        },
+      ]);
+    const res = await GET(new NextRequest("http://localhost/api/admin/sales"));
+    const data = (await res.json()) as {
+      sales: { items: unknown[]; payment_due_date: string }[];
+    };
+    expect(data.sales[0].items).toEqual([{ id: "1", qty: 2 }]);
+    expect(data.sales[0].payment_due_date).toBe("2026-06-30");
+  });
+
+  it("devuelve items vacío ante JSON inválido", async () => {
+    vi.mocked(queryMany)
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([
+        {
+          id: 3,
+          customer: "Mal JSON",
+          total: 1000,
+          items: "{no-json",
+          status: "pending",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ]);
+    const res = await GET(new NextRequest("http://localhost/api/admin/sales"));
+    const data = (await res.json()) as { sales: { items: unknown[] }[] };
+    expect(data.sales[0].items).toEqual([]);
+  });
+
+  it("respeta valores no-string en items (raw arrays)", async () => {
+    vi.mocked(queryMany)
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([
+        {
+          id: 4,
+          customer: "Array",
+          total: 2000,
+          items: [{ id: "9", qty: 3 }],
+          status: "pending",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ]);
+    const res = await GET(new NextRequest("http://localhost/api/admin/sales"));
+    const data = (await res.json()) as { sales: { items: unknown[] }[] };
+    expect(data.sales[0].items).toEqual([{ id: "9", qty: 3 }]);
+  });
+
+  it("devuelve respuesta 500 con error controlado si falla la consulta", async () => {
+    vi.mocked(queryMany).mockRejectedValueOnce(new Error("db down"));
+    const res = await GET(new NextRequest("http://localhost/api/admin/sales"));
+    expect(res.status).toBe(500);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBeDefined();
   });
 });
