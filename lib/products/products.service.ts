@@ -79,7 +79,6 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     transformed.price_500g = prices['500g'] || transformed.price_500g;
     transformed.price_250g = prices['250g'] || transformed.price_250g;
     transformed.price_125g = prices['125g'] || transformed.price_125g;
-    transformed.price = transformed.price;
     transformed.presentation = mainProduct.presentation as "500g" | "250g" | "125g";
     
     // Add available presentations ordered by id ASC (first created first)
@@ -129,9 +128,9 @@ function transformProduct(p: any): Product {
   
   let imageUrl = p.image || "";
   if (imageUrl.startsWith("data:")) {
-    imageUrl = imageUrl;
+    // data URL, keep as is
   } else if (imageUrl.startsWith("http")) {
-    imageUrl = imageUrl;
+    // external URL, keep as is
   } else if (imageUrl) {
     imageUrl = imageUrl.startsWith("/") ? imageUrl : "/" + imageUrl;
   } else {
