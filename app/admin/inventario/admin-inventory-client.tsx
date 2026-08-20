@@ -18,18 +18,18 @@ interface Product {
 }
 
 interface Props {
-  initialProducts: Product[];
+  readonly initialProducts: Product[];
 }
 
-function StockModal({ 
-  product, 
-  type, 
-  onClose, 
-  onSaved 
-}: { 
-  product: Product; 
-  type: "entrada" | "salida"; 
-  onClose: () => void; 
+function StockModal({
+  product,
+  type,
+  onClose,
+  onSaved,
+}: {
+  product: Product;
+  type: "entrada" | "salida";
+  onClose: () => void;
   onSaved: (message: string, type: "success" | "error" | "warning") => void;
 }) {
   const [qty, setQty] = useState(1);
@@ -40,18 +40,19 @@ function StockModal({
     if (qty <= 0) return;
     setSaving(true);
     try {
-      const newStock = type === "entrada" 
-        ? (product.stock || 0) + qty 
-        : Math.max(0, (product.stock || 0) - qty);
-      
+      const newStock =
+        type === "entrada"
+          ? (product.stock || 0) + qty
+          : Math.max(0, (product.stock || 0) - qty);
+
       const res = await fetch("/api/admin/products", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           id: product.id,
-          stock: newStock
-        })
+          stock: newStock,
+        }),
       });
 
       if (res.ok) {
@@ -59,18 +60,21 @@ function StockModal({
           product_id: Number(product.id),
           type: type,
           quantity: Number(qty),
-          reason: note || null
+          reason: note || null,
         };
-        
+
         await fetch("/api/admin/inventory-movements", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(movementData)
+          body: JSON.stringify(movementData),
         });
-        
+
         if (type === "salida" && newStock <= 5) {
-          onSaved(`Stock actualizado. Alerta: "${product.name}" tiene stock bajo (${newStock} unidades)`, "warning");
+          onSaved(
+            `Stock actualizado. Alerta: "${product.name}" tiene stock bajo (${newStock} unidades)`,
+            "warning",
+          );
         } else {
           onSaved("Movimiento registrado correctamente", "success");
         }
@@ -95,7 +99,12 @@ function StockModal({
     >
       <div className="space-y-4">
         <div>
-          <label htmlFor="stock-qty" className="block text-sm font-medium text-foreground mb-2">Cantidad</label>
+          <label
+            htmlFor="stock-qty"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
+            Cantidad
+          </label>
           <input
             id="stock-qty"
             type="number"
@@ -107,7 +116,12 @@ function StockModal({
           />
         </div>
         <div>
-          <label htmlFor="stock-note" className="block text-sm font-medium text-foreground mb-2">Nota (opcional)</label>
+          <label
+            htmlFor="stock-note"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
+            Nota (opcional)
+          </label>
           <input
             id="stock-note"
             type="text"
@@ -118,10 +132,20 @@ function StockModal({
           />
         </div>
         <div className="flex gap-3 pt-2">
-          <Button variant="ghost" onClick={onClose} className="flex-1" aria-label="Cancelar">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="flex-1"
+            aria-label="Cancelar"
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} loading={saving} disabled={qty <= 0} className="flex-1">
+          <Button
+            onClick={handleSubmit}
+            loading={saving}
+            disabled={qty <= 0}
+            className="flex-1"
+          >
             Registrar
           </Button>
         </div>
@@ -132,14 +156,21 @@ function StockModal({
 
 export function AdminInventoryClient({ initialProducts }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(products);
-  const [stockModal, setStockModal] = useState<{ product: Product; type: "entrada" | "salida" } | null>(null);
+  const { page, setPage, totalPages, totalItems, pagedItems } =
+    usePagedList(products);
+  const [stockModal, setStockModal] = useState<{
+    product: Product;
+    type: "entrada" | "salida";
+  } | null>(null);
 
-  const showToast = useCallback((message: string, type: "success" | "error" | "warning") => {
-    if (type === "success") sileo.success({ title: message });
-    else if (type === "warning") sileo.warning({ title: message });
-    else sileo.error({ title: message });
-  }, []);
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" | "warning") => {
+      if (type === "success") sileo.success({ title: message });
+      else if (type === "warning") sileo.warning({ title: message });
+      else sileo.error({ title: message });
+    },
+    [],
+  );
 
   const stockStatus = (stock: number) => {
     if (stock === 0) return { label: "Sin stock", variant: "danger" as const };
@@ -158,8 +189,8 @@ export function AdminInventoryClient({ initialProducts }: Props) {
             showToast(message, type);
             if (type === "success") {
               fetch("/api/admin/products", { credentials: "include" })
-                .then(res => res.json())
-                .then(data => setProducts(data.products || []));
+                .then((res) => res.json())
+                .then((data) => setProducts(data.products || []));
             }
           }}
         />
@@ -168,42 +199,77 @@ export function AdminInventoryClient({ initialProducts }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl text-foreground">Inventario</h1>
-          <p className="text-sm text-muted-foreground mt-1">Controla el stock y los movimientos de cada producto</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Controla el stock y los movimientos de cada producto
+          </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Stock por producto">
+      <div
+        className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden"
+        role="region"
+        aria-label="Stock por producto"
+      >
         <div className="px-6 py-5 border-b border-border">
-          <h2 className="font-display text-xl text-foreground">Stock por producto</h2>
+          <h2 className="font-display text-xl text-foreground">
+            Stock por producto
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-6 py-4 font-medium text-left" scope="col">Producto</th>
-                <th className="px-6 py-4 font-medium text-left" scope="col">Presentación</th>
-                <th className="px-6 py-4 font-medium text-right" scope="col">Stock</th>
-                <th className="px-6 py-4 font-medium text-center" scope="col">Estado</th>
-                <th className="px-6 py-4 font-medium text-right" scope="col">Acciones</th>
+                <th className="px-6 py-4 font-medium text-left" scope="col">
+                  Producto
+                </th>
+                <th className="px-6 py-4 font-medium text-left" scope="col">
+                  Presentación
+                </th>
+                <th className="px-6 py-4 font-medium text-right" scope="col">
+                  Stock
+                </th>
+                <th className="px-6 py-4 font-medium text-center" scope="col">
+                  Estado
+                </th>
+                <th className="px-6 py-4 font-medium text-right" scope="col">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {pagedItems.map((p) => {
                 const status = stockStatus(p.stock || 0);
                 return (
-                  <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-foreground">{p.name}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{p.presentation}</td>
-                    <td className="px-6 py-4 text-right tabular-nums font-medium text-foreground">{p.stock || 0}</td>
+                  <tr
+                    key={p.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="px-6 py-4 font-medium text-foreground">
+                      {p.name}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">
+                      {p.presentation}
+                    </td>
+                    <td className="px-6 py-4 text-right tabular-nums font-medium text-foreground">
+                      {p.stock || 0}
+                    </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={status.variant} size="sm" aria-label={`Estado: ${status.label}`}>{status.label}</Badge>
+                      <Badge
+                        variant={status.variant}
+                        size="sm"
+                        aria-label={`Estado: ${status.label}`}
+                      >
+                        {status.label}
+                      </Badge>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setStockModal({ product: p, type: "entrada" })}
+                          onClick={() =>
+                            setStockModal({ product: p, type: "entrada" })
+                          }
                           className="gap-1.5"
                           aria-label={`Registrar entrada de stock para ${p.name}`}
                         >
@@ -213,7 +279,9 @@ export function AdminInventoryClient({ initialProducts }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setStockModal({ product: p, type: "salida" })}
+                          onClick={() =>
+                            setStockModal({ product: p, type: "salida" })
+                          }
                           className="gap-1.5 text-danger hover:text-danger"
                           aria-label={`Registrar salida de stock para ${p.name}`}
                         >

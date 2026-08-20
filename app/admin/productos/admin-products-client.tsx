@@ -45,10 +45,14 @@ interface Props {
   initialCategories: Category[];
 }
 
-export function AdminProductsClient({ initialProducts, initialCategories }: Props) {
+export function AdminProductsClient({
+  initialProducts,
+  initialCategories,
+}: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(products);
+  const { page, setPage, totalPages, totalItems, pagedItems } =
+    usePagedList(products);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -77,14 +81,19 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     setSaving(true);
 
     const imageUrl = form.image || defaultImage;
-    const slug = form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "producto-" + Date.now();
-    
+    const slug =
+      form.name
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "") || "producto-" + Date.now();
+
     const productData: Product = {
       id: editingId || 0,
       name: form.name,
       slug,
       category_id: form.category_id,
-      category: categories.find(c => c.id === form.category_id)?.name || "Café",
+      category:
+        categories.find((c) => c.id === form.category_id)?.name || "Café",
       presentation: form.presentation,
       price: Number(form.price_500g) || Number(form.price) || 0,
       price_500g: Number(form.price_500g) || 0,
@@ -103,29 +112,37 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     };
 
     try {
-      const method = editingId ? 'PUT' : 'POST';
-      
-      const res = await fetch('/api/admin/products', {
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch("/api/admin/products", {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(productData)
+        body: JSON.stringify(productData),
       });
 
-      if (!res.ok) throw new Error('Error guardando');
+      if (!res.ok) throw new Error("Error guardando");
 
       if (editingId) {
-        setProducts(products.map(p => p.id === editingId ? { ...p, ...productData } : p));
+        setProducts(
+          products.map((p) =>
+            p.id === editingId ? { ...p, ...productData } : p,
+          ),
+        );
       } else {
-        const productsRes = await fetch('/api/admin/products', { credentials: "include" });
+        const productsRes = await fetch("/api/admin/products", {
+          credentials: "include",
+        });
         const productsData = await productsRes.json();
         if (productsData.products) {
           setProducts(productsData.products);
         }
       }
-      sileo.success({ title: editingId ? "Producto actualizado" : "Producto creado" });
+      sileo.success({
+        title: editingId ? "Producto actualizado" : "Producto creado",
+      });
       resetForm();
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Error al guardar" });
     } finally {
       setSaving(false);
@@ -156,14 +173,19 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
   };
 
   const handleEdit = (product: Product) => {
-    const categoryId = (product as any).category_id || categories.find(c => c.name === product.category)?.id || 1;
+    const categoryId =
+      (product as any).category_id ||
+      categories.find((c) => c.name === product.category)?.id ||
+      1;
     setForm({
       name: product.name,
       category_id: categoryId,
       presentation: product.presentation,
       price: String(product.price),
       price_500g: String(product.price_500g || product.price),
-      price_250g: String(product.price_250g || Math.round(product.price * 0.55)),
+      price_250g: String(
+        product.price_250g || Math.round(product.price * 0.55),
+      ),
       price_125g: String(product.price_125g || Math.round(product.price * 0.3)),
       stock: String(product.stock),
       description: product.description || "",
@@ -173,7 +195,12 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       unitMeasureCode: String(product.unit_measure_code || "94"),
       standardCode: String(product.standard_code || "999"),
       taxCode: String(product.tax_code || "01"),
-      taxRate: product.tax_rate === null || product.tax_rate === undefined || product.tax_rate === "" ? "" : String(product.tax_rate),
+      taxRate:
+        product.tax_rate === null ||
+        product.tax_rate === undefined ||
+        product.tax_rate === ""
+          ? ""
+          : String(product.tax_rate),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -183,12 +210,17 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     const newActive = !currentActive;
     setToggling(id);
     try {
-      await fetch('/api/admin/products', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...products.find(p => p.id === id), active: newActive })
+      await fetch("/api/admin/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...products.find((p) => p.id === id),
+          active: newActive,
+        }),
       });
-      setProducts(products.map(p => p.id === id ? { ...p, active: newActive } : p));
+      setProducts(
+        products.map((p) => (p.id === id ? { ...p, active: newActive } : p)),
+      );
     } catch {
       sileo.error({ title: "Error al actualizar" });
     } finally {
@@ -199,8 +231,8 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
   const handleDelete = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar este producto?")) return;
     try {
-      await fetch(`/api/admin/products?id=${id}`, { method: 'DELETE' });
-      setProducts(products.filter(p => p.id !== id));
+      await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
+      setProducts(products.filter((p) => p.id !== id));
       sileo.success({ title: "Producto eliminado" });
     } catch {
       sileo.error({ title: "Error al eliminar" });
@@ -219,7 +251,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl">Productos</h1>
-          <p className="text-muted-foreground mt-1">Gestiona tu catálogo y precios</p>
+          <p className="text-muted-foreground mt-1">
+            Gestiona tu catálogo y precios
+          </p>
         </div>
         <button
           onClick={() => {
@@ -243,12 +277,22 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border/50 bg-muted/30">
                   <th className="px-4 sm:px-6 py-3.5 font-normal">Producto</th>
-                  <th className="px-4 sm:px-6 py-3.5 font-normal hidden lg:table-cell">Categoría</th>
-                  <th className="px-4 sm:px-6 py-3.5 font-normal">Presentación</th>
-                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Precio</th>
-                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Stock</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal hidden lg:table-cell">
+                    Categoría
+                  </th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal">
+                    Presentación
+                  </th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">
+                    Precio
+                  </th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">
+                    Stock
+                  </th>
                   <th className="px-4 sm:px-6 py-3.5 font-normal">Estado</th>
-                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">Acciones</th>
+                  <th className="px-4 sm:px-6 py-3.5 font-normal text-right">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -266,22 +310,35 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                             alt={p.name}
                             className="size-9 sm:size-11 rounded-lg object-cover"
                           />
-                          <span className="font-medium text-foreground text-sm sm:text-base line-clamp-1">{p.name}</span>
+                          <span className="font-medium text-foreground text-sm sm:text-base line-clamp-1">
+                            {p.name}
+                          </span>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground hidden lg:table-cell">{p.category}</td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground">{p.presentation}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground hidden lg:table-cell">
+                        {p.category}
+                      </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground">
+                        {p.presentation}
+                      </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-right font-medium text-coffee-dark">
                         {formatCOP(p.price_500g || p.price)}
                       </td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-right tabular-nums">{p.stock}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-right tabular-nums">
+                        {p.stock}
+                      </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <span className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${
-                          status.variant === "success" ? "bg-brand-caramel/20 text-brand-brown" :
-                          status.variant === "warning" ? "bg-amber-100 text-amber-700" :
-                          status.variant === "danger" ? "bg-brand-terracotta/20 text-brand-terracotta" :
-                          "bg-gray-100 text-gray-700"
-                        }`}>
+                        <span
+                          className={`inline-flex px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium ${
+                            status.variant === "success"
+                              ? "bg-brand-caramel/20 text-brand-brown"
+                              : status.variant === "warning"
+                                ? "bg-amber-100 text-amber-700"
+                                : status.variant === "danger"
+                                  ? "bg-brand-terracotta/20 text-brand-terracotta"
+                                  : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
                           {status.label}
                         </span>
                       </td>
@@ -298,7 +355,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                             onClick={() => handleToggle(p.id, p.active)}
                             disabled={toggling !== null}
                             className="size-7 sm:size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth disabled:opacity-50"
-                            title={p.active ? "Ocultar producto" : "Mostrar producto"}
+                            title={
+                              p.active ? "Ocultar producto" : "Mostrar producto"
+                            }
                           >
                             {toggling === p.id ? (
                               <Loader2 className="size-4 animate-spin" />
@@ -353,10 +412,14 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid gap-6 md:grid-cols-3">
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium mb-2">Imagen del producto</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Imagen del producto
+                  </label>
                   <ImageUploader
                     value={form.image === defaultImage ? null : form.image}
-                    onChange={(url) => setForm({ ...form, image: url || defaultImage })}
+                    onChange={(url) =>
+                      setForm({ ...form, image: url || defaultImage })
+                    }
                     defaultImage={defaultImage}
                     maxSizeMB={5}
                   />
@@ -364,11 +427,15 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
 
                 <div className="md:col-span-2 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Nombre del producto *</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Nombre del producto *
+                    </label>
                     <input
                       type="text"
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
                       placeholder="Ej: Café Tostado Medio"
                       className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       required
@@ -377,22 +444,35 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Categoría</label>
+                      <label className="block text-sm font-medium mb-2">
+                        Categoría
+                      </label>
                       <select
                         value={form.category_id}
-                        onChange={(e) => setForm({ ...form, category_id: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            category_id: Number(e.target.value),
+                          })
+                        }
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       >
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">Presentación</label>
+                      <label className="block text-sm font-medium mb-2">
+                        Presentación
+                      </label>
                       <select
                         value={form.presentation}
-                        onChange={(e) => setForm({ ...form, presentation: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, presentation: e.target.value })
+                        }
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       >
                         <option value="500g">500g</option>
@@ -404,11 +484,19 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Precio (COP) *</label>
+                      <label className="block text-sm font-medium mb-2">
+                        Precio (COP) *
+                      </label>
                       <input
                         type="number"
                         value={form.price_500g}
-                        onChange={(e) => setForm({ ...form, price_500g: e.target.value, price: e.target.value })}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            price_500g: e.target.value,
+                            price: e.target.value,
+                          })
+                        }
                         placeholder="25000"
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         required
@@ -416,11 +504,15 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">Stock *</label>
+                      <label className="block text-sm font-medium mb-2">
+                        Stock *
+                      </label>
                       <input
                         type="number"
                         value={form.stock}
-                        onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, stock: e.target.value })
+                        }
                         placeholder="50"
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         required
@@ -430,10 +522,14 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Descripción</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Descripción
+                    </label>
                     <textarea
                       value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
                       placeholder="Descripción del producto..."
                       rows={3}
                       className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none resize-none"
@@ -441,68 +537,111 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                   </div>
 
                   <fieldset className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
-                    <legend className="text-sm font-semibold text-foreground px-1">Configuración fiscal (Factus)</legend>
+                    <legend className="text-sm font-semibold text-foreground px-1">
+                      Configuración fiscal (Factus)
+                    </legend>
                     <div>
-                      <label htmlFor="code-reference" className="block text-sm font-medium mb-2">Código de referencia (code_reference) *</label>
+                      <label
+                        htmlFor="code-reference"
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Código de referencia (code_reference) *
+                      </label>
                       <input
                         id="code-reference"
                         type="text"
                         value={form.codeReference}
-                        onChange={(e) => setForm({ ...form, codeReference: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, codeReference: e.target.value })
+                        }
                         placeholder="Ej: CAFE-500"
                         maxLength={50}
                         className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">Obligatorio para facturar.</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Obligatorio para facturar.
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label htmlFor="unit-measure-code" className="block text-sm font-medium mb-2">Unidad de medida</label>
+                        <label
+                          htmlFor="unit-measure-code"
+                          className="block text-sm font-medium mb-2"
+                        >
+                          Unidad de medida
+                        </label>
                         <input
                           id="unit-measure-code"
                           type="text"
                           value={form.unitMeasureCode}
-                          onChange={(e) => setForm({ ...form, unitMeasureCode: e.target.value })}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              unitMeasureCode: e.target.value,
+                            })
+                          }
                           maxLength={4}
                           className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         />
                       </div>
                       <div>
-                        <label htmlFor="standard-code" className="block text-sm font-medium mb-2">Código estándar</label>
+                        <label
+                          htmlFor="standard-code"
+                          className="block text-sm font-medium mb-2"
+                        >
+                          Código estándar
+                        </label>
                         <input
                           id="standard-code"
                           type="text"
                           value={form.standardCode}
-                          onChange={(e) => setForm({ ...form, standardCode: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, standardCode: e.target.value })
+                          }
                           maxLength={4}
                           className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         />
                       </div>
                       <div>
-                        <label htmlFor="tax-code" className="block text-sm font-medium mb-2">Código de impuesto</label>
+                        <label
+                          htmlFor="tax-code"
+                          className="block text-sm font-medium mb-2"
+                        >
+                          Código de impuesto
+                        </label>
                         <input
                           id="tax-code"
                           type="text"
                           value={form.taxCode}
-                          onChange={(e) => setForm({ ...form, taxCode: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, taxCode: e.target.value })
+                          }
                           maxLength={4}
                           className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         />
                       </div>
                       <div>
-                        <label htmlFor="tax-rate" className="block text-sm font-medium mb-2">Tasa de impuesto (%)</label>
+                        <label
+                          htmlFor="tax-rate"
+                          className="block text-sm font-medium mb-2"
+                        >
+                          Tasa de impuesto (%)
+                        </label>
                         <input
                           id="tax-rate"
                           type="number"
                           value={form.taxRate}
-                          onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, taxRate: e.target.value })
+                          }
                           placeholder="19"
                           min="0"
                           step="any"
                           className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:border-coffee-dark focus:ring-1 focus:ring-coffee-dark outline-none"
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          Vacío = no configurado (no facturable). 0 = excluido de impuestos. 19 = IVA 19%.
+                          Vacío = no configurado (no facturable). 0 = excluido
+                          de impuestos. 19 = IVA 19%.
                         </p>
                       </div>
                     </div>
@@ -513,10 +652,14 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                       type="checkbox"
                       id="featured"
                       checked={form.featured}
-                      onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                      onChange={(e) =>
+                        setForm({ ...form, featured: e.target.checked })
+                      }
                       className="w-4 h-4 rounded border-border text-brand-caramel focus:ring-brand-caramel"
                     />
-                    <label htmlFor="featured" className="text-sm">Producto destacado (aparece en inicio)</label>
+                    <label htmlFor="featured" className="text-sm">
+                      Producto destacado (aparece en inicio)
+                    </label>
                   </div>
                 </div>
               </div>
@@ -531,7 +674,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !form.name || !form.price_500g || !form.stock}
+                  disabled={
+                    saving || !form.name || !form.price_500g || !form.stock
+                  }
                   className="px-6 py-2.5 rounded-xl bg-coffee-dark text-cream font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {saving && <Loader2 className="size-4 animate-spin" />}

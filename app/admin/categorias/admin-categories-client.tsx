@@ -14,12 +14,13 @@ interface Category {
 }
 
 interface Props {
-  initialCategories: Category[];
+  readonly initialCategories: Category[];
 }
 
 export function AdminCategoriesClient({ initialCategories }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(categories);
+  const { page, setPage, totalPages, totalItems, pagedItems } =
+    usePagedList(categories);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", active: true });
@@ -32,7 +33,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
     try {
       const method = editingId ? "PUT" : "POST";
       const url = "/api/admin/categories";
-      
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -42,15 +43,26 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
       if (!res.ok) throw new Error("Error guardando");
 
       if (editingId) {
-        setCategories(categories.map(c => c.id === editingId ? { ...c, ...form } : c));
+        setCategories(
+          categories.map((c) => (c.id === editingId ? { ...c, ...form } : c)),
+        );
       } else {
-        const newId = Math.max(...categories.map(c => c.id), 0) + 1;
-        setCategories([...categories, { ...form, id: newId, slug: form.name.toLowerCase().replace(/\s+/g, '-') }]);
+        const newId = Math.max(...categories.map((c) => c.id), 0) + 1;
+        setCategories([
+          ...categories,
+          {
+            ...form,
+            id: newId,
+            slug: form.name.toLowerCase().replace(/\s+/g, "-"),
+          },
+        ]);
       }
 
       resetForm();
-      sileo.success({ title: editingId ? "Categoría actualizada" : "Categoría creada" });
-    } catch (error) {
+      sileo.success({
+        title: editingId ? "Categoría actualizada" : "Categoría creada",
+      });
+    } catch {
       sileo.error({ title: "Error al guardar" });
     } finally {
       setSaving(false);
@@ -65,12 +77,12 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
 
   const handleDelete = async (id: number) => {
     if (!confirm("¿Eliminar esta categoría?")) return;
-    
+
     try {
       await fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" });
-      setCategories(categories.filter(c => c.id !== id));
+      setCategories(categories.filter((c) => c.id !== id));
       sileo.success({ title: "Categoría eliminada" });
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Error al eliminar" });
     }
   };
@@ -82,9 +94,15 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...cat, active: !cat.active }),
       });
-      setCategories(categories.map(c => c.id === cat.id ? { ...c, active: !cat.active } : c));
-      sileo.success({ title: cat.active ? "Categoría ocultada" : "Categoría activada" });
-    } catch (error) {
+      setCategories(
+        categories.map((c) =>
+          c.id === cat.id ? { ...c, active: !cat.active } : c,
+        ),
+      );
+      sileo.success({
+        title: cat.active ? "Categoría ocultada" : "Categoría activada",
+      });
+    } catch {
       sileo.error({ title: "Error al actualizar" });
     }
   };
@@ -100,10 +118,15 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-2xl text-foreground">Categorías</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gestiona las categorías de productos</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestiona las categorías de productos
+          </p>
         </div>
         <button
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
           className="px-6 py-2.5 rounded-full bg-[#3E2723] text-white font-sans font-medium shadow-soft hover:shadow-warm hover:bg-[#4a332a] active:scale-95 transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Plus className="size-4" />
@@ -119,7 +142,9 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-foreground mb-2">Nombre</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Nombre
+                </label>
                 <input
                   type="text"
                   value={form.name}
@@ -136,10 +161,14 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                     type="checkbox"
                     id="active"
                     checked={form.active}
-                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                    onChange={(e) =>
+                      setForm({ ...form, active: e.target.checked })
+                    }
                     className="w-4 h-4 rounded border-border text-brand-caramel focus:ring-brand-caramel"
                   />
-                  <label htmlFor="active" className="text-sm text-foreground">Activa</label>
+                  <label htmlFor="active" className="text-sm text-foreground">
+                    Activa
+                  </label>
                 </div>
               )}
 
@@ -168,19 +197,33 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
         <table className="w-full">
           <thead className="bg-secondary/50">
             <tr>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Nombre</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Slug</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Estado</th>
-              <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Acciones</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                Nombre
+              </th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                Slug
+              </th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                Estado
+              </th>
+              <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {pagedItems.map((cat) => (
               <tr key={cat.id} className="hover:bg-secondary/30">
-                <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{cat.slug}</td>
+                <td className="px-4 py-3 font-medium text-foreground">
+                  {cat.name}
+                </td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">
+                  {cat.slug}
+                </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${cat.active ? 'bg-brand-caramel/20 text-brand-brown' : 'bg-brand-terracotta/20 text-brand-terracotta'}`}>
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs rounded-full ${cat.active ? "bg-brand-caramel/20 text-brand-brown" : "bg-brand-terracotta/20 text-brand-terracotta"}`}
+                  >
                     {cat.active ? "Activa" : "Inactiva"}
                   </span>
                 </td>
@@ -196,7 +239,9 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
                     <button
                       onClick={() => handleToggle(cat)}
                       className="size-8 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-smooth"
-                      title={cat.active ? "Ocultar categoría" : "Mostrar categoría"}
+                      title={
+                        cat.active ? "Ocultar categoría" : "Mostrar categoría"
+                      }
                     >
                       {cat.active ? (
                         <EyeOff className="size-4" strokeWidth={1.75} />

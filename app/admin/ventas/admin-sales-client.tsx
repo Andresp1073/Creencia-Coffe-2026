@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { Plus, Eye, X, Trash2, CheckCircle, FileText, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  Eye,
+  X,
+  Trash2,
+  CheckCircle,
+  FileText,
+  RefreshCw,
+} from "lucide-react";
 import { sileo } from "sileo";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
@@ -33,7 +41,13 @@ interface Sale {
   id: number;
   date: string;
   customer: string;
-  items: { id: string; qty: number; price?: number; name?: string; presentation?: string }[];
+  items: {
+    id: string;
+    qty: number;
+    price?: number;
+    name?: string;
+    presentation?: string;
+  }[];
   total: number;
   customer_id?: number | null;
   payment_form?: string | null;
@@ -43,9 +57,14 @@ interface Sale {
 }
 
 interface Props {
-  initialSales: Sale[];
-  initialPagination: { page: number; pageSize: number; total: number; totalPages: number };
-  initialProducts: Product[];
+  readonly initialSales: Sale[];
+  readonly initialPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  readonly initialProducts: Product[];
 }
 
 const DOCUMENT_CODES = [
@@ -73,7 +92,20 @@ const defaultCustomerForm = {
 
 type CustomerForm = typeof defaultCustomerForm;
 
-function InvoiceAction({ status, onInvoice }: { status: string; onInvoice: () => void }) {
+/** '500g'/'250g'/'125g' (catálogo) -> '500grs'/'250grs'/'125grs' (orders.items). */
+function orderPresentationLabel(pres: string): string {
+  if (pres === "500g") return "500grs";
+  if (pres === "250g") return "250grs";
+  return "125grs";
+}
+
+function InvoiceAction({
+  status,
+  onInvoice,
+}: {
+  readonly status: string;
+  readonly onInvoice: () => void;
+}) {
   if (status === "validated") {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
@@ -97,20 +129,31 @@ function InvoiceAction({ status, onInvoice }: { status: string; onInvoice: () =>
     );
   }
   return (
-    <Button variant="ghost" size="sm" onClick={onInvoice} aria-label="Reintentar facturación">
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onInvoice}
+      aria-label="Reintentar facturación"
+    >
       <RefreshCw className="size-4" aria-hidden="true" />
       {status === "failed" ? "Reintentar" : "Generar"}
     </Button>
   );
 }
 
-export function AdminSalesClient({ initialSales, initialPagination, initialProducts }: Props) {
+export function AdminSalesClient({
+  initialSales,
+  initialPagination,
+  initialProducts,
+}: Props) {
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [products] = useState<Product[]>(initialProducts);
   const [page, setPage] = useState(initialPagination.page || 1);
   const [pageSize] = useState(initialPagination.pageSize || 10);
   const [totalSales, setTotalSales] = useState(initialPagination.total);
-  const [totalPages, setTotalPages] = useState(initialPagination.totalPages || 1);
+  const [totalPages, setTotalPages] = useState(
+    initialPagination.totalPages || 1,
+  );
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Sale | null>(null);
@@ -123,92 +166,118 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [showInvoice, setShowInvoice] = useState<Sale | null>(null);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
-  const [invoiceByOrder, setInvoiceByOrder] = useState<Record<number, { status: string; id: number }>>({});
+  const [invoiceByOrder, setInvoiceByOrder] = useState<
+    Record<number, { status: string; id: number }>
+  >({});
   const [custForm, setCustForm] = useState<CustomerForm>(defaultCustomerForm);
 
-  const inStockProducts = useMemo(() => 
-    products.filter(p => p.stock > 0), 
-    [products]
+  const inStockProducts = useMemo(
+    () => products.filter((p) => p.stock > 0),
+    [products],
   );
 
   const selectedPaymentMethod = useMemo(
-    () => PAYMENT_METHODS.find(m => m.code === paymentMethodCode),
-    [paymentMethodCode]
+    () => PAYMENT_METHODS.find((m) => m.code === paymentMethodCode),
+    [paymentMethodCode],
   );
 
-  const showToast = useCallback((message: string, type: "success" | "error", description?: string) => {
-    const opts = description ? { title: message, description } : { title: message };
-    if (type === "success") {
-      sileo.success(opts);
-    } else {
-      sileo.error(opts);
-    }
-  }, []);
+  const showToast = useCallback(
+    (message: string, type: "success" | "error", description?: string) => {
+      const opts = description
+        ? { title: message, description }
+        : { title: message };
+      if (type === "success") {
+        sileo.success(opts);
+      } else {
+        sileo.error(opts);
+      }
+    },
+    [],
+  );
 
-  const addItem = useCallback((product: Product) => {
-    if (product.stock <= 0) {
-      showToast(`${product.name} no tiene stock disponible`, "error");
-      return;
-    }
-    const pres = product.presentation || '500g';
-    const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
-    const basePrice = product.price_500g || product.price || 0;
-    setItems(prev => [...prev, {
-      productId: product.id,
-      productName: product.name,
-      quantity: 1,
-      price: basePrice,
-      presentation: presLabel
-    }]);
-  }, [showToast]);
+  const addItem = useCallback(
+    (product: Product) => {
+      if (product.stock <= 0) {
+        showToast(`${product.name} no tiene stock disponible`, "error");
+        return;
+      }
+      const pres = product.presentation || "500g";
+      const presLabel = orderPresentationLabel(pres);
+      const basePrice = product.price_500g || product.price || 0;
+      setItems((prev) => [
+        ...prev,
+        {
+          productId: product.id,
+          productName: product.name,
+          quantity: 1,
+          price: basePrice,
+          presentation: presLabel,
+        },
+      ]);
+    },
+    [showToast],
+  );
 
   const removeItem = useCallback((index: number) => {
-    setItems(prev => prev.filter((_, i) => i !== index));
+    setItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const updateQuantity = useCallback((index: number, quantity: number) => {
-    setItems(prev => {
+    setItems((prev) => {
       const newItems = [...prev];
       newItems[index] = { ...newItems[index], quantity: Math.max(1, quantity) };
       return newItems;
     });
   }, []);
 
-  const total = useMemo(() => 
-    items.reduce((sum, item) => sum + (item.price * item.quantity), 0), 
-    [items]
+  const total = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [items],
   );
 
-  const fetchSales = useCallback(async (targetPage?: number) => {
-    const next = Math.max(1, Math.min(targetPage ?? page, totalPages));
-    setPage(next);
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/sales?page=${next}&pageSize=${pageSize}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setSales(data.sales || []);
-        if (data.pagination) {
-          setPage(data.pagination.page);
-          setTotalSales(data.pagination.total);
-          setTotalPages(data.pagination.totalPages);
+  const fetchSales = useCallback(
+    async (targetPage?: number) => {
+      const next = Math.max(1, Math.min(targetPage ?? page, totalPages));
+      setPage(next);
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/admin/sales?page=${next}&pageSize=${pageSize}`,
+          { credentials: "include" },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSales(data.sales || []);
+          if (data.pagination) {
+            setPage(data.pagination.page);
+            setTotalSales(data.pagination.total);
+            setTotalPages(data.pagination.totalPages);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching sales:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching sales:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, totalPages]);
+    },
+    [page, pageSize, totalPages],
+  );
 
   const fetchInvoices = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/invoices", { credentials: "include", cache: "no-store" });
+      const res = await fetch("/api/admin/invoices", {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         const map: Record<number, { status: string; id: number }> = {};
         for (const inv of data.invoices || []) {
-          if (inv.order_id) map[Number(inv.order_id)] = { status: inv.status, id: Number(inv.id) };
+          if (inv.order_id)
+            map[Number(inv.order_id)] = {
+              status: inv.status,
+              id: Number(inv.id),
+            };
         }
         setInvoiceByOrder(map);
       }
@@ -221,38 +290,54 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
     fetchInvoices();
   }, [fetchInvoices]);
 
-  const updateItemProduct = useCallback((idx: number, productId: number) => {
-    const product = products.find(p => p.id === productId);
-    if (product) {
-      const pres = product.presentation || '500g';
-      const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
-      const basePrice = product.price_500g || product.price || 0;
-      setItems(prev => prev.map((item, i) => i === idx ? {
-        ...item,
-        productId: product.id,
-        productName: product.name,
-        price: basePrice,
-        presentation: presLabel
-      } : item));
-    }
-  }, [products]);
-
-  const updateItemPresentation = useCallback((idx: number, presentation: string) => {
-    const item = items[idx];
-    if (!item) return;
-    const product = products.find(p => p.id === item.productId);
-    if (product) {
-      let basePrice: number;
-      if (presentation === '500grs') {
-        basePrice = product.price_500g || product.price;
-      } else if (presentation === '250grs') {
-        basePrice = product.price_250g || Math.round(product.price * 0.55);
-      } else {
-        basePrice = product.price_125g || Math.round(product.price * 0.3);
+  const updateItemProduct = useCallback(
+    (idx: number, productId: number) => {
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        const pres = product.presentation || "500g";
+        const presLabel = orderPresentationLabel(pres);
+        const basePrice = product.price_500g || product.price || 0;
+        setItems((prev) =>
+          prev.map((item, i) =>
+            i === idx
+              ? {
+                  ...item,
+                  productId: product.id,
+                  productName: product.name,
+                  price: basePrice,
+                  presentation: presLabel,
+                }
+              : item,
+          ),
+        );
       }
-      setItems(prev => prev.map((item, i) => i === idx ? { ...item, presentation, price: basePrice } : item));
-    }
-  }, [items, products]);
+    },
+    [products],
+  );
+
+  const updateItemPresentation = useCallback(
+    (idx: number, presentation: string) => {
+      const item = items[idx];
+      if (!item) return;
+      const product = products.find((p) => p.id === item.productId);
+      if (product) {
+        let basePrice: number;
+        if (presentation === "500grs") {
+          basePrice = product.price_500g || product.price;
+        } else if (presentation === "250grs") {
+          basePrice = product.price_250g || Math.round(product.price * 0.55);
+        } else {
+          basePrice = product.price_125g || Math.round(product.price * 0.3);
+        }
+        setItems((prev) =>
+          prev.map((item, i) =>
+            i === idx ? { ...item, presentation, price: basePrice } : item,
+          ),
+        );
+      }
+    },
+    [items, products],
+  );
 
   const resetForm = useCallback(() => {
     setShowModal(false);
@@ -286,13 +371,16 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
       return;
     }
     if (paymentForm === "2" && !paymentDueDate) {
-      showToast("Para crédito (payment_form=2) ingresa la fecha de vencimiento", "error");
+      showToast(
+        "Para crédito (payment_form=2) ingresa la fecha de vencimiento",
+        "error",
+      );
       return;
     }
 
     const stockErrors: string[] = [];
     for (const item of items) {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find((p) => p.id === item.productId);
       if (product && product.stock < item.quantity) {
         stockErrors.push(`${product.name}: solo ${product.stock} disponibles`);
       }
@@ -304,12 +392,12 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
 
     setSaving(true);
     try {
-      const saleItems = items.map(i => ({ 
-        id: String(i.productId), 
+      const saleItems = items.map((i) => ({
+        id: String(i.productId),
         qty: i.quantity,
         price: i.price,
         name: i.productName,
-        presentation: i.presentation
+        presentation: i.presentation,
       }));
 
       const res = await fetch("/api/admin/sales", {
@@ -322,9 +410,11 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
           items: saleItems,
           payment_form: paymentForm,
           payment_method_code: paymentMethodCode,
-          payment_reference: selectedPaymentMethod?.requiresReference ? paymentReference.trim() : undefined,
+          payment_reference: selectedPaymentMethod?.requiresReference
+            ? paymentReference.trim()
+            : undefined,
           payment_due_date: paymentForm === "2" ? paymentDueDate : undefined,
-        })
+        }),
       });
 
       const data = await res.json();
@@ -342,7 +432,7 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
       showToast(
         data.message || "Venta registrada correctamente",
         "success",
-        `N.º ${data.id} · ${items.length} ${items.length === 1 ? "producto" : "productos"} · ${formatCOP(data.total ?? total)}`
+        `N.º ${data.id} · ${items.length} ${items.length === 1 ? "producto" : "productos"} · ${formatCOP(data.total ?? total)}`,
       );
       resetForm();
       await fetchSales(1);
@@ -353,29 +443,53 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
     } finally {
       setSaving(false);
     }
-  }, [customer, items, products, showToast, total, resetForm, fetchSales, selectedPaymentMethod, paymentForm, paymentMethodCode, paymentReference, paymentDueDate]);
+  }, [
+    customer,
+    items,
+    products,
+    showToast,
+    total,
+    resetForm,
+    fetchSales,
+    selectedPaymentMethod,
+    paymentForm,
+    paymentMethodCode,
+    paymentReference,
+    paymentDueDate,
+  ]);
 
-  const getUnitPrice = useCallback((item: any, saleTotal: number, saleItems: any[]) => {
-    if (item.price && item.price > 0) return item.price;
-    const product = products.find(p => Number(p.id) === Number(item.id));
-    if (product) {
-      const basePrice = product.price_500g || product.price || 0;
-      if (basePrice > 0) return basePrice;
-    }
-    const totalQty = saleItems.reduce((sum: number, i: any) => sum + (i.qty || 0), 0);
-    return totalQty > 0 ? Math.round(saleTotal / totalQty) : 0;
-  }, [products]);
+  const getUnitPrice = useCallback(
+    (item: any, saleTotal: number, saleItems: any[]) => {
+      if (item.price && item.price > 0) return item.price;
+      const product = products.find((p) => Number(p.id) === Number(item.id));
+      if (product) {
+        const basePrice = product.price_500g || product.price || 0;
+        if (basePrice > 0) return basePrice;
+      }
+      const totalQty = saleItems.reduce(
+        (sum: number, i: any) => sum + (i.qty || 0),
+        0,
+      );
+      return totalQty > 0 ? Math.round(saleTotal / totalQty) : 0;
+    },
+    [products],
+  );
 
   const openInvoiceModal = useCallback(async (sale: Sale) => {
     setShowInvoice(sale);
     setCustForm({ ...defaultCustomerForm });
     try {
-      const res = await fetch(`/api/admin/invoices/${sale.id}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/invoices/${sale.id}`, {
+        credentials: "include",
+      });
       if (res.ok) {
         const data = await res.json();
         const inv = data.invoice;
         if (inv?.customer_snapshot) {
-          const snap = typeof inv.customer_snapshot === "string" ? JSON.parse(inv.customer_snapshot) : inv.customer_snapshot;
+          const snap =
+            typeof inv.customer_snapshot === "string"
+              ? JSON.parse(inv.customer_snapshot)
+              : inv.customer_snapshot;
           if (snap && typeof snap === "object") {
             setCustForm({
               legal: String(snap.legal_organization_code || "2"),
@@ -404,21 +518,30 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
     const docCode = custForm.docCode.trim();
     const identification = custForm.identification.trim();
     if (!docCode || !identification) {
-      sileo.error({ title: "Requerimos el tipo y número de identificación del cliente" });
+      sileo.error({
+        title: "Requerimos el tipo y número de identificación del cliente",
+      });
       return;
     }
     if (custForm.legal === "1" && !custForm.company.trim()) {
-      sileo.error({ title: "Para persona jurídica se requiere la razón social (company)" });
+      sileo.error({
+        title: "Para persona jurídica se requiere la razón social (company)",
+      });
       return;
     }
     if (custForm.legal === "2" && !custForm.names.trim()) {
-      sileo.error({ title: "Para persona natural se requiere el nombre (names)" });
+      sileo.error({
+        title: "Para persona natural se requiere el nombre (names)",
+      });
       return;
     }
 
     const isCredit = showInvoice.payment_form === "2";
     if (isCredit && !showInvoice.payment_due_date) {
-      sileo.error({ title: "La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar." });
+      sileo.error({
+        title:
+          "La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar.",
+      });
       return;
     }
 
@@ -432,7 +555,10 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
           customer: {
             identification_document_code: docCode,
             identification: identification,
-            dv: custForm.legal === "1" && custForm.dv.trim() ? custForm.dv.trim() : null,
+            dv:
+              custForm.legal === "1" && custForm.dv.trim()
+                ? custForm.dv.trim()
+                : null,
             legal_organization_code: custForm.legal,
             company: custForm.legal === "1" ? custForm.company.trim() : null,
             trade_name: custForm.tradeName.trim() || null,
@@ -447,7 +573,9 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
             payment_form: showInvoice.payment_form || undefined,
             payment_method_code: showInvoice.payment_method_code || undefined,
             payment_reference: showInvoice.payment_reference || undefined,
-            payment_due_date: isCredit ? showInvoice.payment_due_date || undefined : undefined,
+            payment_due_date: isCredit
+              ? showInvoice.payment_due_date || undefined
+              : undefined,
           },
         }),
       });
@@ -458,11 +586,20 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
         return;
       }
 
-      const next = data.invoice as { status?: string; number?: string | null } | undefined;
+      const next = data.invoice as
+        | { status?: string; number?: string | null }
+        | undefined;
       if (next?.status === "processing") {
-        sileo.warning({ title: "Factura en procesamiento", description: "No se reenviará automáticamente para evitar duplicados." });
+        sileo.warning({
+          title: "Factura en procesamiento",
+          description:
+            "No se reenviará automáticamente para evitar duplicados.",
+        });
       } else if (next?.status === "validated") {
-        sileo.success({ title: data.message || `Factura ${next.number} validada y enviada a DIAN` });
+        sileo.success({
+          title:
+            data.message || `Factura ${next.number} validada y enviada a DIAN`,
+        });
       } else {
         sileo.success({ title: data.message || "Factura generada" });
       }
@@ -477,87 +614,131 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
     }
   }, [showInvoice, custForm, fetchSales, fetchInvoices]);
 
+  let paymentWarning: string | null = null;
+  if (
+    showInvoice &&
+    (!showInvoice.payment_form || !showInvoice.payment_method_code)
+  ) {
+    paymentWarning =
+      "Esta venta no tiene datos de pago (payment_form/payment_method_code). Regístrala con datos de pago antes de facturar.";
+  } else if (
+    showInvoice?.payment_form === "2" &&
+    !showInvoice.payment_due_date
+  ) {
+    paymentWarning =
+      "La venta es a crédito (payment_form=2) y requiere fecha de vencimiento. Edita la venta antes de facturar.";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl text-foreground">Ventas</h1>
-          <p className="text-sm text-muted-foreground mt-1">Registra y consulta los pedidos de tus clientes</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Registra y consulta los pedidos de tus clientes
+          </p>
         </div>
-        <Button onClick={() => setShowModal(true)} size="md" aria-label="Registrar nueva venta">
+        <Button
+          onClick={() => setShowModal(true)}
+          size="md"
+          aria-label="Registrar nueva venta"
+        >
           <Plus className="size-4" aria-hidden="true" />
           Nueva venta
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Lista de ventas">
+      <div
+        className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden"
+        role="region"
+        aria-label="Lista de ventas"
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-6 py-4 font-medium text-left" scope="col">N°</th>
-              <th className="px-6 py-4 font-medium text-left" scope="col">Fecha</th>
-              <th className="px-6 py-4 font-medium text-left" scope="col">Cliente</th>
-              <th className="px-6 py-4 font-medium text-right" scope="col">Productos</th>
-              <th className="px-6 py-4 font-medium text-right" scope="col">Total</th>
-              <th className="px-6 py-4 font-medium text-right" scope="col">Acciones</th>
+              <th className="px-6 py-4 font-medium text-left" scope="col">
+                N°
+              </th>
+              <th className="px-6 py-4 font-medium text-left" scope="col">
+                Fecha
+              </th>
+              <th className="px-6 py-4 font-medium text-left" scope="col">
+                Cliente
+              </th>
+              <th className="px-6 py-4 font-medium text-right" scope="col">
+                Productos
+              </th>
+              <th className="px-6 py-4 font-medium text-right" scope="col">
+                Total
+              </th>
+              <th className="px-6 py-4 font-medium text-right" scope="col">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {sales.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                <td
+                  colSpan={6}
+                  className="px-6 py-12 text-center text-muted-foreground"
+                >
                   No hay ventas registradas
                 </td>
               </tr>
-            ) : sales.map((s) => (
-              <tr key={s.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-6 py-4 font-medium text-brand-caramel">{s.id}</td>
-                <td className="px-6 py-4 text-muted-foreground">
-                  {new Date(s.date).toLocaleString("es-CO", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </td>
-                <td className="px-6 py-4 font-medium">{s.customer}</td>
-                <td className="px-6 py-4 text-right text-muted-foreground">
-                  {s.items.reduce((a, i) => a + (i.qty || 0), 0)} unid
-                </td>
-                <td className="px-6 py-4 text-right font-medium text-foreground">
-                  {formatCOP(s.total)}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-end items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowDetail(s)}
-                      aria-label={`Ver detalles de venta #${s.id}`}
-                    >
-                      <Eye className="size-4" aria-hidden="true" />
-                      Ver
-                    </Button>
-                    {invoiceByOrder[s.id] ? (
-                      <InvoiceAction
-                        status={invoiceByOrder[s.id].status}
-                        onInvoice={() => openInvoiceModal(s)}
-                      />
-                    ) : (
+            ) : (
+              sales.map((s) => (
+                <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-6 py-4 font-medium text-brand-caramel">
+                    {s.id}
+                  </td>
+                  <td className="px-6 py-4 text-muted-foreground">
+                    {new Date(s.date).toLocaleString("es-CO", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-6 py-4 font-medium">{s.customer}</td>
+                  <td className="px-6 py-4 text-right text-muted-foreground">
+                    {s.items.reduce((a, i) => a + (i.qty || 0), 0)} unid
+                  </td>
+                  <td className="px-6 py-4 text-right font-medium text-foreground">
+                    {formatCOP(s.total)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openInvoiceModal(s)}
-                        aria-label={`Generar factura de la venta #${s.id}`}
+                        onClick={() => setShowDetail(s)}
+                        aria-label={`Ver detalles de venta #${s.id}`}
                       >
-                        <FileText className="size-4" aria-hidden="true" />
-                        Generar factura
+                        <Eye className="size-4" aria-hidden="true" />
+                        Ver
                       </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {invoiceByOrder[s.id] ? (
+                        <InvoiceAction
+                          status={invoiceByOrder[s.id].status}
+                          onInvoice={() => openInvoiceModal(s)}
+                        />
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openInvoiceModal(s)}
+                          aria-label={`Generar factura de la venta #${s.id}`}
+                        >
+                          <FileText className="size-4" aria-hidden="true" />
+                          Generar factura
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 
@@ -571,17 +752,29 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="new-sale-title">
-          <div 
-            className="absolute inset-0 bg-coffee-dark/50 backdrop-blur-sm" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-sale-title"
+        >
+          <div
+            className="absolute inset-0 bg-coffee-dark/50 backdrop-blur-sm"
             onClick={resetForm}
             aria-hidden="true"
           />
           <div className="relative bg-background rounded-2xl shadow-elevated w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
             <div className="px-6 py-5 border-b border-border flex items-center justify-between shrink-0">
               <div>
-                <h2 id="new-sale-title" className="font-display text-xl text-foreground">Nueva venta</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Selecciona productos y cantidades</p>
+                <h2
+                  id="new-sale-title"
+                  className="font-display text-xl text-foreground"
+                >
+                  Nueva venta
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Selecciona productos y cantidades
+                </p>
               </div>
               <button
                 onClick={resetForm}
@@ -594,7 +787,12 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
 
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
               <div>
-                <label htmlFor="customer-name" className="block text-sm font-medium text-foreground mb-2">Cliente</label>
+                <label
+                  htmlFor="customer-name"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Cliente
+                </label>
                 <input
                   id="customer-name"
                   type="text"
@@ -607,10 +805,17 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
               </div>
 
               <fieldset>
-                <legend className="block text-sm font-medium text-foreground mb-3">Datos de pago</legend>
+                <legend className="block text-sm font-medium text-foreground mb-3">
+                  Datos de pago
+                </legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="payment-form" className="block text-sm font-medium text-foreground mb-2">Forma de pago</label>
+                    <label
+                      htmlFor="payment-form"
+                      className="block text-sm font-medium text-foreground mb-2"
+                    >
+                      Forma de pago
+                    </label>
                     <select
                       id="payment-form"
                       value={paymentForm}
@@ -619,12 +824,19 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                       required
                     >
                       {PAYMENT_FORMS.map((form) => (
-                        <option key={form.code} value={form.code}>{form.label}</option>
+                        <option key={form.code} value={form.code}>
+                          {form.label}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="payment-method" className="block text-sm font-medium text-foreground mb-2">Método de pago</label>
+                    <label
+                      htmlFor="payment-method"
+                      className="block text-sm font-medium text-foreground mb-2"
+                    >
+                      Método de pago
+                    </label>
                     <select
                       id="payment-method"
                       value={paymentMethodCode}
@@ -633,14 +845,21 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                       required
                     >
                       {PAYMENT_METHODS.map((method) => (
-                        <option key={method.code} value={method.code}>{method.label}</option>
+                        <option key={method.code} value={method.code}>
+                          {method.label}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
                 {selectedPaymentMethod?.requiresReference && (
                   <div className="mt-3">
-                    <label htmlFor="payment-reference" className="block text-sm font-medium text-foreground mb-2">Referencia de pago</label>
+                    <label
+                      htmlFor="payment-reference"
+                      className="block text-sm font-medium text-foreground mb-2"
+                    >
+                      Referencia de pago
+                    </label>
                     <input
                       id="payment-reference"
                       type="text"
@@ -655,7 +874,12 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                 )}
                 {paymentForm === "2" && (
                   <div className="mt-3">
-                    <label htmlFor="payment-due-date" className="block text-sm font-medium text-foreground mb-2">Fecha de vencimiento (crédito)</label>
+                    <label
+                      htmlFor="payment-due-date"
+                      className="block text-sm font-medium text-foreground mb-2"
+                    >
+                      Fecha de vencimiento (crédito)
+                    </label>
                     <input
                       id="payment-due-date"
                       type="date"
@@ -669,35 +893,53 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
               </fieldset>
 
               <fieldset>
-                <legend className="block text-sm font-medium text-foreground mb-3">Productos</legend>
-                
+                <legend className="block text-sm font-medium text-foreground mb-3">
+                  Productos
+                </legend>
+
                 {items.map((item, idx) => (
-                  <div key={idx} className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 mb-3">
-                    <label htmlFor={`product-${idx}`} className="sr-only">Producto {idx + 1}</label>
+                  <div
+                    key={idx}
+                    className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 mb-3"
+                  >
+                    <label htmlFor={`product-${idx}`} className="sr-only">
+                      Producto {idx + 1}
+                    </label>
                     <select
                       id={`product-${idx}`}
                       value={item.productId}
-                      onChange={(e) => updateItemProduct(idx, Number(e.target.value))}
+                      onChange={(e) =>
+                        updateItemProduct(idx, Number(e.target.value))
+                      }
                       className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-coffee-medium transition-all cursor-pointer"
                       aria-label="Seleccionar producto"
                     >
                       {products.map((pp) => {
-                        const pres = pp.presentation || '500g';
-                        const presLabel = pres === '500g' ? '500grs' : pres === '250g' ? '250grs' : '125grs';
+                        const pres = pp.presentation || "500g";
+                        const presLabel = orderPresentationLabel(pres);
                         const isOutOfStock = pp.stock <= 0;
                         return (
-                          <option key={pp.id} value={pp.id} disabled={isOutOfStock}>
-                            {pp.name} {presLabel} ({isOutOfStock ? "Sin stock" : `${pp.stock} disp.`})
+                          <option
+                            key={pp.id}
+                            value={pp.id}
+                            disabled={isOutOfStock}
+                          >
+                            {pp.name} {presLabel} (
+                            {isOutOfStock ? "Sin stock" : `${pp.stock} disp.`})
                           </option>
                         );
                       })}
                     </select>
-                    
-                    <label htmlFor={`presentation-${idx}`} className="sr-only">Presentación {idx + 1}</label>
+
+                    <label htmlFor={`presentation-${idx}`} className="sr-only">
+                      Presentación {idx + 1}
+                    </label>
                     <select
                       id={`presentation-${idx}`}
                       value={item.presentation}
-                      onChange={(e) => updateItemPresentation(idx, e.target.value)}
+                      onChange={(e) =>
+                        updateItemPresentation(idx, e.target.value)
+                      }
                       className="w-24 px-2 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:border-coffee-medium transition-all cursor-pointer"
                       aria-label="Seleccionar presentación"
                     >
@@ -705,23 +947,30 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                       <option value="250grs">250grs</option>
                       <option value="125grs">125grs</option>
                     </select>
-                    
-                    <label htmlFor={`quantity-${idx}`} className="sr-only">Cantidad {idx + 1}</label>
+
+                    <label htmlFor={`quantity-${idx}`} className="sr-only">
+                      Cantidad {idx + 1}
+                    </label>
                     <input
                       id={`quantity-${idx}`}
                       type="number"
                       min="1"
                       max="999"
                       value={item.quantity}
-                      onChange={(e) => updateQuantity(idx, parseInt(e.target.value) || 1)}
+                      onChange={(e) =>
+                        updateQuantity(idx, parseInt(e.target.value) || 1)
+                      }
                       className="w-16 px-2 py-2 rounded-lg bg-background border border-border text-sm text-center outline-none focus:border-coffee-medium transition-all"
                       aria-label={`Cantidad para ${item.productName}`}
                     />
-                    
-                    <div className="w-24 text-right text-sm font-medium text-foreground" aria-label={`Subtotal: ${formatCOP(item.price * item.quantity)}`}>
+
+                    <div
+                      className="w-24 text-right text-sm font-medium text-foreground"
+                      aria-label={`Subtotal: ${formatCOP(item.price * item.quantity)}`}
+                    >
                       {formatCOP(item.price * item.quantity)}
                     </div>
-                    
+
                     <button
                       onClick={() => removeItem(idx)}
                       className="size-8 rounded-lg hover:bg-danger/10 flex items-center justify-center text-danger transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger"
@@ -731,29 +980,45 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                     </button>
                   </div>
                 ))}
-                
+
                 <button
-                  onClick={() => inStockProducts.length > 0 && addItem(inStockProducts[0])}
+                  onClick={() =>
+                    inStockProducts.length > 0 && addItem(inStockProducts[0])
+                  }
                   disabled={inStockProducts.length === 0}
                   className="w-full py-2.5 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground hover:border-coffee-medium hover:text-coffee-dark transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-coffee-medium"
                   aria-label="Agregar nuevo producto a la venta"
                 >
                   <Plus className="size-4" aria-hidden="true" />
-                  {inStockProducts.length === 0 ? "Sin productos disponibles" : "Agregar producto"}
+                  {inStockProducts.length === 0
+                    ? "Sin productos disponibles"
+                    : "Agregar producto"}
                 </button>
               </fieldset>
             </div>
 
             <div className="px-6 py-5 border-t border-border bg-muted/30 flex items-center justify-between gap-4 shrink-0">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total</p>
-                <p className="font-display text-2xl text-foreground">{formatCOP(total)}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Total
+                </p>
+                <p className="font-display text-2xl text-foreground">
+                  {formatCOP(total)}
+                </p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="ghost" onClick={resetForm} aria-label="Cancelar venta">
+                <Button
+                  variant="ghost"
+                  onClick={resetForm}
+                  aria-label="Cancelar venta"
+                >
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} loading={saving} aria-busy={saving}>
+                <Button
+                  onClick={handleSubmit}
+                  loading={saving}
+                  aria-busy={saving}
+                >
                   Registrar venta
                 </Button>
               </div>
@@ -771,29 +1036,44 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
           size="md"
         >
           <div className="space-y-4">
-            {showDetail.items.length > 0 ? showDetail.items.map((it: any, i: number) => {
-              const unitPrice = getUnitPrice(it, showDetail.total, showDetail.items);
-              const productName = it.name || "Producto";
-              const presentation = it.presentation || "";
-              return (
-                <div key={i} className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
-                  <div>
-                    <p className="font-medium text-foreground">{productName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {presentation} · {it.qty} × {formatCOP(unitPrice)}
+            {showDetail.items.length > 0 ? (
+              showDetail.items.map((it: any, i: number) => {
+                const unitPrice = getUnitPrice(
+                  it,
+                  showDetail.total,
+                  showDetail.items,
+                );
+                const productName = it.name || "Producto";
+                const presentation = it.presentation || "";
+                return (
+                  <div
+                    key={i}
+                    className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {productName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {presentation} · {it.qty} × {formatCOP(unitPrice)}
+                      </p>
+                    </div>
+                    <p className="font-medium text-foreground">
+                      {formatCOP((it.qty || 0) * unitPrice)}
                     </p>
                   </div>
-                  <p className="font-medium text-foreground">
-                    {formatCOP((it.qty || 0) * unitPrice)}
-                  </p>
-                </div>
-              );
-            }) : (
-              <p className="text-center text-muted-foreground py-4">Venta sin items registrados</p>
+                );
+              })
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                Venta sin items registrados
+              </p>
             )}
             <div className="pt-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Total</p>
-              <p className="font-display text-2xl text-foreground">{formatCOP(showDetail.total)}</p>
+              <p className="font-display text-2xl text-foreground">
+                {formatCOP(showDetail.total)}
+              </p>
             </div>
           </div>
         </Modal>
@@ -812,49 +1092,69 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Forma de pago</span>
                 <span className="font-medium">
-                  {PAYMENT_FORMS.find((f) => f.code === showInvoice.payment_form)?.label ||
-                    (showInvoice.payment_form ? `Código ${showInvoice.payment_form}` : "—")}
+                  {PAYMENT_FORMS.find(
+                    (f) => f.code === showInvoice.payment_form,
+                  )?.label ||
+                    (showInvoice.payment_form
+                      ? `Código ${showInvoice.payment_form}`
+                      : "—")}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Método de pago</span>
                 <span className="font-medium">
-                  {PAYMENT_METHODS.find((m) => m.code === showInvoice.payment_method_code)?.label ||
-                    (showInvoice.payment_method_code ? `Código ${showInvoice.payment_method_code}` : "—")}
+                  {PAYMENT_METHODS.find(
+                    (m) => m.code === showInvoice.payment_method_code,
+                  )?.label ||
+                    (showInvoice.payment_method_code
+                      ? `Código ${showInvoice.payment_method_code}`
+                      : "—")}
                 </span>
               </div>
               {showInvoice.payment_reference && (
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Referencia</span>
-                  <span className="font-medium font-mono text-xs">{showInvoice.payment_reference}</span>
+                  <span className="font-medium font-mono text-xs">
+                    {showInvoice.payment_reference}
+                  </span>
                 </div>
               )}
               {showInvoice.payment_form === "2" && (
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Vencimiento (crédito)</span>
-                  <span className="font-medium">{showInvoice.payment_due_date || "—"}</span>
+                  <span className="text-muted-foreground">
+                    Vencimiento (crédito)
+                  </span>
+                  <span className="font-medium">
+                    {showInvoice.payment_due_date || "—"}
+                  </span>
                 </div>
               )}
             </div>
 
-            {!showInvoice.payment_form || !showInvoice.payment_method_code ? (
+            {paymentWarning ? (
               <p className="text-sm rounded-xl border border-danger/20 bg-danger/5 text-danger px-4 py-3">
-                Esta venta no tiene datos de pago (payment_form/payment_method_code). Regístrala con datos de pago antes de facturar.
-              </p>
-            ) : showInvoice.payment_form === "2" && !showInvoice.payment_due_date ? (
-              <p className="text-sm rounded-xl border border-danger/20 bg-danger/5 text-danger px-4 py-3">
-                La venta es a crédito (payment_form=2) y requiere fecha de vencimiento. Edita la venta antes de facturar.
+                {paymentWarning}
               </p>
             ) : (
               <>
                 <fieldset>
-                  <legend className="text-sm font-medium text-foreground mb-3">Datos fiscales del cliente</legend>
+                  <legend className="text-sm font-medium text-foreground mb-3">
+                    Datos fiscales del cliente
+                  </legend>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
                       type="button"
-                      onClick={() => setCustForm((f) => ({ ...f, legal: "2", docCode: f.docCode === "31" ? "13" : f.docCode }))}
+                      onClick={() =>
+                        setCustForm((f) => ({
+                          ...f,
+                          legal: "2",
+                          docCode: f.docCode === "31" ? "13" : f.docCode,
+                        }))
+                      }
                       className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel ${
-                        custForm.legal === "2" ? "bg-coffee-dark text-cream shadow-soft" : "border border-border hover:bg-muted text-foreground"
+                        custForm.legal === "2"
+                          ? "bg-coffee-dark text-cream shadow-soft"
+                          : "border border-border hover:bg-muted text-foreground"
                       }`}
                       aria-pressed={custForm.legal === "2"}
                     >
@@ -862,9 +1162,17 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCustForm((f) => ({ ...f, legal: "1", docCode: f.docCode === "13" ? "31" : f.docCode }))}
+                      onClick={() =>
+                        setCustForm((f) => ({
+                          ...f,
+                          legal: "1",
+                          docCode: f.docCode === "13" ? "31" : f.docCode,
+                        }))
+                      }
                       className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-caramel ${
-                        custForm.legal === "1" ? "bg-coffee-dark text-cream shadow-soft" : "border border-border hover:bg-muted text-foreground"
+                        custForm.legal === "1"
+                          ? "bg-coffee-dark text-cream shadow-soft"
+                          : "border border-border hover:bg-muted text-foreground"
                       }`}
                       aria-pressed={custForm.legal === "1"}
                     >
@@ -874,26 +1182,48 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor="invoice-doc-code" className="block text-sm font-medium text-foreground mb-2">Tipo de documento *</label>
+                      <label
+                        htmlFor="invoice-doc-code"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Tipo de documento *
+                      </label>
                       <select
                         id="invoice-doc-code"
                         value={custForm.docCode}
-                        onChange={(e) => setCustForm((f) => ({ ...f, docCode: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({
+                            ...f,
+                            docCode: e.target.value,
+                          }))
+                        }
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all cursor-pointer"
                         required
                       >
                         {DOCUMENT_CODES.map((d) => (
-                          <option key={d.code} value={d.code}>{d.label}</option>
+                          <option key={d.code} value={d.code}>
+                            {d.label}
+                          </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="invoice-identification" className="block text-sm font-medium text-foreground mb-2">Número de identificación *</label>
+                      <label
+                        htmlFor="invoice-identification"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Número de identificación *
+                      </label>
                       <input
                         id="invoice-identification"
                         type="text"
                         value={custForm.identification}
-                        onChange={(e) => setCustForm((f) => ({ ...f, identification: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({
+                            ...f,
+                            identification: e.target.value,
+                          }))
+                        }
                         placeholder="Sin dígito de verificación"
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                         required
@@ -903,23 +1233,40 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                     {custForm.legal === "1" && (
                       <>
                         <div>
-                          <label htmlFor="invoice-company" className="block text-sm font-medium text-foreground mb-2">Razón social *</label>
+                          <label
+                            htmlFor="invoice-company"
+                            className="block text-sm font-medium text-foreground mb-2"
+                          >
+                            Razón social *
+                          </label>
                           <input
                             id="invoice-company"
                             type="text"
                             value={custForm.company}
-                            onChange={(e) => setCustForm((f) => ({ ...f, company: e.target.value }))}
+                            onChange={(e) =>
+                              setCustForm((f) => ({
+                                ...f,
+                                company: e.target.value,
+                              }))
+                            }
                             className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                             required
                           />
                         </div>
                         <div>
-                          <label htmlFor="invoice-dv" className="block text-sm font-medium text-foreground mb-2">DV (dígito de verificación)</label>
+                          <label
+                            htmlFor="invoice-dv"
+                            className="block text-sm font-medium text-foreground mb-2"
+                          >
+                            DV (dígito de verificación)
+                          </label>
                           <input
                             id="invoice-dv"
                             type="text"
                             value={custForm.dv}
-                            onChange={(e) => setCustForm((f) => ({ ...f, dv: e.target.value }))}
+                            onChange={(e) =>
+                              setCustForm((f) => ({ ...f, dv: e.target.value }))
+                            }
                             placeholder="Opcional, Factus lo calcula"
                             className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                           />
@@ -929,12 +1276,22 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
 
                     {custForm.legal === "2" && (
                       <div className="sm:col-span-2">
-                        <label htmlFor="invoice-names" className="block text-sm font-medium text-foreground mb-2">Nombre completo *</label>
+                        <label
+                          htmlFor="invoice-names"
+                          className="block text-sm font-medium text-foreground mb-2"
+                        >
+                          Nombre completo *
+                        </label>
                         <input
                           id="invoice-names"
                           type="text"
                           value={custForm.names}
-                          onChange={(e) => setCustForm((f) => ({ ...f, names: e.target.value }))}
+                          onChange={(e) =>
+                            setCustForm((f) => ({
+                              ...f,
+                              names: e.target.value,
+                            }))
+                          }
                           className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                           required
                         />
@@ -942,42 +1299,76 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
                     )}
 
                     <div>
-                      <label htmlFor="invoice-trade-name" className="block text-sm font-medium text-foreground mb-2">Nombre comercial</label>
+                      <label
+                        htmlFor="invoice-trade-name"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Nombre comercial
+                      </label>
                       <input
                         id="invoice-trade-name"
                         type="text"
                         value={custForm.tradeName}
-                        onChange={(e) => setCustForm((f) => ({ ...f, tradeName: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({
+                            ...f,
+                            tradeName: e.target.value,
+                          }))
+                        }
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                       />
                     </div>
                     <div>
-                      <label htmlFor="invoice-email" className="block text-sm font-medium text-foreground mb-2">Correo (para enviar la factura)</label>
+                      <label
+                        htmlFor="invoice-email"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Correo (para enviar la factura)
+                      </label>
                       <input
                         id="invoice-email"
                         type="email"
                         value={custForm.email}
-                        onChange={(e) => setCustForm((f) => ({ ...f, email: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({ ...f, email: e.target.value }))
+                        }
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                       />
                     </div>
                     <div>
-                      <label htmlFor="invoice-phone" className="block text-sm font-medium text-foreground mb-2">Teléfono</label>
+                      <label
+                        htmlFor="invoice-phone"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Teléfono
+                      </label>
                       <input
                         id="invoice-phone"
                         type="text"
                         value={custForm.phone}
-                        onChange={(e) => setCustForm((f) => ({ ...f, phone: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({ ...f, phone: e.target.value }))
+                        }
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                       />
                     </div>
                     <div>
-                      <label htmlFor="invoice-municipality" className="block text-sm font-medium text-foreground mb-2">Municipio (código DIAN)</label>
+                      <label
+                        htmlFor="invoice-municipality"
+                        className="block text-sm font-medium text-foreground mb-2"
+                      >
+                        Municipio (código DIAN)
+                      </label>
                       <input
                         id="invoice-municipality"
                         type="text"
                         value={custForm.municipalityCode}
-                        onChange={(e) => setCustForm((f) => ({ ...f, municipalityCode: e.target.value }))}
+                        onChange={(e) =>
+                          setCustForm((f) => ({
+                            ...f,
+                            municipalityCode: e.target.value,
+                          }))
+                        }
                         placeholder="Ej. 68679 San Gil"
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-border bg-background focus:border-coffee-medium focus:ring-2 focus:ring-coffee-medium/20 outline-none transition-all"
                       />
@@ -987,13 +1378,23 @@ export function AdminSalesClient({ initialSales, initialPagination, initialProdu
 
                 <div className="pt-4 border-t border-border mt-2 sticky bottom-0 bg-background flex items-center justify-between gap-4">
                   <p className="text-xs text-muted-foreground">
-                    La factura se generará con el código de referencia FACT-{showInvoice.id}. No se reenviará automáticamente si ya está en procesamiento.
+                    La factura se generará con el código de referencia FACT-
+                    {showInvoice.id}. No se reenviará automáticamente si ya está
+                    en procesamiento.
                   </p>
                   <div className="flex items-center gap-3 shrink-0">
-                    <Button variant="ghost" onClick={() => setShowInvoice(null)} aria-label="Cancelar facturación">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowInvoice(null)}
+                      aria-label="Cancelar facturación"
+                    >
                       Cancelar
                     </Button>
-                    <Button onClick={handleGenerateInvoice} loading={invoiceBusy} aria-busy={invoiceBusy}>
+                    <Button
+                      onClick={handleGenerateInvoice}
+                      loading={invoiceBusy}
+                      aria-busy={invoiceBusy}
+                    >
                       Generar factura
                     </Button>
                   </div>

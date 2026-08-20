@@ -2,24 +2,24 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PaginationProps {
-  page: number;
-  totalPages: number;
-  totalItems?: number;
-  onPageChange: (page: number) => void;
-  loading?: boolean;
+  readonly page: number;
+  readonly totalPages: number;
+  readonly totalItems?: number;
+  readonly onPageChange: (page: number) => void;
+  readonly loading?: boolean;
 }
 
-/** Genera la secuencia de páginas visible (con "…" cuando hay muchas). */
-function pageNumbers(current: number, totalPages: number): (number | "…")[] {
+/** Genera la secuencia de páginas visible (con "…" cuando hay muchas). Los huecos usan keys estables. */
+function pageNumbers(current: number, totalPages: number): (number | string)[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
   }
-  const pages: (number | "…")[] = [1];
+  const pages: (number | string)[] = [1];
   const start = Math.max(2, current - 1);
   const end = Math.min(totalPages - 1, current + 1);
-  if (start > 2) pages.push("…");
+  if (start > 2) pages.push(`gap-${start - 1}`);
   for (let i = start; i <= end; i++) pages.push(i);
-  if (end < totalPages - 1) pages.push("…");
+  if (end < totalPages - 1) pages.push(`gap-${end + 1}`);
   pages.push(totalPages);
   return pages;
 }
@@ -28,17 +28,23 @@ function pageNumbers(current: number, totalPages: number): (number | "…")[] {
  * Paginación reutilizable (1 2 3… + Anterior/Siguiente).
  * Se oculta automáticamente cuando solo hay una página.
  */
-export function Pagination({ page, totalPages, totalItems, onPageChange, loading = false }: PaginationProps) {
+export function Pagination({
+  page,
+  totalPages,
+  totalItems,
+  onPageChange,
+  loading = false,
+}: PaginationProps) {
   if (totalPages <= 1) return null;
 
   return (
-    <div
+    <nav
       className="flex items-center justify-between gap-4 px-6 py-4 border-t border-border/50 bg-muted/30"
-      role="navigation"
       aria-label="Paginación"
     >
       <p className="text-xs text-muted-foreground">
-        Página <span className="font-medium text-foreground">{page}</span> de {totalPages}
+        Página <span className="font-medium text-foreground">{page}</span> de{" "}
+        {totalPages}
         {totalItems != null && <> · {totalItems} en total</>}
       </p>
       <div className="flex items-center gap-1">
@@ -53,9 +59,12 @@ export function Pagination({ page, totalPages, totalItems, onPageChange, loading
           Anterior
         </Button>
         <div className="flex items-center gap-1">
-          {pageNumbers(page, totalPages).map((n, idx) =>
-            n === "…" ? (
-              <span key={`gap-${idx}`} className="px-1.5 text-sm text-muted-foreground select-none">
+          {pageNumbers(page, totalPages).map((n) =>
+            typeof n === "string" ? (
+              <span
+                key={n}
+                className="px-1.5 text-sm text-muted-foreground select-none"
+              >
                 …
               </span>
             ) : (
@@ -71,7 +80,7 @@ export function Pagination({ page, totalPages, totalItems, onPageChange, loading
               >
                 {n}
               </Button>
-            )
+            ),
           )}
         </div>
         <Button
@@ -85,6 +94,6 @@ export function Pagination({ page, totalPages, totalItems, onPageChange, loading
           <ChevronRight className="size-4" aria-hidden="true" />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }
