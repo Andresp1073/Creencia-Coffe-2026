@@ -39,3 +39,10 @@ next-env.d.ts
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+
+# External/unrelated project dropped inside the repo
+agy2-pprojects/
+
+# Local scratch / dev helpers
+test.json
+start-dev.ps1

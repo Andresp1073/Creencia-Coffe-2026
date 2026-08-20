@@ -66,7 +66,8 @@ export function Modal({
       />
       <div 
         className={cn(
-          "relative bg-background rounded-2xl shadow-elevated w-full animate-scale-in overflow-hidden",
+          "relative bg-background rounded-2xl shadow-elevated w-full animate-scale-in overflow-hidden flex flex-col",
+          "max-h-[calc(100dvh-2rem)]",
           sizeStyles[size]
         )}
         role="dialog"
@@ -75,7 +76,7 @@ export function Modal({
         aria-describedby={descId}
       >
         {(title || description) && (
-          <div className="px-6 py-5 border-b border-border">
+          <div className="px-6 py-5 border-b border-border shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div>
                 {title && (
@@ -99,7 +100,7 @@ export function Modal({
             </div>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

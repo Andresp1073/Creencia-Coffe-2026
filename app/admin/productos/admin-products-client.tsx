@@ -4,6 +4,9 @@ import { useState } from "react";
 import { Plus, Pencil, Eye, EyeOff, Trash2, X, Loader2 } from "lucide-react";
 import { formatCOP } from "@/lib/utils";
 import { ImageUploader } from "./image-uploader";
+import { usePagedList } from "@/components/ui/use-paged-list";
+import { Pagination } from "@/components/ui/pagination";
+import { sileo } from "sileo";
 
 interface Category {
   id: number;
@@ -45,6 +48,7 @@ interface Props {
 export function AdminProductsClient({ initialProducts, initialCategories }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(products);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -119,10 +123,10 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
           setProducts(productsData.products);
         }
       }
-      alert(editingId ? "Producto actualizado" : "Producto creado");
+      sileo.success({ title: editingId ? "Producto actualizado" : "Producto creado" });
       resetForm();
     } catch (error) {
-      alert("Error al guardar");
+      sileo.error({ title: "Error al guardar" });
     } finally {
       setSaving(false);
     }
@@ -186,7 +190,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
       });
       setProducts(products.map(p => p.id === id ? { ...p, active: newActive } : p));
     } catch {
-      alert("Error al actualizar");
+      sileo.error({ title: "Error al actualizar" });
     } finally {
       setToggling(null);
     }
@@ -197,9 +201,9 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
     try {
       await fetch(`/api/admin/products?id=${id}`, { method: 'DELETE' });
       setProducts(products.filter(p => p.id !== id));
-      alert("Producto eliminado");
+      sileo.success({ title: "Producto eliminado" });
     } catch {
-      alert("Error al eliminar");
+      sileo.error({ title: "Error al eliminar" });
     }
   };
 
@@ -248,7 +252,7 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => {
+                {pagedItems.map((p) => {
                   const status = getStockStatus(p);
                   return (
                     <tr
@@ -320,6 +324,13 @@ export function AdminProductsClient({ initialProducts, initialCategories }: Prop
             </table>
           </div>
         )}
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       </div>
 
       {showForm && (

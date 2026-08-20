@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
+import "sileo/styles.css";
 import { cn } from "@/lib/utils";
 import { SkipLinks } from "@/components/ui/skip-link";
 import { OrganizationSchema, WebSiteSchema } from "@/components/seo";
@@ -148,7 +149,7 @@ export default function RootLayout({
                 'use strict'
                 // Solo ejecutarse en el navegador (no en SSR)
                 if (typeof window !== 'undefined') {
-                  // /admin NO es una entrada: sin permiso de esta pesta??a, a la portada.
+                  // /admin NO es una entrada: sin permiso de esta pestaña, a la portada.
                   if (window.location.pathname.startsWith('/admin') && !sessionStorage.getItem('adminTabId')) {
                     window.location.replace('/')
                   }

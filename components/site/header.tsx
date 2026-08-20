@@ -49,7 +49,7 @@ export function Header() {
               aria-hidden="true"
             />
             <div className="leading-tight">
-              <div className="font-display text-lg text-foreground">Cafe Creencia</div>
+              <div className="font-display text-lg text-foreground">Café Creencia</div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 Para una nueva experiencia
               </div>

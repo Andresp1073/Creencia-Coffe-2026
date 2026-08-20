@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Toaster } from "sonner";
+import { Toaster } from "sileo";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { useIdleSession } from "@/components/ui/use-idle-session";
 import {
   LayoutDashboard,
   Package,
@@ -22,6 +25,7 @@ import {
   Check,
   Trash2,
   X,
+  History,
 } from "lucide-react";
 
 const navItems = [
@@ -31,6 +35,7 @@ const navItems = [
   { href: "/admin/inventario", label: "Inventario", icon: Boxes },
   { href: "/admin/ventas", label: "Ventas", icon: Receipt },
   { href: "/admin/facturas", label: "Facturas", icon: FileText },
+  { href: "/admin/movimientos", label: "Movimientos recientes", icon: History },
 ];
 
 interface Notification {
@@ -61,6 +66,8 @@ export default function AdminLayoutClient({
 
   const lastFocusRef = useRef<number>(Date.now());
 
+  const { warning: idleWarning, confirmExtend, logoutNow, goToLogin, markExpired } = useIdleSession();
+
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/notifications?_t=${Date.now()}`, { 
@@ -83,25 +90,30 @@ export default function AdminLayoutClient({
   }, [fetchNotifications]);
 
   useEffect(() => {
-    const verifySession = async () => {
+    // showExpired=false: primer montaje (si la cookie ya murió, ir directo al login).
+    // showExpired=true: al volver a la pestaña con sesión inválida, mostrar
+    // "Sesión expirada" antes de redirigir (nunca un logout silencioso).
+    const verifySession = async (showExpired: boolean) => {
       try {
         const res = await fetch("/api/auth/me", { credentials: "include" });
         if (!res.ok) {
-          router.push("/login");
+          if (showExpired) markExpired();
+          else router.push("/login");
         }
       } catch {
-        router.push("/login");
+        if (showExpired) markExpired();
+        else router.push("/login");
       }
     };
 
-    verifySession();
+    verifySession(false);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         const now = Date.now();
         if (now - lastFocusRef.current > 30000) {
           lastFocusRef.current = now;
-          verifySession();
+          verifySession(true);
         }
       } else {
         lastFocusRef.current = Date.now();
@@ -110,7 +122,7 @@ export default function AdminLayoutClient({
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [router]);
+  }, [router, markExpired]);
 
   useEffect(() => {
     const handleNotificationUpdate = () => fetchNotifications();
@@ -511,7 +523,48 @@ export default function AdminLayoutClient({
           aria-hidden="true"
         />
       )}
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster position="top-center" theme="light" />
+
+      <Modal
+        isOpen={idleWarning === "extend"}
+        onClose={() => {}}
+        title="¿Quieres continuar con tu sesión?"
+        description="Llevas 5 minutos sin actividad."
+        size="sm"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-muted-foreground">
+            Si no respondes, tu sesión se cerrará por seguridad y deberás iniciar sesión de nuevo.
+          </p>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="md" onClick={() => logoutNow()}>
+              Cerrar sesión
+            </Button>
+            <Button variant="primary" size="md" onClick={confirmExtend}>
+              Sí, mantener sesión
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={idleWarning === "expired"}
+        onClose={() => {}}
+        title="Sesión expirada"
+        description="Tu sesión expiró por inactividad."
+        size="sm"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-muted-foreground">
+            Por seguridad se cerró tu sesión. Vuelve a iniciar sesión para continuar.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="primary" size="md" onClick={goToLogin}>
+              Ir al inicio de sesión
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

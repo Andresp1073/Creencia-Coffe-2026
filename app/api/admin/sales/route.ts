@@ -15,7 +15,8 @@ interface Order {
   total: number;
   items: string;
   status: string;
-  created_at: string;
+  date: string;
+  payment_due_date?: string | null;
 }
 
 interface ProductRow extends RowDataPacket {
@@ -35,38 +36,65 @@ interface LowStockProduct {
 
 const LOW_STOCK_THRESHOLD = 5;
 
+/** Convierte valores Date de mysql2 (TiDB) a string ISO/date-only para render seguro en cliente. */
+function toIsoString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string" && value.trim() !== "") return value;
+  return String(value);
+}
+
+function toDateOnly(value: unknown): string | null {
+  const iso = toIsoString(value);
+  if (!iso) return null;
+  const match = iso.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : iso.slice(0, 10);
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireApiAuth(request);
   if (auth instanceof NextResponse) return auth;
 
   try {
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number(url.searchParams.get("pageSize")) || 10));
+    const offset = (page - 1) * pageSize;
+
+    const [countRow] = await queryMany<any>("SELECT COUNT(*) AS total FROM orders");
+    const total = Number(countRow?.total) || 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
     const orders = await queryMany<Order>(
       `SELECT id, customer_name as customer, total, items, created_at as date, status,
               payment_form, payment_method_code, payment_reference, payment_due_date
        FROM orders
-       ORDER BY id DESC`
+       ORDER BY id DESC
+       LIMIT ${pageSize} OFFSET ${offset}`
     );
 
     const parsedOrders = orders.map(o => {
-      let items = [];
-      try {
-        if (o.items) {
-          items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
-        }
-      } catch {
-        items = [];
+      let items: { id: string; qty: number }[] = [];
+    try {
+      if (o.items) {
+        items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
       }
+    } catch {
+      items = [];
+    }
       return {
         ...o,
+        date: toIsoString(o.date),
+        payment_due_date: toDateOnly(o.payment_due_date),
         items,
         total: Number(o.total) || 0
       };
     });
 
-    return NextResponse.json({ sales: parsedOrders });
+    return NextResponse.json({ sales: parsedOrders, pagination: { page, pageSize, total, totalPages } });
   } catch (error) {
     const { error: message, statusCode } = handleApiError(error);
-    return NextResponse.json({ error: message, sales: [] }, { status: statusCode });
+    return NextResponse.json({ error: message, sales: [], pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 } }, { status: statusCode });
   }
 }
 
@@ -257,7 +285,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       id: result.orderId,
-      message: `Venta #${result.orderId} registrada - ${result.totalItems} productos`,
+      message: "Venta registrada correctamente",
       total: result.total,
     });
 

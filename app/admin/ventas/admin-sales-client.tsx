@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { Plus, Eye, X, Trash2, CheckCircle, AlertCircle, FileText, RefreshCw } from "lucide-react";
-import { toast as sonnerToast } from "sonner";
+import { Plus, Eye, X, Trash2, CheckCircle, FileText, RefreshCw } from "lucide-react";
+import { sileo } from "sileo";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { PAYMENT_FORMS, PAYMENT_METHODS } from "@/lib/factus/payment";
 
 interface Product {
@@ -43,12 +44,8 @@ interface Sale {
 
 interface Props {
   initialSales: Sale[];
+  initialPagination: { page: number; pageSize: number; total: number; totalPages: number };
   initialProducts: Product[];
-}
-
-interface Toast {
-  message: string;
-  type: "success" | "error";
 }
 
 const DOCUMENT_CODES = [
@@ -107,9 +104,14 @@ function InvoiceAction({ status, onInvoice }: { status: string; onInvoice: () =>
   );
 }
 
-export function AdminSalesClient({ initialSales, initialProducts }: Props) {
+export function AdminSalesClient({ initialSales, initialPagination, initialProducts }: Props) {
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [products] = useState<Product[]>(initialProducts);
+  const [page, setPage] = useState(initialPagination.page || 1);
+  const [pageSize] = useState(initialPagination.pageSize || 10);
+  const [totalSales, setTotalSales] = useState(initialPagination.total);
+  const [totalPages, setTotalPages] = useState(initialPagination.totalPages || 1);
+  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Sale | null>(null);
   const [saving, setSaving] = useState(false);
@@ -123,7 +125,6 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceByOrder, setInvoiceByOrder] = useState<Record<number, { status: string; id: number }>>({});
   const [custForm, setCustForm] = useState<CustomerForm>(defaultCustomerForm);
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const inStockProducts = useMemo(() => 
     products.filter(p => p.stock > 0), 
@@ -135,9 +136,13 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     [paymentMethodCode]
   );
 
-  const showToast = useCallback((message: string, type: "success" | "error") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
+  const showToast = useCallback((message: string, type: "success" | "error", description?: string) => {
+    const opts = description ? { title: message, description } : { title: message };
+    if (type === "success") {
+      sileo.success(opts);
+    } else {
+      sileo.error(opts);
+    }
   }, []);
 
   const addItem = useCallback((product: Product) => {
@@ -174,17 +179,27 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     [items]
   );
 
-  const fetchSales = useCallback(async () => {
+  const fetchSales = useCallback(async (targetPage?: number) => {
+    const next = Math.max(1, Math.min(targetPage ?? page, totalPages));
+    setPage(next);
+    setLoading(true);
     try {
-      const res = await fetch("/api/admin/sales", { credentials: "include" });
+      const res = await fetch(`/api/admin/sales?page=${next}&pageSize=${pageSize}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setSales(data.sales || []);
+        if (data.pagination) {
+          setPage(data.pagination.page);
+          setTotalSales(data.pagination.total);
+          setTotalPages(data.pagination.totalPages);
+        }
       }
     } catch (error) {
       console.error("Error fetching sales:", error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, totalPages]);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -324,9 +339,13 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
         return;
       }
 
-      showToast(data.message || "Venta registrada exitosamente", "success");
+      showToast(
+        data.message || "Venta registrada correctamente",
+        "success",
+        `N.º ${data.id} · ${items.length} ${items.length === 1 ? "producto" : "productos"} · ${formatCOP(data.total ?? total)}`
+      );
       resetForm();
-      await fetchSales();
+      await fetchSales(1);
       window.dispatchEvent(new Event("notifications:update"));
     } catch (error) {
       console.error("Error saving sale:", error);
@@ -385,21 +404,21 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
     const docCode = custForm.docCode.trim();
     const identification = custForm.identification.trim();
     if (!docCode || !identification) {
-      sonnerToast.error("Requerimos el tipo y número de identificación del cliente");
+      sileo.error({ title: "Requerimos el tipo y número de identificación del cliente" });
       return;
     }
     if (custForm.legal === "1" && !custForm.company.trim()) {
-      sonnerToast.error("Para persona jurídica se requiere la razón social (company)");
+      sileo.error({ title: "Para persona jurídica se requiere la razón social (company)" });
       return;
     }
     if (custForm.legal === "2" && !custForm.names.trim()) {
-      sonnerToast.error("Para persona natural se requiere el nombre (names)");
+      sileo.error({ title: "Para persona natural se requiere el nombre (names)" });
       return;
     }
 
     const isCredit = showInvoice.payment_form === "2";
     if (isCredit && !showInvoice.payment_due_date) {
-      sonnerToast.error("La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar.");
+      sileo.error({ title: "La venta es a crédito y requiere fecha de vencimiento. Edita la venta antes de facturar." });
       return;
     }
 
@@ -435,24 +454,24 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
 
       const data = await res.json();
       if (!res.ok) {
-        sonnerToast.error(data.error || "No se pudo generar la factura");
+        sileo.error({ title: data.error || "No se pudo generar la factura" });
         return;
       }
 
       const next = data.invoice as { status?: string; number?: string | null } | undefined;
       if (next?.status === "processing") {
-        sonnerToast.warning("Factura en procesamiento. No se reenviará automáticamente para evitar duplicados.");
+        sileo.warning({ title: "Factura en procesamiento", description: "No se reenviará automáticamente para evitar duplicados." });
       } else if (next?.status === "validated") {
-        sonnerToast.success(data.message || `Factura ${next.number} validada y enviada a DIAN`);
+        sileo.success({ title: data.message || `Factura ${next.number} validada y enviada a DIAN` });
       } else {
-        sonnerToast.success(data.message || "Factura generada");
+        sileo.success({ title: data.message || "Factura generada" });
       }
       setShowInvoice(null);
-      await fetchSales();
+      await fetchSales(1);
       await fetchInvoices();
     } catch (error) {
       console.error("Error generating invoice:", error);
-      sonnerToast.error("Error al generar la factura");
+      sileo.error({ title: "Error al generar la factura" });
     } finally {
       setInvoiceBusy(false);
     }
@@ -460,18 +479,6 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div 
-          role="alert"
-          aria-live="polite"
-          className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-elevated animate-slide-in-right ${
-            toast.type === "success" ? "bg-success text-white" : "bg-danger text-white"
-          }`}>
-          {toast.type === "success" ? <CheckCircle className="size-5" aria-hidden="true" /> : <AlertCircle className="size-5" aria-hidden="true" />}
-          <span className="text-sm font-medium whitespace-pre-line">{toast.message}</span>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl text-foreground">Ventas</h1>
@@ -553,6 +560,14 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
             ))}
           </tbody>
         </table>
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalSales}
+          onPageChange={(n) => fetchSales(n)}
+          loading={loading}
+        />
       </div>
 
       {showModal && (
@@ -970,7 +985,7 @@ export function AdminSalesClient({ initialSales, initialProducts }: Props) {
                   </div>
                 </fieldset>
 
-                <div className="pt-4 border-t border-border mt-2 flex items-center justify-between gap-4">
+                <div className="pt-4 border-t border-border mt-2 sticky bottom-0 bg-background flex items-center justify-between gap-4">
                   <p className="text-xs text-muted-foreground">
                     La factura se generará con el código de referencia FACT-{showInvoice.id}. No se reenviará automáticamente si ya está en procesamiento.
                   </p>

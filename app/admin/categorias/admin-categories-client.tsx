@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Pencil, Eye, EyeOff, Trash2, Plus } from "lucide-react";
+import { usePagedList } from "@/components/ui/use-paged-list";
+import { Pagination } from "@/components/ui/pagination";
+import { sileo } from "sileo";
 
 interface Category {
   id: number;
@@ -16,6 +19,7 @@ interface Props {
 
 export function AdminCategoriesClient({ initialCategories }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(categories);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", active: true });
@@ -45,9 +49,9 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
       }
 
       resetForm();
-      alert(editingId ? "Categoría actualizada" : "Categoría creada");
+      sileo.success({ title: editingId ? "Categoría actualizada" : "Categoría creada" });
     } catch (error) {
-      alert("Error al guardar");
+      sileo.error({ title: "Error al guardar" });
     } finally {
       setSaving(false);
     }
@@ -65,9 +69,9 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
     try {
       await fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" });
       setCategories(categories.filter(c => c.id !== id));
-      alert("Categoría eliminada");
+      sileo.success({ title: "Categoría eliminada" });
     } catch (error) {
-      alert("Error al eliminar");
+      sileo.error({ title: "Error al eliminar" });
     }
   };
 
@@ -79,9 +83,9 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
         body: JSON.stringify({ ...cat, active: !cat.active }),
       });
       setCategories(categories.map(c => c.id === cat.id ? { ...c, active: !cat.active } : c));
-      alert(cat.active ? "Categoría ocultada" : "Categoría activada");
+      sileo.success({ title: cat.active ? "Categoría ocultada" : "Categoría activada" });
     } catch (error) {
-      alert("Error al actualizar");
+      sileo.error({ title: "Error al actualizar" });
     }
   };
 
@@ -171,7 +175,7 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {categories.map((cat) => (
+            {pagedItems.map((cat) => (
               <tr key={cat.id} className="hover:bg-secondary/30">
                 <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{cat.slug}</td>
@@ -218,6 +222,12 @@ export function AdminCategoriesClient({ initialCategories }: Props) {
             No hay categorías. Crea una nueva.
           </div>
         )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

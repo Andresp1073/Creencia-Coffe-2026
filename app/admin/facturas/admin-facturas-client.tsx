@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Eye, RefreshCw, FileText, CheckCircle2, AlertTriangle, Clock, Ban, ShieldAlert } from "lucide-react";
-import { toast } from "sonner";
+import { Eye, RefreshCw, FileText, CheckCircle2, AlertTriangle, Clock, Ban, ShieldAlert, Download } from "lucide-react";
 import { sileo } from "sileo";
 import { formatCOP } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+import { usePagedList } from "@/components/ui/use-paged-list";
 import { PAYMENT_FORMS, PAYMENT_METHODS } from "@/lib/factus/payment";
 
 interface InvoiceData {
@@ -60,6 +61,7 @@ function StatusIcon({ status }: { status: string }) {
 
 export function AdminFacturasClient({ initialInvoices }: Props) {
   const [invoices, setInvoices] = useState<InvoiceData[]>(initialInvoices);
+  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(invoices);
   const [detail, setDetail] = useState<InvoiceData | null>(null);
   const [working, setWorking] = useState<number | null>(null);
 
@@ -87,25 +89,25 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "No se pudo generar la factura");
+        sileo.error({ title: data.error || "No se pudo generar la factura" });
         await refresh();
         return;
       }
       const next = data.invoice as InvoiceData | undefined;
       if (next?.status === "processing") {
-        toast.warning({
+        sileo.warning({
           title: "Factura en procesamiento",
           description: "No se reenviará automáticamente para evitar duplicados. Requiere reconciliación.",
         });
       } else if (next?.status === "validated") {
-        toast.success(data.message || `Factura ${next.number} validada`);
+        sileo.success({ title: data.message || `Factura ${next.number} validada` });
       } else {
-        toast.success(data.message || "Factura generada");
+        sileo.success({ title: data.message || "Factura generada" });
       }
       await refresh();
     } catch (e) {
       console.error("Error retrying invoice:", e);
-      toast.error("Error al intentar facturar");
+      sileo.error({ title: "Error al intentar facturar" });
     } finally {
       setWorking(null);
     }
@@ -145,6 +147,36 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
     }
   }, [working, refresh]);
 
+  const handleDownload = useCallback(async (inv: InvoiceData, kind: "pdf" | "xml") => {
+    if (working || !inv.number) return;
+    setWorking(inv.id);
+    try {
+      const res = await fetch(`/api/admin/invoices/${inv.order_id}/download?kind=${kind}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        sileo.error({ title: data.error || `No se pudo descargar el ${kind.toUpperCase()}` });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${inv.number}.${kind}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error downloading invoice:", e);
+      sileo.error({ title: "Error al descargar la factura" });
+    } finally {
+      setWorking(null);
+    }
+  }, [working]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -183,13 +215,13 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {invoices.length === 0 ? (
+              {pagedItems.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
                     No hay facturas aún. Genera una desde la sección Ventas.
                   </td>
                 </tr>
-              ) : invoices.map((inv) => {
+              ) : pagedItems.map((inv) => {
                 const meta = STATUS_META[inv.status] || STATUS_META.pending;
                 return (
                   <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
@@ -255,6 +287,30 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                           <Eye className="size-4" aria-hidden="true" />
                           Ver
                         </Button>
+                        {inv.status === "validated" && inv.number && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(inv, "pdf")}
+                              disabled={working !== null}
+                              aria-label={`Descargar PDF de factura ${inv.reference_code}`}
+                            >
+                              <Download className={`size-4 ${working === inv.id ? "animate-pulse" : ""}`} aria-hidden="true" />
+                              PDF
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(inv, "xml")}
+                              disabled={working !== null}
+                              aria-label={`Descargar XML de factura ${inv.reference_code}`}
+                            >
+                              <Download className={`size-4 ${working === inv.id ? "animate-pulse" : ""}`} aria-hidden="true" />
+                              XML
+                            </Button>
+                          </>
+                        )}
                         {inv.status === "processing" && (
                           <Button
                             variant="ghost"
@@ -287,6 +343,13 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       </div>
 
       {detail && (
@@ -377,6 +440,19 @@ export function AdminFacturasClient({ initialInvoices }: Props) {
                 </div>
               )}
             </dl>
+
+            {detail.status === "validated" && detail.number && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                <Button variant="outline" size="md" onClick={() => handleDownload(detail, "pdf")} disabled={working !== null}>
+                  <Download className="size-4" aria-hidden="true" />
+                  Descargar PDF
+                </Button>
+                <Button variant="outline" size="md" onClick={() => handleDownload(detail, "xml")} disabled={working !== null}>
+                  <Download className="size-4" aria-hidden="true" />
+                  Descargar XML
+                </Button>
+              </div>
+            )}
           </div>
         </Modal>
       )}

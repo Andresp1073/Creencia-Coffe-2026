@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ArrowUp, ArrowDown, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePagedList } from "@/components/ui/use-paged-list";
+import { Pagination } from "@/components/ui/pagination";
+import { sileo } from "sileo";
 
 interface Product {
   id: number;
@@ -14,23 +17,8 @@ interface Product {
   active?: boolean;
 }
 
-interface Movement {
-  id: number;
-  date: string;
-  product_name: string;
-  type: "entrada" | "salida";
-  qty: number;
-  note?: string;
-}
-
 interface Props {
   initialProducts: Product[];
-  initialMovements: Movement[];
-}
-
-interface Toast {
-  message: string;
-  type: "success" | "error" | "warning";
 }
 
 function StockModal({ 
@@ -142,15 +130,15 @@ function StockModal({
   );
 }
 
-export function AdminInventoryClient({ initialProducts, initialMovements }: Props) {
+export function AdminInventoryClient({ initialProducts }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [movements] = useState<Movement[]>(initialMovements);
+  const { page, setPage, totalPages, totalItems, pagedItems } = usePagedList(products);
   const [stockModal, setStockModal] = useState<{ product: Product; type: "entrada" | "salida" } | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const showToast = useCallback((message: string, type: "success" | "error" | "warning") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
+    if (type === "success") sileo.success({ title: message });
+    else if (type === "warning") sileo.warning({ title: message });
+    else sileo.error({ title: message });
   }, []);
 
   const stockStatus = (stock: number) => {
@@ -161,18 +149,6 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div 
-          role="alert"
-          aria-live="polite"
-          className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-elevated animate-slide-in-right ${
-            toast.type === "success" ? "bg-success text-white" : toast.type === "warning" ? "bg-warning text-white" : "bg-danger text-white"
-          }`}>
-          {toast.type === "success" ? <CheckCircle className="size-5" aria-hidden="true" /> : toast.type === "warning" ? <AlertCircle className="size-5" aria-hidden="true" /> : <AlertCircle className="size-5" aria-hidden="true" />}
-          <span className="text-sm font-medium">{toast.message}</span>
-        </div>
-      )}
-
       {stockModal && (
         <StockModal
           product={stockModal.product}
@@ -212,7 +188,7 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {products.map((p) => {
+              {pagedItems.map((p) => {
                 const status = stockStatus(p.stock || 0);
                 return (
                   <tr key={p.id} className="hover:bg-muted/30 transition-colors">
@@ -252,44 +228,13 @@ export function AdminInventoryClient({ initialProducts, initialMovements }: Prop
             </tbody>
           </table>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden" role="region" aria-label="Movimientos recientes">
-        <div className="px-6 py-5 border-b border-border">
-          <h2 className="font-display text-xl text-foreground">Movimientos recientes</h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-6 py-3.5 font-medium text-left" scope="col">Fecha</th>
-              <th className="px-6 py-3.5 font-medium text-left" scope="col">Producto</th>
-              <th className="px-6 py-3.5 font-medium text-left" scope="col">Tipo</th>
-              <th className="px-6 py-3.5 font-medium text-right" scope="col">Cantidad</th>
-              <th className="px-6 py-3.5 font-medium text-left" scope="col">Nota</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50">
-            {movements.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                  No hay movimientos registrados
-                </td>
-              </tr>
-            ) : movements.map((m) => (
-              <tr key={m.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-6 py-4 text-muted-foreground">{m.date}</td>
-                <td className="px-6 py-4 font-medium text-foreground">{m.product_name}</td>
-                <td className="px-6 py-4">
-                  <Badge variant={m.type === "entrada" ? "success" : "danger"} size="sm">
-                    {m.type === "entrada" ? "Entrada" : "Salida"}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 text-right font-medium text-foreground">{m.qty}</td>
-                <td className="px-6 py-4 text-muted-foreground text-sm">{m.note || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

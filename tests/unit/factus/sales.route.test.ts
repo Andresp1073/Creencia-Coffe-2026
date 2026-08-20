@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("next/server", () => {
   class NextRequest {
     method: string;
+    url: string;
     private body: string | null;
-    constructor(_input: string, init?: RequestInit) {
+    constructor(input: string, init?: RequestInit) {
       this.method = init?.method ?? "GET";
+      this.url = input;
       this.body = typeof init?.body === "string" ? (init.body as string) : null;
     }
     async json(): Promise<unknown> {
@@ -266,20 +268,40 @@ describe("POST /api/admin/sales - autoridad server-side", () => {
 
 describe("GET /api/admin/sales - ventas históricas", () => {
   it("devuelve ventas históricas sin exigir datos de pago", async () => {
-    vi.mocked(queryMany).mockResolvedValue([
-      {
-        id: 1,
-        customer: "Histórico",
-        total: 40000,
-        items: "[]",
-        status: "pending",
-        created_at: "2026-01-01T00:00:00.000Z",
-      },
-    ]);
+    vi.mocked(queryMany)
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          customer: "Histórico",
+          total: 40000,
+          items: "[]",
+          status: "pending",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ]);
     const res = await GET(new NextRequest("http://localhost/api/admin/sales"));
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { sales: { customer: string }[] };
+    const data = (await res.json()) as {
+      sales: { customer: string }[];
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    };
     expect(data.sales).toHaveLength(1);
     expect(data.sales[0].customer).toBe("Histórico");
+    expect(data.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
+  });
+
+  it("aplica LIMIT/OFFSET a la página solicitada", async () => {
+    vi.mocked(queryMany)
+      .mockResolvedValueOnce([{ total: 35 }])
+      .mockResolvedValueOnce([{ id: 4, customer: "Página 4", total: 1000, items: "[]", status: "pending", created_at: "2026-01-01T00:00:00.000Z" }]);
+    const res = await GET(new NextRequest("http://localhost/api/admin/sales?page=3&pageSize=10"));
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      sales: { customer: string }[];
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    };
+    expect(data.pagination).toEqual({ page: 3, pageSize: 10, total: 35, totalPages: 4 });
+    expect(queryMany).toHaveBeenCalledWith(expect.stringContaining("LIMIT 10 OFFSET 20"));
   });
 });

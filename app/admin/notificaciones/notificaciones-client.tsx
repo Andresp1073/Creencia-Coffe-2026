@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Check, Trash2, Bell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast, Toaster } from "sonner";
+import { sileo } from "sileo";
 
 interface Notification {
   id: number;
@@ -40,7 +40,7 @@ export function NotificacionesClient() {
 
   const handleMarkAsRead = async (id: number) => {
     console.log("handleMarkAsRead clicked for id:", id);
-    toast.info("Marcando como leída...");
+    sileo.info({ title: "Marcando como leída..." });
     
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, {
@@ -53,20 +53,20 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         window.dispatchEvent(new Event("notifications:update"));
-        toast.success("Marcada como leída");
+        sileo.success({ title: "Marcada como leída" });
       } else {
         const data = await res.json();
-        toast.error(data.error || "Error");
+        sileo.error({ title: data.error || "Error" });
       }
     } catch (e) {
       console.error("Fetch error:", e);
-      toast.error("Error de conexión");
+      sileo.error({ title: "Error de conexión" });
     }
   };
 
   const handleMarkAllAsRead = async () => {
     console.log("handleMarkAllAsRead clicked");
-    toast.info("Marcando todas...");
+    sileo.info({ title: "Marcando todas..." });
     
     try {
       const res = await fetch('/api/admin/notifications/read-all', {
@@ -77,13 +77,13 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         window.dispatchEvent(new Event("notifications:update"));
-        toast.success("Todas marcadas");
+        sileo.success({ title: "Todas marcadas" });
       } else {
-        toast.error("Error");
+        sileo.error({ title: "Error" });
       }
     } catch (e) {
       console.error("Fetch error:", e);
-      toast.error("Error de conexión");
+      sileo.error({ title: "Error de conexión" });
     }
   };
 
@@ -91,7 +91,7 @@ export function NotificacionesClient() {
     console.log("handleDelete clicked for id:", id);
     if (!confirm("¿Eliminar esta notificación?")) return;
     
-    toast.info("Eliminando...");
+    sileo.info({ title: "Eliminando..." });
     
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, {
@@ -102,13 +102,13 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications(prev => prev.filter(n => n.id !== id));
         window.dispatchEvent(new Event("notifications:update"));
-        toast.success("Eliminada");
+        sileo.success({ title: "Eliminada" });
       } else {
-        toast.error("Error");
+        sileo.error({ title: "Error" });
       }
     } catch (e) {
       console.error("Fetch error:", e);
-      toast.error("Error de conexión");
+      sileo.error({ title: "Error de conexión" });
     }
   };
 
@@ -116,7 +116,7 @@ export function NotificacionesClient() {
     console.log("handleDeleteAll clicked");
     if (!confirm("¿Eliminar todas las notificaciones?")) return;
     
-    toast.info("Eliminando todas...");
+    sileo.info({ title: "Eliminando todas..." });
     
     try {
       const res = await fetch('/api/admin/notifications', {
@@ -127,13 +127,13 @@ export function NotificacionesClient() {
       if (res.ok) {
         setNotifications([]);
         window.dispatchEvent(new Event("notifications:update"));
-        toast.success("Todas eliminadas");
+        sileo.success({ title: "Todas eliminadas" });
       } else {
-        toast.error("Error");
+        sileo.error({ title: "Error" });
       }
     } catch (e) {
       console.error("Fetch error:", e);
-      toast.error("Error de conexión");
+      sileo.error({ title: "Error de conexión" });
     }
   };
 
@@ -149,9 +149,7 @@ export function NotificacionesClient() {
   }
 
   return (
-    <>
-      <Toaster position="top-right" richColors />
-      <div>
+    <div>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-display text-3xl">Notificaciones</h1>
@@ -261,6 +259,5 @@ export function NotificacionesClient() {
           )}
         </div>
       </div>
-    </>
   );
 }
