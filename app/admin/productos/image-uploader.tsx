@@ -28,12 +28,12 @@ export function ImageUploader({
   const [imageError, setImageError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage =
-    value && !imageError
-      ? value
-      : defaultImage && !imageError
-        ? defaultImage
-        : null;
+  let displayImage: string | null = null;
+  if (!imageError && value) {
+    displayImage = value;
+  } else if (!imageError && defaultImage) {
+    displayImage = defaultImage;
+  }
   const hasImage = !!displayImage;
 
   useEffect(() => {
