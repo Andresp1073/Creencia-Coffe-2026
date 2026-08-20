@@ -41,13 +41,14 @@ function toIsoString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "object") return null;
   return String(value);
 }
 
 function toDateOnly(value: unknown): string | null {
   const iso = toIsoString(value);
   if (!iso) return null;
-  const match = iso.match(/^\d{4}-\d{2}-\d{2}/);
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(iso);
   return match ? match[0] : iso.slice(0, 10);
 }
 

@@ -47,9 +47,9 @@ export function sanitizeUrl(input: unknown): string {
  */
 export function escapeJsonForScript(value: unknown): string {
   return JSON.stringify(value)
-    .replace(/</g, "\\u003c")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
+    .replace(/</g, String.raw`\u003c`)
+    .replace(/\u2028/g, String.raw`\u2028`)
+    .replace(/\u2029/g, String.raw`\u2029`);
 }
 
 export function isValidEmail(email: unknown): boolean {

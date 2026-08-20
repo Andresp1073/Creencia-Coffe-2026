@@ -1,6 +1,6 @@
 import { query, queryOne, queryMany } from "@/lib/db";
 import { NotFoundError, ValidationError, ConflictError, safeJsonParse } from "@/lib/security/safe-error";
-import { toCents, toMoneyString } from "./money";
+import { toCents } from "./money";
 import { mapInvoicePayload, InvoiceItemSeed, InvoiceCustomerSeed } from "./invoice.mapper";
 import {
   createInvoice as sendInvoiceToFactus,
@@ -313,7 +313,7 @@ function normalizeDueDateValue(value: unknown): string | null {
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value.trim())) {
     return value.trim().slice(0, 10);
   }
-  if (value instanceof Date && !isNaN(value.getTime())) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
     // mysql2 entrega columnas DATE como Date a medianoche UTC: getters UTC
     // preservan el calendario "YYYY-MM-DD" sin corrimientos de zona horaria.
     const year = value.getUTCFullYear();
@@ -397,7 +397,7 @@ function normalizeValidatedAt(value: unknown): string | null {
   }
 
   // Factus V2: "DD-MM-YYYY hh:mm:ss AM|PM"
-  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+  const m = /^(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i.exec(s);
   if (m) {
     let hour = Number(m[4]);
     const minute = m[5];
@@ -591,7 +591,7 @@ export async function generateInvoice(
     [customerId ?? order.customer_id, JSON.stringify(payload.customer), invoice.id]
   );
 
-  if (!claim || claim.affectedRows !== 1) {
+  if (claim?.affectedRows !== 1) {
     const current = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
     if (!current) {
       throw new InvoicePayloadError("No se pudo recuperar la factura local");

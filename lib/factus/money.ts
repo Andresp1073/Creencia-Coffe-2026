@@ -12,7 +12,7 @@
  * La resta garantiza base + IVA === P exacto; jamás se calcula IVA = base * r.
  */
 
-export type Cents = bigint;
+export type TaxRate = string | number | null | undefined;
 
 const SCALE = 100n;
 
@@ -27,7 +27,7 @@ export class MoneyError extends Error {
 }
 
 /** Convierte cantidad (COP, hasta 2 decimales) a centavos BigInt. Lanza si el formato es inválido. */
-export function toCents(value: string | number | bigint): Cents {
+export function toCents(value: string | number | bigint): bigint {
   if (typeof value === "number") {
     return toCentsFromNumber(value);
   }
@@ -46,7 +46,7 @@ export function toCents(value: string | number | bigint): Cents {
 }
 
 /** Número (moneda de punto flotante) -> centavos con redondeo a 2 decimales (half away from zero). */
-export function toCentsFromNumber(value: number): Cents {
+export function toCentsFromNumber(value: number): bigint {
   if (!Number.isFinite(value)) {
     throw new MoneyError(`Valor monetario inválido: ${value}`);
   }
@@ -58,7 +58,7 @@ export function toCentsFromNumber(value: number): Cents {
 }
 
 /** Formatea centavos a string monetario con 2 decimales. Ej: 3500000n -> "35000.00". */
-export function toMoneyString(cents: Cents): string {
+export function toMoneyString(cents: bigint): string {
   const negative = cents < 0n;
   const abs = negative ? -cents : cents;
   const whole = abs / SCALE;
@@ -67,20 +67,20 @@ export function toMoneyString(cents: Cents): string {
 }
 
 /** Centavos -> número (solo para lectura/display; no usar en cálculos críticos). */
-export function toNumber(cents: Cents): number {
+export function toNumber(cents: bigint): number {
   return Number(toMoneyString(cents));
 }
 
-export function add(a: Cents, b: Cents): Cents {
+export function add(a: bigint, b: bigint): bigint {
   return a + b;
 }
 
-export function subtract(a: Cents, b: Cents): Cents {
+export function subtract(a: bigint, b: bigint): bigint {
   return a - b;
 }
 
 /** Multiplicación por entero (p. ej. cantidad). */
-export function multiplyInteger(a: Cents, factor: number | bigint): Cents {
+export function multiplyInteger(a: bigint, factor: number | bigint): bigint {
   if (typeof factor === "number" && !Number.isInteger(factor)) {
     throw new MoneyError(`Factor monetario debe ser entero: ${factor}`);
   }
@@ -91,7 +91,7 @@ export function multiplyInteger(a: Cents, factor: number | bigint): Cents {
  * División entera con redondeo half away from zero (a 0 decimales del resultado).
  * Interna; para dinero siempre operamos a escala de centavos con el numerador ya escalado.
  */
-export function divideRound(a: Cents, b: bigint): Cents {
+export function divideRound(a: bigint, b: bigint): bigint {
   if (b === 0n) throw new MoneyError("División por cero");
   if (a === 0n) return 0n;
   const negative = (a < 0n) !== (b < 0n);
@@ -103,36 +103,36 @@ export function divideRound(a: Cents, b: bigint): Cents {
   return negative ? -q : q;
 }
 
-export function addMany(values: Cents[]): Cents {
+export function addMany(values: bigint[]): bigint {
   return values.reduce((acc, v) => acc + v, 0n);
 }
 
-export function eq(a: Cents, b: Cents): boolean {
+export function eq(a: bigint, b: bigint): boolean {
   return a === b;
 }
 
-export function neq(a: Cents, b: Cents): boolean {
+export function neq(a: bigint, b: bigint): boolean {
   return a !== b;
 }
 
-export function gt(a: Cents, b: Cents): boolean {
+export function gt(a: bigint, b: bigint): boolean {
   return a > b;
 }
 
-export function gte(a: Cents, b: Cents): boolean {
+export function gte(a: bigint, b: bigint): boolean {
   return a >= b;
 }
 
-export function lt(a: Cents, b: Cents): boolean {
+export function lt(a: bigint, b: bigint): boolean {
   return a < b;
 }
 
-export function lte(a: Cents, b: Cents): boolean {
+export function lte(a: bigint, b: bigint): boolean {
   return a <= b;
 }
 
 /** Redondea a centavos (no-op sobre centavos, incluida por completitud de API). */
-export function round(a: Cents): Cents {
+export function round(a: bigint): bigint {
   return a;
 }
 
@@ -144,9 +144,9 @@ export function round(a: Cents): Cents {
  * @returns { base, tax } donde base + tax === totalCents exactamente, o null si rate es inválido.
  */
 export function splitTaxIncluded(
-  totalCents: Cents,
-  rate: string | number | null | undefined
-): { base: Cents; tax: Cents } | null {
+  totalCents: bigint,
+  rate: TaxRate
+): { base: bigint; tax: bigint } | null {
   if (rate === null || rate === undefined || rate === "") return null;
   const rateNumber = typeof rate === "string" ? Number(rate) : rate;
   if (!Number.isFinite(rateNumber) || rateNumber < 0) return null;
@@ -162,13 +162,13 @@ export function splitTaxIncluded(
 }
 
 /** Cálculo de base (precio sin IVA) dado un total con IVA incluido. null si la tasa no aplica. */
-export function baseIncluded(totalCents: Cents, rate: string | number | null | undefined): Cents | null {
+export function baseIncluded(totalCents: bigint, rate: TaxRate): bigint | null {
   const split = splitTaxIncluded(totalCents, rate);
   return split ? split.base : null;
 }
 
 /** Cálculo de IVA dado un total con IVA incluido. null si la tasa no aplica. */
-export function taxIncluded(totalCents: Cents, rate: string | number | null | undefined): Cents | null {
+export function taxIncluded(totalCents: bigint, rate: TaxRate): bigint | null {
   const split = splitTaxIncluded(totalCents, rate);
   return split ? split.tax : null;
 }

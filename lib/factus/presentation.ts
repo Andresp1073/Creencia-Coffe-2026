@@ -13,10 +13,11 @@
 
 export function normalizePresentation(value: string | null | undefined): string {
   if (!value) return "";
-  const match = String(value)
-    .trim()
-    .toLowerCase()
-    .match(/^(\d+)\s*(g|gr|grs)?$/);
+  const match = /^(\d+)\s*(g|gr|grs)?$/.exec(
+    String(value)
+      .trim()
+      .toLowerCase()
+  );
   if (match) {
     return `${Number(match[1])}g`;
   }
@@ -26,9 +27,10 @@ export function normalizePresentation(value: string | null | undefined): string 
 /** Mapea una presentación nominal (la que usa el cliente) a su etiqueta canónica de catálogo. */
 export function canonicalPresentation(value: string | null | undefined): string {
   if (!value) return "";
-  const match = String(value)
-    .trim()
-    .toLowerCase()
-    .match(/^(\d+)\s*(g|gr|grs)?$/);
+  const match = /^(\d+)\s*(g|gr|grs)?$/.exec(
+    String(value)
+      .trim()
+      .toLowerCase()
+  );
   return match ? `${Number(match[1])}g` : String(value).trim().toLowerCase();
 }

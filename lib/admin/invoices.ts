@@ -50,6 +50,7 @@ function toIsoString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "object") return null;
   return String(value);
 }
 
@@ -77,7 +78,7 @@ export function mapInvoiceForAdmin(row: Record<string, any>): AdminInvoice {
     validated_at: toIsoString(row.validated_at),
     created_at: toIsoString(row.created_at) ?? "",
     customer,
-    total: totals && totals.total !== undefined ? Number(totals.total) : null,
+    total: totals?.total !== undefined ? Number(totals.total) : null,
     attempts: statusInfo.attempts,
     last_attempt_at: toIsoString(row.last_attempt_at),
     status_label: statusInfo.label,

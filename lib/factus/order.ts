@@ -8,7 +8,7 @@
  * Funciones puras -> directamente testeables sin BD real.
  */
 
-import { Cents, addMany, multiplyInteger, splitTaxIncluded, toCents } from "./money";
+import { addMany, multiplyInteger, splitTaxIncluded, toCents } from "./money";
 import { ValidationError } from "@/lib/security/safe-error";
 
 export interface OrderLine {
@@ -23,15 +23,15 @@ export interface ProductRateRow {
 
 export interface OrderFigures {
   /** Total de cada línea (precio unitario server-side x qty), en centavos. */
-  lineCents: Cents[];
+  lineCents: bigint[];
   /** Total de la venta en centavos. */
-  totalCents: Cents;
+  totalCents: bigint;
   /** Suma de bases (sin IVA). null si algún producto tiene tax_rate NULL (no configurado). */
-  subtotalCents: Cents | null;
+  subtotalCents: bigint | null;
   /** Suma de IVA. null si algún producto tiene tax_rate NULL (no configurado). */
-  taxCents: Cents | null;
+  taxCents: bigint | null;
   /** Precio unitario (centavos) por productId, tomado de products.price. */
-  unitPrices: Map<number, Cents>;
+  unitPrices: Map<number, bigint>;
 }
 
 /**
@@ -74,9 +74,9 @@ export function computeOrderFigures(
   lines: OrderLine[],
   products: Record<number, ProductRateRow>
 ): OrderFigures {
-  const unitPrices = new Map<number, Cents>();
-  const lineCents: Cents[] = [];
-  const lineTax: Cents[] = [];
+  const unitPrices = new Map<number, bigint>();
+  const lineCents: bigint[] = [];
+  const lineTax: bigint[] = [];
 
   const canDecompose = lines.every((line) => {
     const product = products[line.productId];

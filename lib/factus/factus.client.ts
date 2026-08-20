@@ -59,7 +59,10 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
 }
 
 function readEnvConfig() {
-  const baseUrl = process.env.FACTUS_BASE_URL?.trim().replace(/\/+$/, "");
+  let baseUrl = process.env.FACTUS_BASE_URL?.trim() ?? "";
+  while (baseUrl.endsWith("/")) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
   const clientId = process.env.FACTUS_CLIENT_ID?.trim();
   const clientSecret = process.env.FACTUS_CLIENT_SECRET;
   const username = process.env.FACTUS_USERNAME?.trim();
@@ -237,7 +240,7 @@ async function requestWithBearer(path: string, init?: RequestInit): Promise<Resp
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
-      ...(init?.headers || {}),
+      ...init?.headers,
     },
   });
 }

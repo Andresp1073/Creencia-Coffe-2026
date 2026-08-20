@@ -1,4 +1,4 @@
-import { Cents, divideRound, splitTaxIncluded, toMoneyString } from "./money";
+import { divideRound, splitTaxIncluded, toMoneyString } from "./money";
 import { InvoicePayloadError } from "./errors";
 
 /**
@@ -42,7 +42,7 @@ export interface InvoiceItemSeed {
   name: string;
   quantity: number;
   /** Precio unitario final con IVA incluido (orders.items[].price), en centavos. */
-  unitPriceCents: Cents;
+  unitPriceCents: bigint;
   taxRate: number;
   taxCode: string;
   unitMeasureCode: string;
@@ -53,7 +53,7 @@ export interface InvoiceMappingInput {
   referenceCode: string;
   numberingRangeId?: number;
   sendEmail: boolean;
-  orderTotalCents: Cents;
+  orderTotalCents: bigint;
   customer: InvoiceCustomerSeed;
   payment: InvoicePaymentSeed;
   items: InvoiceItemSeed[];
@@ -71,7 +71,7 @@ function formatRate(rate: number): string {
  * 4 × 7000 c/IVA 19% => base 23529.40, IVA 23529.40 × 0.19 = 4470.586 → 4470.59,
  * total línea 27999.99 (en vez de 28000.00).
  */
-function computeFactusLineTotalCents(seed: InvoiceItemSeed): Cents {
+function computeFactusLineTotalCents(seed: InvoiceItemSeed): bigint {
   const unitSplit = splitTaxIncluded(seed.unitPriceCents, seed.taxRate);
   if (!unitSplit) {
     throw new InvoicePayloadError(`tax rate inválido para ${seed.codeReference}`);
