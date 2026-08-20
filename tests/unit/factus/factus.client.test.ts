@@ -293,6 +293,136 @@ describe("factus.client.getNumberingRanges", () => {
 
     expect(ranges).toHaveLength(2);
   });
+
+  it("interpreta el shape real de Sandbox data.data", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(
+            jsonResponse({ status: "OK", message: "Solicitud exitosa", data: { data: [{ id: 389, document: "Factura de Venta", is_active: true }] } })
+          )
+    );
+
+    const ranges = await getNumberingRanges();
+
+    expect(ranges).toEqual([{ id: 389, document: "Factura de Venta", is_active: true }]);
+    expect(ranges[0].id).toBe(389);
+  });
+
+  it("data.data vacío devuelve [] (resultado válido)", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ status: "OK", data: { data: [] } }))
+    );
+
+    const ranges = await getNumberingRanges();
+
+    expect(ranges).toEqual([]);
+  });
+
+  it("soporta numbering_ranges como array", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ numbering_ranges: [{ id: 7 }] }))
+    );
+
+    const ranges = await getNumberingRanges();
+
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].id).toBe(7);
+  });
+
+  it("estructura irreconocible lanza FactusClientUnavailableError (no asume 'sin rangos')", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ status: "OK", data: { foo: [{ id: 1 }] } }))
+    );
+
+    await expect(getNumberingRanges()).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("body no objeto lanza FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse("texto plano"))
+    );
+
+    await expect(getNumberingRanges()).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("data inexistente lanza FactusClientUnavailableError (no asume rangos)", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ status: "OK", message: "sin datos" }))
+    );
+
+    await expect(getNumberingRanges()).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("usa GET /v2/numbering-ranges y nunca POST", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ data: [{ id: 1 }] }))
+    );
+
+    await getNumberingRanges();
+
+    const call = fetchMock.mock.calls.find(([url]) => String(url).includes("/v2/numbering-ranges"))!;
+    expect(call).toBeTruthy();
+    expect((call[1] as RequestInit).method ?? "GET").toBe("GET");
+  });
+
+  it("404 -> FactusNotFoundError y 429 -> FactusRateLimitError", async () => {
+    for (const [status, klass] of [
+      [404, FactusNotFoundError],
+      [429, FactusRateLimitError],
+    ] as const) {
+      fetchMock.mockImplementation((input) =>
+        String(input).includes("/oauth/token")
+          ? Promise.resolve(tokenResponse("tok-1"))
+          : Promise.resolve(jsonResponse({ message: "op" }, status))
+      );
+      await expect(getNumberingRanges()).rejects.toBeInstanceOf(klass);
+    }
+  });
+
+  it("timeout sigue produciendo FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = getAccessToken().then(() =>
+      getNumberingRanges().then(
+        () => null,
+        (error) => error
+      )
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
+  });
 });
 
 describe("factus.client - timeout HTTP (F1)", () => {

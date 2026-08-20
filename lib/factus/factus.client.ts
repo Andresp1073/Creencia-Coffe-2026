@@ -297,13 +297,34 @@ export async function getNumberingRanges(): Promise<FactusNumberingRange[]> {
   const response = await authenticatedRequest("/v2/numbering-ranges");
   const data = await handleApiResponse<unknown>(response, "resource");
 
+  // Formato legado de la misma documentación: array plano a nivel raíz.
   if (Array.isArray(data)) return data as FactusNumberingRange[];
-  if (data && typeof data === "object") {
-    const record = data as Record<string, unknown>;
-    if (Array.isArray(record.data)) return record.data as FactusNumberingRange[];
-    if (Array.isArray(record.numbering_ranges)) return record.numbering_ranges as FactusNumberingRange[];
+
+  if (!data || typeof data !== "object") {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente."
+    );
   }
-  return [];
+
+  const record = data as Record<string, unknown>;
+
+  // Shape real confirmado en Sandbox: { status, message, data: { data: [...] } }.
+  if (record.data && typeof record.data === "object") {
+    const nested = record.data as Record<string, unknown>;
+    if (Array.isArray(nested.data)) return nested.data as FactusNumberingRange[];
+  }
+
+  // Formato previamente soportado: data = array.
+  if (Array.isArray(record.data)) return record.data as FactusNumberingRange[];
+
+  // Formato previamente soportado: numbering_ranges = array.
+  if (Array.isArray(record.numbering_ranges)) return record.numbering_ranges as FactusNumberingRange[];
+
+  // Contenedor irreconocible: NO se interpreta como "sin rangos" (podría ocultar
+  // un rango disponible). Error explícito y seguro.
+  throw new FactusClientUnavailableError(
+    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+  );
 }
 
 /** Envía una factura a Factus (endpoint de validación de la skill). */
