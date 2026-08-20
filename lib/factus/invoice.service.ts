@@ -2,7 +2,15 @@ import { query, queryOne, queryMany } from "@/lib/db";
 import { NotFoundError, ValidationError, ConflictError, safeJsonParse } from "@/lib/security/safe-error";
 import { toCents, toMoneyString } from "./money";
 import { mapInvoicePayload, InvoiceItemSeed, InvoiceCustomerSeed } from "./invoice.mapper";
-import { createInvoice as sendInvoiceToFactus, getNumberingRanges, getBills } from "./factus.client";
+import {
+  createInvoice as sendInvoiceToFactus,
+  getNumberingRanges,
+  getBills,
+  getInvoicePdf,
+  getInvoiceXml,
+  InvoiceFileKind,
+  FactusFileDownload,
+} from "./factus.client";
 import { FactusInvoiceResponse } from "./types";
 import {
   InvoicePayloadError,
@@ -758,4 +766,41 @@ export async function reconcileInvoice(orderId: number): Promise<ReconcileResult
     reconciled: true,
     message: `Factura ${updated.number || referenceCode} reconciliada y validada por Factus`,
   };
+}
+
+export interface InvoiceFileDownloadResult {
+  invoice: InvoiceRow;
+  file: FactusFileDownload;
+}
+
+/**
+ * Descarga el PDF/XML de una factura VALIDADA desde Factus (solo lectura).
+ *
+ * - Solo aplica a `status === "validated"` con `number` presente (número DIAN):
+ *   cualquier otro estado NO consulta Factus y devuelve un error de conflicto.
+ * - Usa los endpoints oficiales GET de descarga; nunca emite ni reenvía.
+ * - Malformaciones/indisponibilidad de Factus se propagan de forma segura.
+ */
+export async function getValidatedInvoiceFile(orderId: number, kind: InvoiceFileKind): Promise<InvoiceFileDownloadResult> {
+  const invoice = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE order_id = ? ORDER BY id DESC LIMIT 1`,
+    [orderId]
+  );
+  if (!invoice) {
+    throw new NotFoundError(`No existe factura local para la orden ${orderId}`);
+  }
+
+  if (invoice.status !== "validated") {
+    throw new ConflictError(
+      `La factura ${invoice.reference_code} está en estado ${invoice.status}; la descarga solo está disponible para facturas validadas.`
+    );
+  }
+
+  if (!invoice.number || invoice.number.trim() === "") {
+    throw new ConflictError(`La factura ${invoice.reference_code} validada no tiene número DIAN para descargar.`);
+  }
+
+  const file = kind === "pdf" ? await getInvoicePdf(invoice.number) : await getInvoiceXml(invoice.number);
+
+  return { invoice, file };
 }

@@ -467,3 +467,67 @@ export async function getBillByNumber(number: string): Promise<FactusBill> {
 
   return candidate as FactusBill;
 }
+
+/* ---------------------------------------------------------------------------
+ * Descarga de archivos de una factura (PDF/XML)
+ *
+ * Endpoints oficiales (solo lectura, GET, facturas VALIDADAS):
+ *   GET /v2/bills/:number/download-pdf  -> data.pdf_base_64_encoded + file_name
+ *   GET /v2/bills/:number/download-xml/ -> data.xml_base_64_encoded + file_name
+ *
+ * Respuesta confirmada en Sandbox: `200` con `{ status, message, data: {
+ * file_name, <kind>_base_64_encoded } }`. El cliente devuelve la cadena en
+ * Base64 y el nombre del archivo; la decodificación la hace el caller. Si el
+ * contenedor no es reconocible se lanza un error seguro, nunca un archivo vacío.
+ * ------------------------------------------------------------------------ */
+
+export type InvoiceFileKind = "pdf" | "xml";
+
+export interface FactusFileDownload {
+  file_name: string;
+  base64: string;
+}
+
+async function downloadInvoiceFile(number: string, kind: InvoiceFileKind): Promise<FactusFileDownload> {
+  const path =
+    kind === "pdf"
+      ? `/v2/bills/${encodeURIComponent(number)}/download-pdf`
+      : `/v2/bills/${encodeURIComponent(number)}/download-xml/`;
+
+  const response = await authenticatedRequest(path);
+  const result = await handleApiResponse<unknown>(response, "resource");
+
+  if (!result || typeof result !== "object") {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió una descarga interpretable. Revisa la conectividad e inténtalo nuevamente."
+    );
+  }
+
+  const nested =
+    (result as Record<string, unknown>).data && typeof (result as Record<string, unknown>).data === "object"
+      ? ((result as Record<string, unknown>).data as Record<string, unknown>)
+      : null;
+
+  const field = kind === "pdf" ? "pdf_base_64_encoded" : "xml_base_64_encoded";
+  const raw = nested ? (nested[field] as unknown) : undefined;
+
+  if (typeof raw !== "string" || raw.trim() === "") {
+    throw new FactusClientUnavailableError(
+      "Factus no devolvió el archivo solicitado. Se requiere revisión manual."
+    );
+  }
+
+  const fileName = typeof nested?.file_name === "string" && nested.file_name.trim() ? nested.file_name : number;
+
+  return { file_name: fileName, base64: raw };
+}
+
+/** Descarga el PDF de una factura validada (Base64 + nombre de archivo). */
+export async function getInvoicePdf(number: string): Promise<FactusFileDownload> {
+  return downloadInvoiceFile(number, "pdf");
+}
+
+/** Descarga el XML electrónico de una factura validada (Base64 + nombre de archivo). */
+export async function getInvoiceXml(number: string): Promise<FactusFileDownload> {
+  return downloadInvoiceFile(number, "xml");
+}

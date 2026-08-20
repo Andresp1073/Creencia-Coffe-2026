@@ -5,6 +5,8 @@ import {
   createInvoice,
   getBills,
   getBillByNumber,
+  getInvoicePdf,
+  getInvoiceXml,
   invalidateTokenCache,
   FACTUS_HTTP_TIMEOUT_MS,
 } from "@/lib/factus/factus.client";
@@ -1110,6 +1112,172 @@ describe("factus.client.getBillByNumber (reconciliación 7B/7D)", () => {
 
     const promise = getAccessToken().then(() =>
       getBillByNumber("SETP990015609").then(
+        () => null,
+        (error) => error
+      )
+    );
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(FACTUS_HTTP_TIMEOUT_MS);
+
+    const error = await promise;
+    expect(error).toBeInstanceOf(FactusClientUnavailableError);
+  });
+});
+
+describe("factus.client.getInvoicePdf / getInvoiceXml (descarga 7I)", () => {
+  function downloadHandler(responseBody: unknown) {
+    return (input: unknown) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse(responseBody));
+  }
+
+  it("pdf: 200 con pdf_base_64_encoded y file_name devuelve la descarga", async () => {
+    fetchMock.mockImplementation(
+      downloadHandler({
+        status: "OK",
+        message: "ok",
+        data: { file_name: "fv10007890020002600015934", pdf_base_64_encoded: Buffer.from("%PDF-1.4 fake").toString("base64") },
+      })
+    );
+
+    const file = await getInvoicePdf("SETP990015609");
+
+    expect(file.file_name).toBe("fv10007890020002600015934");
+    expect(Buffer.from(file.base64, "base64").toString("utf8")).toBe("%PDF-1.4 fake");
+  });
+
+  it("xml: 200 con xml_base_64_encoded y file_name devuelve la descarga", async () => {
+    fetchMock.mockImplementation(
+      downloadHandler({
+        status: "OK",
+        message: "ok",
+        data: { file_name: "fv10007890020002600015934", xml_base_64_encoded: Buffer.from("<?xml version=\"1.0\"?>").toString("base64") },
+      })
+    );
+
+    const file = await getInvoiceXml("SETP990015609");
+
+    expect(file.file_name).toBe("fv10007890020002600015934");
+    expect(Buffer.from(file.base64, "base64").toString("utf8")).toContain("<?xml");
+  });
+
+  it("usa GET con la ruta exacta (download-pdf sin slash y download-xml/ con slash) y nunca POST", async () => {
+    fetchMock.mockImplementation(
+      downloadHandler({
+        status: "OK",
+        data: {
+          file_name: "archivo",
+          pdf_base_64_encoded: Buffer.from("pdf").toString("base64"),
+          xml_base_64_encoded: Buffer.from("xml").toString("base64"),
+        },
+      })
+    );
+
+    await getInvoicePdf("SETP990015609");
+    await getInvoiceXml("SETP990015609");
+
+    const calls = fetchMock.mock.calls
+      .filter(([url]) => String(url).includes("/download-"))
+      .map(([url, init]) => ({ url: String(url), method: (init as RequestInit)?.method }));
+    expect(calls).toHaveLength(2);
+    expect(calls[0].url).toContain("/v2/bills/SETP990015609/download-pdf");
+    expect(calls[0].url.endsWith("/")).toBe(false);
+    expect(calls[1].url).toContain("/v2/bills/SETP990015609/download-xml/");
+    expect(calls[1].url.endsWith("/")).toBe(true);
+    expect(calls.every((c) => !c.method || c.method === "GET")).toBe(true);
+  });
+
+  it("sin base64 en data: FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(downloadHandler({ status: "OK", data: { file_name: "archivo" } }));
+
+    await expect(getInvoicePdf("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("base64 vacío: FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(downloadHandler({ status: "OK", data: { file_name: "a", pdf_base_64_encoded: "  " } }));
+
+    await expect(getInvoicePdf("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("estructura irreconocible (result no objeto): FactusClientUnavailableError", async () => {
+    fetchMock.mockImplementation(downloadHandler("texto plano"));
+
+    await expect(getInvoicePdf("SETP990015609")).rejects.toBeInstanceOf(FactusClientUnavailableError);
+  });
+
+  it("propaga FactusNotFoundError ante 404", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ message: "factura no existe" }, 404))
+    );
+
+    await expect(getInvoicePdf("SETP999")).rejects.toBeInstanceOf(FactusNotFoundError);
+  });
+
+  it("propaga FactusRateLimitError ante 429", async () => {
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("/oauth/token")
+        ? Promise.resolve(tokenResponse("tok-1"))
+        : Promise.resolve(jsonResponse({ message: "rate limit" }, 429))
+    );
+
+    await expect(getInvoiceXml("SETP990015609")).rejects.toBeInstanceOf(FactusRateLimitError);
+  });
+
+  it("ante 401 invalida el token, obtiene uno nuevo y reintenta UNA vez", async () => {
+    let tokenCalls = 0;
+    let pdfCalls = 0;
+
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/oauth/token")) {
+        tokenCalls += 1;
+        return Promise.resolve(tokenResponse(`tok-${tokenCalls}`));
+      }
+      if (url.includes("/download-pdf")) {
+        pdfCalls += 1;
+        if (pdfCalls === 1) return Promise.resolve(jsonResponse({}, 401));
+        return Promise.resolve(
+          jsonResponse({
+            status: "OK",
+            data: { file_name: "archivo", pdf_base_64_encoded: Buffer.from("pdf").toString("base64") },
+          })
+        );
+      }
+      return Promise.reject(new Error("unexpected"));
+    });
+
+    await getAccessToken();
+    const file = await getInvoicePdf("SETP990015609");
+
+    expect(pdfCalls).toBe(2);
+    expect(tokenCalls).toBe(2);
+    expect(file.base64).toBe(Buffer.from("pdf").toString("base64"));
+  });
+
+  it("timeout: FactusClientUnavailableError y sin reintento", async () => {
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).includes("/oauth/token")) {
+        return Promise.resolve(tokenResponse("tok-1"));
+      }
+      const signal = (init as RequestInit)?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (!signal) {
+          reject(new Error("no se pasó signal al fetch"));
+          return;
+        }
+        const onAbort = () => {
+          signal.removeEventListener("abort", onAbort);
+          reject(abortError());
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const promise = getAccessToken().then(() =>
+      getInvoiceXml("SETP990015609").then(
         () => null,
         (error) => error
       )
