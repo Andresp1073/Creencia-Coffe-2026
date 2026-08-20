@@ -74,7 +74,9 @@ function formatRate(rate: number): string {
 function computeFactusLineTotalCents(seed: InvoiceItemSeed): bigint {
   const unitSplit = splitTaxIncluded(seed.unitPriceCents, seed.taxRate);
   if (!unitSplit) {
-    throw new InvoicePayloadError(`tax rate inválido para ${seed.codeReference}`);
+    throw new InvoicePayloadError(
+      `tax rate inválido para ${seed.codeReference}`,
+    );
   }
   const baseLineCents = unitSplit.base * BigInt(seed.quantity);
   if (seed.taxRate === 0) return baseLineCents;
@@ -83,19 +85,34 @@ function computeFactusLineTotalCents(seed: InvoiceItemSeed): bigint {
   return baseLineCents + taxLineCents;
 }
 
-function mapCustomer(seed: InvoiceCustomerSeed) {
+function assertCustomerFiscalData(seed: InvoiceCustomerSeed): void {
   if (!seed.identification_document_code || !seed.identification) {
-    throw new InvoicePayloadError("Datos fiscales del cliente incompletos: identification_document_code e identification son requeridos");
+    throw new InvoicePayloadError(
+      "Datos fiscales del cliente incompletos: identification_document_code e identification son requeridos",
+    );
   }
-  if (seed.legal_organization_code !== "1" && seed.legal_organization_code !== "2") {
-    throw new InvoicePayloadError("legal_organization_code inválido: use 1 (jurídica) o 2 (natural)");
+  if (
+    seed.legal_organization_code !== "1" &&
+    seed.legal_organization_code !== "2"
+  ) {
+    throw new InvoicePayloadError(
+      "legal_organization_code inválido: use 1 (jurídica) o 2 (natural)",
+    );
   }
   if (seed.legal_organization_code === "1" && !seed.company) {
-    throw new InvoicePayloadError("Para persona jurídica (legal_organization_code=1) se requiere company");
+    throw new InvoicePayloadError(
+      "Para persona jurídica (legal_organization_code=1) se requiere company",
+    );
   }
   if (seed.legal_organization_code === "2" && !seed.names) {
-    throw new InvoicePayloadError("Para persona natural (legal_organization_code=2) se requiere names");
+    throw new InvoicePayloadError(
+      "Para persona natural (legal_organization_code=2) se requiere names",
+    );
   }
+}
+
+function mapCustomer(seed: InvoiceCustomerSeed) {
+  assertCustomerFiscalData(seed);
 
   return {
     identification_document_code: seed.identification_document_code,
@@ -113,20 +130,28 @@ function mapCustomer(seed: InvoiceCustomerSeed) {
     ...(seed.address ? { address: seed.address } : {}),
     ...(seed.email ? { email: seed.email } : {}),
     ...(seed.phone ? { phone: seed.phone } : {}),
-    ...(seed.country_code ? { country_code: seed.country_code } : { country_code: "CO" }),
-    ...(seed.municipality_code ? { municipality_code: seed.municipality_code } : {}),
+    ...(seed.country_code
+      ? { country_code: seed.country_code }
+      : { country_code: "CO" }),
+    ...(seed.municipality_code
+      ? { municipality_code: seed.municipality_code }
+      : {}),
   };
 }
 
 function mapItem(seed: InvoiceItemSeed) {
   if (!Number.isInteger(seed.quantity) || seed.quantity < 1) {
-    throw new InvoicePayloadError(`Cantidad inválida para ${seed.codeReference}`);
+    throw new InvoicePayloadError(
+      `Cantidad inválida para ${seed.codeReference}`,
+    );
   }
 
   const unitSplit = splitTaxIncluded(seed.unitPriceCents, seed.taxRate);
   if (!unitSplit) {
     // tax_rate inválido (no numérico o negativo); el service ya bloquea NULL antes.
-    throw new InvoicePayloadError(`tax rate inválido para ${seed.codeReference}`);
+    throw new InvoicePayloadError(
+      `tax rate inválido para ${seed.codeReference}`,
+    );
   }
 
   const taxes = [
@@ -158,7 +183,9 @@ function mapPayments(input: InvoiceMappingInput) {
       payment_form: input.payment.paymentForm,
       payment_method_code: input.payment.paymentMethodCode,
       amount: toMoneyString(input.orderTotalCents),
-      ...(input.payment.referenceCode ? { reference_code: input.payment.referenceCode } : {}),
+      ...(input.payment.referenceCode
+        ? { reference_code: input.payment.referenceCode }
+        : {}),
       ...(input.payment.dueDate ? { due_date: input.payment.dueDate } : {}),
     },
   ];
@@ -175,7 +202,7 @@ export function mapInvoicePayload(input: InvoiceMappingInput) {
   // Total que Factus sumará por líneas (base + IVA sobre la línea, redondeado).
   const factusTotalCents = input.items.reduce(
     (acc, item) => acc + computeFactusLineTotalCents(item),
-    0n
+    0n,
   );
   // Diferencia de redondeo entre lo cobrado (order.total) y el total por líneas.
   const cashRoundingCents = input.orderTotalCents - factusTotalCents;
@@ -183,7 +210,9 @@ export function mapInvoicePayload(input: InvoiceMappingInput) {
   return {
     reference_code: input.referenceCode,
     document: "01",
-    ...(input.numberingRangeId ? { numbering_range_id: input.numberingRangeId } : {}),
+    ...(input.numberingRangeId
+      ? { numbering_range_id: input.numberingRangeId }
+      : {}),
     operation_type: "10",
     send_email: input.sendEmail,
     cash_rounding_amount: toMoneyString(cashRoundingCents),

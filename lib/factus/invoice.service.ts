@@ -1,7 +1,16 @@
 import { query, queryOne, queryMany } from "@/lib/db";
-import { NotFoundError, ValidationError, ConflictError, safeJsonParse } from "@/lib/security/safe-error";
+import {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  safeJsonParse,
+} from "@/lib/security/safe-error";
 import { toCents } from "./money";
-import { mapInvoicePayload, InvoiceItemSeed, InvoiceCustomerSeed } from "./invoice.mapper";
+import {
+  mapInvoicePayload,
+  InvoiceItemSeed,
+  InvoiceCustomerSeed,
+} from "./invoice.mapper";
 import {
   createInvoice as sendInvoiceToFactus,
   getNumberingRanges,
@@ -100,7 +109,8 @@ export const MAX_INVOICE_SEND_ATTEMPTS = 3;
  * ------------------------------------------------------------------------- */
 
 function parseOrderItems(raw: unknown): OrderItemRow[] {
-  const items = typeof raw === "string" ? safeJsonParse<OrderItemRow[]>(raw, []) : raw;
+  const items =
+    typeof raw === "string" ? safeJsonParse<OrderItemRow[]>(raw, []) : raw;
   if (!Array.isArray(items) || items.length === 0) {
     throw new InvoicePayloadError("La orden no tiene ítems facturables");
   }
@@ -109,13 +119,17 @@ function parseOrderItems(raw: unknown): OrderItemRow[] {
     const qty = Number(item.qty);
     const price = Number(item.price);
     if (!Number.isInteger(id) || id <= 0) {
-      throw new InvoicePayloadError("La orden contiene un ítem sin producto válido");
+      throw new InvoicePayloadError(
+        "La orden contiene un ítem sin producto válido",
+      );
     }
     if (!Number.isInteger(qty) || qty < 1) {
       throw new InvoicePayloadError(`Cantidad inválida en el ítem ${id}`);
     }
     if (!Number.isFinite(price) || price <= 0) {
-      throw new InvoicePayloadError(`Precio inválido en el ítem ${id}: el precio histórico se toma de orders.items`);
+      throw new InvoicePayloadError(
+        `Precio inválido en el ítem ${id}: el precio histórico se toma de orders.items`,
+      );
     }
   }
   return items;
@@ -130,10 +144,18 @@ function normalizeCustomerInput(input: CustomerInput): CustomerInput {
   const identification = input.identification?.trim();
   const legal = input.legal_organization_code?.trim();
 
-  if (!docCode) throw new ValidationError("identification_document_code es requerido (código DIAN, ej. 13 cédula, 31 NIT)");
-  if (!identification) throw new ValidationError("identification es requerido (sin dígito de verificación)");
+  if (!docCode)
+    throw new ValidationError(
+      "identification_document_code es requerido (código DIAN, ej. 13 cédula, 31 NIT)",
+    );
+  if (!identification)
+    throw new ValidationError(
+      "identification es requerido (sin dígito de verificación)",
+    );
   if (!legal || (legal !== "1" && legal !== "2")) {
-    throw new ValidationError("legal_organization_code debe ser 1 (jurídica) o 2 (natural)");
+    throw new ValidationError(
+      "legal_organization_code debe ser 1 (jurídica) o 2 (natural)",
+    );
   }
   if (legal === "1" && !input.company?.trim()) {
     throw new ValidationError("Para persona jurídica se requiere company");
@@ -171,7 +193,7 @@ function normalizeCustomerInput(input: CustomerInput): CustomerInput {
 async function findOrCreateCustomer(input: CustomerInput): Promise<number> {
   const existing = await queryOne<{ id: number }>(
     `SELECT id FROM customers WHERE identification_document_code = ? AND identification = ?`,
-    [input.identification_document_code, input.identification]
+    [input.identification_document_code, input.identification],
   );
   if (existing) return existing.id;
 
@@ -198,14 +220,14 @@ async function findOrCreateCustomer(input: CustomerInput): Promise<number> {
       input.phone ?? null,
       input.country_code ?? "CO",
       input.municipality_code ?? null,
-    ]
+    ],
   );
   return result.insertId;
 }
 
 async function resolveCustomer(
   order: { customer_id: number | null },
-  options: GenerateInvoiceOptions
+  options: GenerateInvoiceOptions,
 ): Promise<{ customer: InvoiceCustomerSeed; customerId: number | null }> {
   if (order.customer_id) {
     const existing = await queryOne<any>(
@@ -213,7 +235,7 @@ async function resolveCustomer(
               tribute_code, responsibilities, company, trade_name, names, address,
               email, phone, country_code, municipality_code
        FROM customers WHERE id = ?`,
-      [order.customer_id]
+      [order.customer_id],
     );
     if (existing) {
       return {
@@ -240,7 +262,7 @@ async function resolveCustomer(
 
   if (!options.customer) {
     throw new InvoicePayloadError(
-      "Se requieren datos fiscales del cliente para facturar. Pasa customer en el body."
+      "Se requieren datos fiscales del cliente para facturar. Pasa customer en el body.",
     );
   }
 
@@ -251,7 +273,7 @@ async function resolveCustomer(
             tribute_code, responsibilities, company, trade_name, names, address,
             email, phone, country_code, municipality_code
      FROM customers WHERE id = ?`,
-    [customerId]
+    [customerId],
   );
   if (!persisted) {
     throw new InvoicePayloadError("No se pudo persistir el cliente fiscal");
@@ -291,18 +313,22 @@ async function resolveNumberingRangeId(): Promise<number | undefined> {
   if (configured && configured.trim() !== "") {
     const id = Number(configured.trim());
     if (!Number.isInteger(id) || id <= 0) {
-      throw new FactusConfigError("FACTUS_NUMBERING_RANGE_ID configurado es inválido");
+      throw new FactusConfigError(
+        "FACTUS_NUMBERING_RANGE_ID configurado es inválido",
+      );
     }
     return id;
   }
 
   const ranges = await getNumberingRanges();
   if (ranges.length === 0) {
-    throw new FactusNumberingRangeError("No hay rangos de numeración disponibles en Factus");
+    throw new FactusNumberingRangeError(
+      "No hay rangos de numeración disponibles en Factus",
+    );
   }
   if (ranges.length > 1) {
     throw new FactusNumberingRangeError(
-      "Hay varios rangos de numeración activos: configura FACTUS_NUMBERING_RANGE_ID para seleccionar uno"
+      "Hay varios rangos de numeración activos: configura FACTUS_NUMBERING_RANGE_ID para seleccionar uno",
     );
   }
   return ranges[0].id;
@@ -332,26 +358,38 @@ function resolvePayment(
     payment_reference: string | null;
     payment_due_date: unknown;
   },
-  options: GenerateInvoiceOptions
-): { paymentForm: string; paymentMethodCode: string; referenceCode?: string; dueDate?: string } {
+  options: GenerateInvoiceOptions,
+): {
+  paymentForm: string;
+  paymentMethodCode: string;
+  referenceCode?: string;
+  dueDate?: string;
+} {
   const provided = options.payment || {};
   // Precedencia: datos capturados en la orden > request. NO se inventan defaults.
   const paymentForm = order.payment_form || provided.payment_form || "";
-  const paymentMethodCode = order.payment_method_code || provided.payment_method_code || "";
-  const referenceCode = order.payment_reference || provided.payment_reference || undefined;
-  const rawDueDate = normalizeDueDateValue(order.payment_due_date) || normalizeDueDateValue(provided.payment_due_date) || null;
+  const paymentMethodCode =
+    order.payment_method_code || provided.payment_method_code || "";
+  const referenceCode =
+    order.payment_reference || provided.payment_reference || undefined;
+  const rawDueDate =
+    normalizeDueDateValue(order.payment_due_date) ||
+    normalizeDueDateValue(provided.payment_due_date) ||
+    null;
 
   if (!paymentForm) {
     throw new ValidationError(
-      "La venta necesita datos de pago antes de facturarse: se requieren payment_form y payment_method_code en la orden o en el request."
+      "La venta necesita datos de pago antes de facturarse: se requieren payment_form y payment_method_code en la orden o en el request.",
     );
   }
   if (paymentForm !== "1" && paymentForm !== "2") {
-    throw new ValidationError("payment_form inválido: use 1 (contado) o 2 (crédito)");
+    throw new ValidationError(
+      "payment_form inválido: use 1 (contado) o 2 (crédito)",
+    );
   }
   if (!paymentMethodCode) {
     throw new ValidationError(
-      "payment_method_code es requerido: la venta necesita un medio de pago antes de facturarse."
+      "payment_method_code es requerido: la venta necesita un medio de pago antes de facturarse.",
     );
   }
 
@@ -360,11 +398,13 @@ function resolvePayment(
   if (paymentForm === "2") {
     if (!rawDueDate) {
       throw new ValidationError(
-        "La venta es a crédito (payment_form=2) y requiere payment_due_date (YYYY-MM-DD) antes de facturarse."
+        "La venta es a crédito (payment_form=2) y requiere payment_due_date (YYYY-MM-DD) antes de facturarse.",
       );
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDueDate)) {
-      throw new ValidationError("payment_due_date debe tener formato YYYY-MM-DD");
+      throw new ValidationError(
+        "payment_due_date debe tener formato YYYY-MM-DD",
+      );
     }
     dueDate = rawDueDate;
   }
@@ -374,7 +414,11 @@ function resolvePayment(
 
 function toSafeInvoiceError(error: unknown): Record<string, unknown> {
   if (error instanceof Error) {
-    return { phase: "factus", name: error.name, message: error.message.slice(0, 300) };
+    return {
+      phase: "factus",
+      name: error.name,
+      message: error.message.slice(0, 300),
+    };
   }
   return { phase: "factus", name: "FactusError", message: "Error desconocido" };
 }
@@ -397,7 +441,8 @@ function normalizeValidatedAt(value: unknown): string | null {
   }
 
   // Factus V2: "DD-MM-YYYY hh:mm:ss AM|PM"
-  const m = /^(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i.exec(s);
+  const m =
+    /^(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i.exec(s);
   if (m) {
     let hour = Number(m[4]);
     const minute = m[5];
@@ -416,7 +461,9 @@ function normalizeValidatedAt(value: unknown): string | null {
  * ------------------------------------------------------------------------- */
 
 /** Valida, crea o busca un cliente fiscal. Devuelve su id y el seed normalizado. */
-export async function saveFiscalCustomer(input: CustomerInput): Promise<{ id: number; seed: InvoiceCustomerSeed }> {
+export async function saveFiscalCustomer(
+  input: CustomerInput,
+): Promise<{ id: number; seed: InvoiceCustomerSeed }> {
   const normalized = normalizeCustomerInput(input);
   const customerId = await findOrCreateCustomer(normalized);
   const persisted = await queryOne<any>(
@@ -424,7 +471,7 @@ export async function saveFiscalCustomer(input: CustomerInput): Promise<{ id: nu
             tribute_code, responsibilities, company, trade_name, names, address,
             email, phone, country_code, municipality_code
      FROM customers WHERE id = ?`,
-    [customerId]
+    [customerId],
   );
   if (!persisted) {
     throw new InvoicePayloadError("No se pudo persistir el cliente fiscal");
@@ -454,14 +501,25 @@ export async function saveFiscalCustomer(input: CustomerInput): Promise<{ id: nu
  * Orquestador principal
  * ------------------------------------------------------------------------- */
 
-export async function generateInvoice(
+interface FiscalOrderRow {
+  id: number;
+  total: number | string;
+  items: unknown;
+  customer_id: number | null;
+  payment_form: string | null;
+  payment_method_code: string | null;
+  payment_reference: string | null;
+  payment_due_date: unknown;
+}
+
+/** Carga la orden y valida que todos sus productos tengan configuración fiscal. */
+async function loadOrderFiscalConfig(
   orderId: number,
-  options: GenerateInvoiceOptions = {}
-): Promise<GenerateInvoiceResult> {
-  const order = await queryOne<any>(
+): Promise<{ order: FiscalOrderRow; items: InvoiceItemSeed[] }> {
+  const order = await queryOne<FiscalOrderRow>(
     `SELECT id, total, items, customer_id, payment_form, payment_method_code, payment_reference, payment_due_date
      FROM orders WHERE id = ?`,
-    [orderId]
+    [orderId],
   );
   if (!order) {
     throw new NotFoundError(`Orden ${orderId} no encontrada`);
@@ -473,7 +531,7 @@ export async function generateInvoice(
   const products = await queryMany<any>(
     `SELECT id, name, code_reference, unit_measure_code, standard_code, tax_code, tax_rate
      FROM products WHERE id IN (${productIds.map(() => "?").join(",")})`,
-    productIds
+    productIds,
   );
   const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -484,8 +542,14 @@ export async function generateInvoice(
       fiscalIssues.push(`Producto ${item.id} no existe`);
       continue;
     }
-    if (product.tax_rate === null || product.tax_rate === undefined || product.tax_rate === "") {
-      fiscalIssues.push(`${product.name}: tax_rate NULL (producto sin configuración fiscal)`);
+    if (
+      product.tax_rate === null ||
+      product.tax_rate === undefined ||
+      product.tax_rate === ""
+    ) {
+      fiscalIssues.push(
+        `${product.name}: tax_rate NULL (producto sin configuración fiscal)`,
+      );
     }
     if (!product.code_reference) {
       fiscalIssues.push(`${product.name}: code_reference sin configurar`);
@@ -498,7 +562,9 @@ export async function generateInvoice(
     }
   }
   if (fiscalIssues.length > 0) {
-    throw new InvoicePayloadError("Configuración fiscal incompleta: " + fiscalIssues.join("; "));
+    throw new InvoicePayloadError(
+      "Configuración fiscal incompleta: " + fiscalIssues.join("; "),
+    );
   }
 
   const items: InvoiceItemSeed[] = orderItems.map((item) => {
@@ -516,59 +582,160 @@ export async function generateInvoice(
     };
   });
 
+  return { order, items };
+}
+
+/** Busca la factura local o la crea en 'pending' (idempotente ante ER_DUP_ENTRY). */
+async function findOrCreateLocalInvoice(
+  orderId: number,
+  customerId: number | null | undefined,
+  referenceCode: string,
+): Promise<{ invoice: InvoiceRow; created: boolean }> {
+  const existing = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE order_id = ?`,
+    [orderId],
+  );
+  if (existing) {
+    return { invoice: existing, created: false };
+  }
+  try {
+    const result = await query<{ insertId: number }>(
+      `INSERT INTO invoices (order_id, customer_id, reference_code, status)
+       VALUES (?, ?, ?, 'pending')`,
+      [orderId, customerId, referenceCode],
+    );
+    const invoice = await queryOne<InvoiceRow>(
+      `SELECT * FROM invoices WHERE id = ?`,
+      [result.insertId],
+    );
+    return { invoice: invoice!, created: true };
+  } catch (insertError: any) {
+    if (insertError?.code !== "ER_DUP_ENTRY") throw insertError;
+    const invoice = await queryOne<InvoiceRow>(
+      `SELECT * FROM invoices WHERE order_id = ?`,
+      [orderId],
+    );
+    return { invoice: invoice!, created: false };
+  }
+}
+
+type LocalState =
+  | { proceed: true; invoice: InvoiceRow; created: boolean }
+  | { proceed: false; result: GenerateInvoiceResult };
+
+/** Estados terminales de la factura local (validada/procesando/cancelada/límite). */
+function evaluateLocalState(
+  invoice: InvoiceRow,
+  created: boolean,
+  referenceCode: string,
+): LocalState {
+  if (invoice.status === "validated") {
+    return {
+      proceed: false,
+      result: {
+        invoice,
+        created,
+        submitted: false,
+        message: `La factura ${invoice.reference_code} ya está validada`,
+      },
+    };
+  }
+  if (invoice.status === "processing") {
+    return {
+      proceed: false,
+      result: {
+        invoice,
+        created,
+        submitted: false,
+        message: `La factura ${invoice.reference_code} quedó en procesamiento; no se reenvía para evitar duplicados. Requiere reconciliación (revisar en Factus).`,
+      },
+    };
+  }
+  if (invoice.status === "cancelled") {
+    throw new ConflictError(
+      `La factura ${invoice.reference_code} está cancelada; no se reenvía automáticamente`,
+    );
+  }
+  if (
+    invoice.status === "failed" &&
+    invoice.attempts >= MAX_INVOICE_SEND_ATTEMPTS
+  ) {
+    return {
+      proceed: false,
+      result: {
+        invoice,
+        created,
+        submitted: false,
+        message: `La factura ${invoice.reference_code} alcanzó el límite de ${MAX_INVOICE_SEND_ATTEMPTS} intentos; no se reenvía. Requiere revisión manual.`,
+      },
+    };
+  }
+  return { proceed: true, invoice, created };
+}
+
+/** Estado cuando otra ejecución ganó el claim atómico (affectedRows 0). */
+async function resolveClaimFailure(
+  invoiceId: number,
+  created: boolean,
+  referenceCode: string,
+): Promise<GenerateInvoiceResult> {
+  const current = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE id = ?`,
+    [invoiceId],
+  );
+  if (!current) {
+    throw new InvoicePayloadError("No se pudo recuperar la factura local");
+  }
+  if (current.status === "validated") {
+    return {
+      invoice: current,
+      created,
+      submitted: false,
+      message: `La factura ${current.reference_code} ya está validada`,
+    };
+  }
+  if (current.status === "cancelled") {
+    throw new ConflictError(
+      `La factura ${current.reference_code} está cancelada; no se reenvía automáticamente`,
+    );
+  }
+  return {
+    invoice: current,
+    created,
+    submitted: false,
+    message:
+      current.status === "processing"
+        ? `La factura ${current.reference_code} quedó en procesamiento; no se reenvía para evitar duplicados. Requiere reconciliación (revisar en Factus).`
+        : `La factura ${current.reference_code} no se pudo reclamar (estado ${current.status}); no se reenvía para evitar duplicados.`,
+  };
+}
+
+export async function generateInvoice(
+  orderId: number,
+  options: GenerateInvoiceOptions = {},
+): Promise<GenerateInvoiceResult> {
+  const { order, items } = await loadOrderFiscalConfig(orderId);
+
   const payment = resolvePayment(order, options);
-  const { customer: customerSeed, customerId } = await resolveCustomer(order, options);
+  const { customer: customerSeed, customerId } = await resolveCustomer(
+    order,
+    options,
+  );
   const numberingRangeId = await resolveNumberingRangeId();
   const sendEmail = process.env.FACTUS_SEND_EMAIL !== "false";
 
   const referenceCode = `FACT-${order.id}`;
 
   // --- Invoice local: búsqueda / creación (idempotencia) ---
-  let invoice = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE order_id = ?`, [order.id]);
-  let created = false;
-
-  if (!invoice) {
-    try {
-      const result = await query<{ insertId: number }>(
-        `INSERT INTO invoices (order_id, customer_id, reference_code, status)
-         VALUES (?, ?, ?, 'pending')`,
-        [order.id, order.customer_id, referenceCode]
-      );
-      invoice = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [result.insertId]);
-      created = true;
-    } catch (insertError: any) {
-      if (insertError?.code !== "ER_DUP_ENTRY") throw insertError;
-      invoice = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE order_id = ?`, [order.id]);
-    }
-  }
-
-  if (!invoice) {
-    throw new InvoicePayloadError("No se pudo crear la factura local");
-  }
-
-  if (invoice.status === "validated") {
-    return { invoice, created, submitted: false, message: `La factura ${invoice.reference_code} ya está validada` };
-  }
-  if (invoice.status === "processing") {
-    return {
-      invoice,
-      created,
-      submitted: false,
-      message: `La factura ${invoice.reference_code} quedó en procesamiento; no se reenvía para evitar duplicados. Requiere reconciliación (revisar en Factus).`,
-    };
-  }
-  if (invoice.status === "cancelled") {
-    throw new ConflictError(`La factura ${invoice.reference_code} está cancelada; no se reenvía automáticamente`);
-  }
-
-  if (invoice.status === "failed" && invoice.attempts >= MAX_INVOICE_SEND_ATTEMPTS) {
-    return {
-      invoice,
-      created,
-      submitted: false,
-      message: `La factura ${invoice.reference_code} alcanzó el límite de ${MAX_INVOICE_SEND_ATTEMPTS} intentos; no se reenvía. Requiere revisión manual.`,
-    };
-  }
+  const local = await findOrCreateLocalInvoice(
+    order.id,
+    order.customer_id,
+    referenceCode,
+  );
+  const state = evaluateLocalState(local.invoice, local.created, referenceCode);
+  if (!state.proceed) return state.result;
+  let invoice = state.invoice;
+  const created = state.created;
 
   // --- Construcción del payload (snapshot del cliente = lo EXACTO enviado) ---
   const payload = mapInvoicePayload({
@@ -588,37 +755,21 @@ export async function generateInvoice(
     `UPDATE invoices SET status = 'processing', customer_id = ?, customer_snapshot = ?,
             attempts = attempts + 1, last_attempt_at = NOW(), error = NULL
      WHERE id = ? AND status IN ('pending', 'failed')`,
-    [customerId ?? order.customer_id, JSON.stringify(payload.customer), invoice.id]
+    [
+      customerId ?? order.customer_id,
+      JSON.stringify(payload.customer),
+      invoice.id,
+    ],
   );
 
   if (claim?.affectedRows !== 1) {
-    const current = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
-    if (!current) {
-      throw new InvoicePayloadError("No se pudo recuperar la factura local");
-    }
-    if (current.status === "validated") {
-      return {
-        invoice: current,
-        created,
-        submitted: false,
-        message: `La factura ${current.reference_code} ya está validada`,
-      };
-    }
-    if (current.status === "cancelled") {
-      throw new ConflictError(`La factura ${current.reference_code} está cancelada; no se reenvía automáticamente`);
-    }
-    return {
-      invoice: current,
-      created,
-      submitted: false,
-      message:
-        current.status === "processing"
-          ? `La factura ${current.reference_code} quedó en procesamiento; no se reenvía para evitar duplicados. Requiere reconciliación (revisar en Factus).`
-          : `La factura ${current.reference_code} no se pudo reclamar (estado ${current.status}); no se reenvía para evitar duplicados.`,
-    };
+    return resolveClaimFailure(invoice.id, created, referenceCode);
   }
 
-  const refreshed = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
+  const refreshed = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE id = ?`,
+    [invoice.id],
+  );
   if (!refreshed) {
     throw new InvoicePayloadError("No se pudo recuperar la factura local");
   }
@@ -630,7 +781,7 @@ export async function generateInvoice(
   } catch (error) {
     await query(
       `UPDATE invoices SET status = 'failed', attempts = ?, last_attempt_at = NOW(), error = ? WHERE id = ?`,
-      [invoice.attempts, JSON.stringify(toSafeInvoiceError(error)), invoice.id]
+      [invoice.attempts, JSON.stringify(toSafeInvoiceError(error)), invoice.id],
     );
     throw error;
   }
@@ -648,10 +799,13 @@ export async function generateInvoice(
       JSON.stringify(d.totals ?? null),
       JSON.stringify(d.links ?? null),
       invoice.id,
-    ]
+    ],
   );
 
-  const updated = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
+  const updated = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE id = ?`,
+    [invoice.id],
+  );
   if (!updated) {
     throw new InvoicePayloadError("No se pudo recuperar la factura validada");
   }
@@ -688,10 +842,12 @@ export interface ReconcileResult {
  *   links, error). No modifica orders, stock, inventory_movements, payment data
  *   ni customer_snapshot.
  */
-export async function reconcileInvoice(orderId: number): Promise<ReconcileResult> {
+export async function reconcileInvoice(
+  orderId: number,
+): Promise<ReconcileResult> {
   const invoice = await queryOne<InvoiceRow>(
     `SELECT * FROM invoices WHERE order_id = ? ORDER BY id DESC LIMIT 1`,
-    [orderId]
+    [orderId],
   );
   if (!invoice) {
     throw new NotFoundError(`No existe factura local para la orden ${orderId}`);
@@ -731,7 +887,8 @@ export async function reconcileInvoice(orderId: number): Promise<ReconcileResult
   }
 
   const bill = bills[0];
-  const isValidated = bill.is_validated === true || Number(bill.is_validated) === 1;
+  const isValidated =
+    bill.is_validated === true || Number(bill.is_validated) === 1;
 
   if (!isValidated) {
     return {
@@ -753,12 +910,17 @@ export async function reconcileInvoice(orderId: number): Promise<ReconcileResult
       JSON.stringify(bill.totals ?? null),
       JSON.stringify(bill.links ?? null),
       invoice.id,
-    ]
+    ],
   );
 
-  const updated = await queryOne<InvoiceRow>(`SELECT * FROM invoices WHERE id = ?`, [invoice.id]);
+  const updated = await queryOne<InvoiceRow>(
+    `SELECT * FROM invoices WHERE id = ?`,
+    [invoice.id],
+  );
   if (!updated) {
-    throw new InvoicePayloadError("No se pudo recuperar la factura reconciliada");
+    throw new InvoicePayloadError(
+      "No se pudo recuperar la factura reconciliada",
+    );
   }
 
   return {
@@ -781,10 +943,13 @@ export interface InvoiceFileDownloadResult {
  * - Usa los endpoints oficiales GET de descarga; nunca emite ni reenvía.
  * - Malformaciones/indisponibilidad de Factus se propagan de forma segura.
  */
-export async function getValidatedInvoiceFile(orderId: number, kind: InvoiceFileKind): Promise<InvoiceFileDownloadResult> {
+export async function getValidatedInvoiceFile(
+  orderId: number,
+  kind: InvoiceFileKind,
+): Promise<InvoiceFileDownloadResult> {
   const invoice = await queryOne<InvoiceRow>(
     `SELECT * FROM invoices WHERE order_id = ? ORDER BY id DESC LIMIT 1`,
-    [orderId]
+    [orderId],
   );
   if (!invoice) {
     throw new NotFoundError(`No existe factura local para la orden ${orderId}`);
@@ -792,15 +957,20 @@ export async function getValidatedInvoiceFile(orderId: number, kind: InvoiceFile
 
   if (invoice.status !== "validated") {
     throw new ConflictError(
-      `La factura ${invoice.reference_code} está en estado ${invoice.status}; la descarga solo está disponible para facturas validadas.`
+      `La factura ${invoice.reference_code} está en estado ${invoice.status}; la descarga solo está disponible para facturas validadas.`,
     );
   }
 
   if (!invoice.number || invoice.number.trim() === "") {
-    throw new ConflictError(`La factura ${invoice.reference_code} validada no tiene número DIAN para descargar.`);
+    throw new ConflictError(
+      `La factura ${invoice.reference_code} validada no tiene número DIAN para descargar.`,
+    );
   }
 
-  const file = kind === "pdf" ? await getInvoicePdf(invoice.number) : await getInvoiceXml(invoice.number);
+  const file =
+    kind === "pdf"
+      ? await getInvoicePdf(invoice.number)
+      : await getInvoiceXml(invoice.number);
 
   return { invoice, file };
 }

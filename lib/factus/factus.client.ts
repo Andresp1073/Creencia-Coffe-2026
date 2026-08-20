@@ -18,7 +18,12 @@ import {
   FactusRateLimitError,
   FactusNotFoundError,
 } from "./errors";
-import { FactusInvoicePayload, FactusInvoiceResponse, FactusNumberingRange, FactusTokenResponse } from "./types";
+import {
+  FactusInvoicePayload,
+  FactusInvoiceResponse,
+  FactusNumberingRange,
+  FactusTokenResponse,
+} from "./types";
 
 interface TokenCacheEntry {
   accessToken: string;
@@ -41,7 +46,10 @@ let tokenCache: TokenCacheEntry | null = null;
  * por 401 de authenticatedRequest, por lo que el timeout nunca provoca un
  * segundo envío de factura.
  */
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FACTUS_HTTP_TIMEOUT_MS);
   try {
@@ -49,7 +57,7 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new FactusClientUnavailableError(
-        "Factus no respondió a tiempo. Revisa la conectividad con Factus e inténtalo nuevamente."
+        "Factus no respondió a tiempo. Revisa la conectividad con Factus e inténtalo nuevamente.",
       );
     }
     throw error;
@@ -70,7 +78,7 @@ function readEnvConfig() {
 
   if (!baseUrl || !clientId || !clientSecret || !username || !password) {
     throw new FactusConfigError(
-      "FACTUS_BASE_URL, FACTUS_CLIENT_ID, FACTUS_CLIENT_SECRET, FACTUS_USERNAME y FACTUS_PASSWORD deben estar configurados en el servidor"
+      "FACTUS_BASE_URL, FACTUS_CLIENT_ID, FACTUS_CLIENT_SECRET, FACTUS_USERNAME y FACTUS_PASSWORD deben estar configurados en el servidor",
     );
   }
 
@@ -78,7 +86,10 @@ function readEnvConfig() {
 }
 
 function isTokenValid(): boolean {
-  return tokenCache !== null && tokenCache.expiresAt - Date.now() > TOKEN_FRESH_BUFFER_MS;
+  return (
+    tokenCache !== null &&
+    tokenCache.expiresAt - Date.now() > TOKEN_FRESH_BUFFER_MS
+  );
 }
 
 export function invalidateTokenCache(): void {
@@ -91,7 +102,8 @@ export function invalidateTokenCache(): void {
  * grant_type=password + client_id + client_secret + username + password.
  */
 async function requestOAuthToken(): Promise<string> {
-  const { baseUrl, clientId, clientSecret, username, password } = readEnvConfig();
+  const { baseUrl, clientId, clientSecret, username, password } =
+    readEnvConfig();
 
   const body = new URLSearchParams({
     grant_type: "password",
@@ -113,12 +125,14 @@ async function requestOAuthToken(): Promise<string> {
     });
   } catch (error) {
     if (error instanceof FactusClientUnavailableError) throw error;
-    throw new FactusClientUnavailableError("No se pudo contactar a Factus para autenticación");
+    throw new FactusClientUnavailableError(
+      "No se pudo contactar a Factus para autenticación",
+    );
   }
 
   if (!response.ok) {
     throw new FactusAuthError(
-      "Factus rechazó la autenticación OAuth. Verifica FACTUS_CLIENT_ID, FACTUS_CLIENT_SECRET, FACTUS_USERNAME y FACTUS_PASSWORD."
+      "Factus rechazó la autenticación OAuth. Verifica FACTUS_CLIENT_ID, FACTUS_CLIENT_SECRET, FACTUS_USERNAME y FACTUS_PASSWORD.",
     );
   }
 
@@ -134,7 +148,10 @@ async function requestOAuthToken(): Promise<string> {
   }
 
   const expiresInMs = (Number(data.expires_in) || 3600) * 1000;
-  tokenCache = { accessToken: data.access_token, expiresAt: Date.now() + expiresInMs };
+  tokenCache = {
+    accessToken: data.access_token,
+    expiresAt: Date.now() + expiresInMs,
+  };
   return data.access_token;
 }
 
@@ -172,6 +189,28 @@ function pushSafeMessage(out: string[], value: unknown): void {
   out.push(s);
 }
 
+function collectFieldError(
+  out: string[],
+  key: string,
+  child: unknown,
+  depth: number,
+): void {
+  if (SENSITIVE_FIELD_RE.test(key)) return;
+  if (MESSAGE_KEY_RE.test(key)) {
+    pushSafeMessage(out, child);
+    return;
+  }
+  if (typeof child === "string") {
+    if (child.trim() && !SENSITIVE_FIELD_RE.test(child)) {
+      out.push(`${key}: ${child.trim()}`);
+    }
+    return;
+  }
+  if (child !== null && (typeof child === "object" || Array.isArray(child))) {
+    extractFactusErrors(out, child, depth + 1);
+  }
+}
+
 /**
  * Recorre data.errors (string, array de strings, array de objetos con
  * message/error/detail, o mapa campo -> mensaje) extrayendo mensajes útiles.
@@ -190,26 +229,10 @@ function extractFactusErrors(out: string[], value: unknown, depth = 0): void {
     return;
   }
 
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
+  if (typeof value !== "object") return;
 
-    // Objeto con message/error/detail/description/...
-    for (const key of Object.keys(record)) {
-      if (MESSAGE_KEY_RE.test(key) && !SENSITIVE_FIELD_RE.test(key)) {
-        pushSafeMessage(out, record[key]);
-      }
-    }
-
-    // Mapa campo -> mensaje (ej. { tax_rate: "El campo tax_rate es requerido" })
-    for (const [key, child] of Object.entries(record)) {
-      if (SENSITIVE_FIELD_RE.test(key)) continue;
-      if (MESSAGE_KEY_RE.test(key)) continue;
-      if (typeof child === "string" && child.trim() && !SENSITIVE_FIELD_RE.test(child)) {
-        out.push(`${key}: ${child.trim()}`);
-      } else if (child !== null && (typeof child === "object" || Array.isArray(child))) {
-        extractFactusErrors(out, child, depth + 1);
-      }
-    }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    collectFieldError(out, key, child, depth);
   }
 }
 
@@ -221,7 +244,10 @@ function safeErrorMessage(data: unknown, status: number): string {
     pushSafeMessage(messages, record.message);
     pushSafeMessage(messages, record.error);
 
-    const nested = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
+    const nested =
+      record.data && typeof record.data === "object"
+        ? (record.data as Record<string, unknown>)
+        : null;
     const errors = nested && "errors" in nested ? nested.errors : record.errors;
     if (errors !== undefined) extractFactusErrors(messages, errors);
   }
@@ -231,7 +257,10 @@ function safeErrorMessage(data: unknown, status: number): string {
   return text || `Factus respondió con HTTP ${status}`;
 }
 
-async function requestWithBearer(path: string, init?: RequestInit): Promise<Response> {
+async function requestWithBearer(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
   const { baseUrl } = readEnvConfig();
   const token = await getAccessToken();
 
@@ -246,7 +275,10 @@ async function requestWithBearer(path: string, init?: RequestInit): Promise<Resp
 }
 
 /** GET/POST autenticado con reintento único ante 401. */
-async function authenticatedRequest(path: string, init?: RequestInit): Promise<Response> {
+async function authenticatedRequest(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
   let response = await requestWithBearer(path, init);
 
   if (response.status === 401) {
@@ -257,7 +289,10 @@ async function authenticatedRequest(path: string, init?: RequestInit): Promise<R
   return response;
 }
 
-async function handleApiResponse<T>(response: Response, kind: "resource" | "validate"): Promise<T> {
+async function handleApiResponse<T>(
+  response: Response,
+  kind: "resource" | "validate",
+): Promise<T> {
   const data = await parseJsonSafe(response);
 
   if (response.ok) return data as T;
@@ -268,18 +303,26 @@ async function handleApiResponse<T>(response: Response, kind: "resource" | "vali
 
   if (response.status === 429) {
     const retryAfter = parseRetryAfter(response);
-    throw new FactusRateLimitError(safeErrorMessage(data, response.status), retryAfter);
+    throw new FactusRateLimitError(
+      safeErrorMessage(data, response.status),
+      retryAfter,
+    );
   }
 
   if (response.status === 404) {
     throw new FactusNotFoundError(safeErrorMessage(data, response.status));
   }
 
-  if (kind === "validate" && (response.status === 400 || response.status === 422)) {
+  if (
+    kind === "validate" &&
+    (response.status === 400 || response.status === 422)
+  ) {
     throw new FactusValidationError(safeErrorMessage(data, response.status));
   }
 
-  throw new FactusClientUnavailableError(safeErrorMessage(data, response.status));
+  throw new FactusClientUnavailableError(
+    safeErrorMessage(data, response.status),
+  );
 }
 
 /**
@@ -305,7 +348,7 @@ export async function getNumberingRanges(): Promise<FactusNumberingRange[]> {
 
   if (!data || typeof data !== "object") {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente."
+      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente.",
     );
   }
 
@@ -314,34 +357,43 @@ export async function getNumberingRanges(): Promise<FactusNumberingRange[]> {
   // Shape real confirmado en Sandbox: { status, message, data: { data: [...] } }.
   if (record.data && typeof record.data === "object") {
     const nested = record.data as Record<string, unknown>;
-    if (Array.isArray(nested.data)) return nested.data as FactusNumberingRange[];
+    if (Array.isArray(nested.data))
+      return nested.data as FactusNumberingRange[];
   }
 
   // Formato previamente soportado: data = array.
   if (Array.isArray(record.data)) return record.data as FactusNumberingRange[];
 
   // Formato previamente soportado: numbering_ranges = array.
-  if (Array.isArray(record.numbering_ranges)) return record.numbering_ranges as FactusNumberingRange[];
+  if (Array.isArray(record.numbering_ranges))
+    return record.numbering_ranges as FactusNumberingRange[];
 
   // Contenedor irreconocible: NO se interpreta como "sin rangos" (podría ocultar
   // un rango disponible). Error explícito y seguro.
   throw new FactusClientUnavailableError(
-    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual.",
   );
 }
 
 /** Envía una factura a Factus (endpoint de validación de la skill). */
-export async function createInvoice(payload: FactusInvoicePayload): Promise<FactusInvoiceResponse> {
+export async function createInvoice(
+  payload: FactusInvoicePayload,
+): Promise<FactusInvoiceResponse> {
   const response = await authenticatedRequest("/v2/bills/validate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
-  const result = await handleApiResponse<FactusInvoiceResponse>(response, "validate");
+  const result = await handleApiResponse<FactusInvoiceResponse>(
+    response,
+    "validate",
+  );
 
   if (!result || typeof result !== "object" || !("data" in result)) {
-    throw new FactusValidationError("Factus no devolvió los datos de la factura validada");
+    throw new FactusValidationError(
+      "Factus no devolvió los datos de la factura validada",
+    );
   }
 
   return result;
@@ -373,19 +425,26 @@ export interface FactusBill {
  * (vacío si no hay coincidencias) además de `data.pagination`. Es una operación
  * de SOLO LECTURA: nunca emite ni reenvía facturas.
  */
-export async function getBills(filter: { referenceCode: string }): Promise<FactusBill[]> {
-  const qs = new URLSearchParams({ "filter[reference_code]": filter.referenceCode });
+export async function getBills(filter: {
+  referenceCode: string;
+}): Promise<FactusBill[]> {
+  const qs = new URLSearchParams({
+    "filter[reference_code]": filter.referenceCode,
+  });
   const response = await authenticatedRequest(`/v2/bills?${qs.toString()}`);
   const data = await handleApiResponse<unknown>(response, "resource");
 
   if (!data || typeof data !== "object") {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente."
+      "Factus no devolvió una consulta interpretable. Revisa la conectividad e inténtalo nuevamente.",
     );
   }
 
   const record = data as Record<string, unknown>;
-  const nested = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null;
+  const nested =
+    record.data && typeof record.data === "object"
+      ? (record.data as Record<string, unknown>)
+      : null;
 
   // Estructura documentada y confirmada en Sandbox: data.data = array (puede
   // ser vacío cuando no hay coincidencias; eso es un resultado VÁLIDO).
@@ -401,7 +460,7 @@ export async function getBills(filter: { referenceCode: string }): Promise<Factu
   // factura pendiente). Error explícito y seguro; la reconciliación preserva
   // el estado sin cambios.
   throw new FactusClientUnavailableError(
-    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+    "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual.",
   );
 }
 
@@ -442,29 +501,33 @@ function isFactusBillLike(value: Record<string, unknown>): boolean {
  * seguro: nunca se devuelve `undefined` ni se asume una factura válida.
  */
 export async function getBillByNumber(number: string): Promise<FactusBill> {
-  const response = await authenticatedRequest(`/v2/bills/${encodeURIComponent(number)}`);
+  const response = await authenticatedRequest(
+    `/v2/bills/${encodeURIComponent(number)}`,
+  );
   const result = await handleApiResponse<unknown>(response, "resource");
 
   if (!result || typeof result !== "object") {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió una respuesta interpretable. Revisa la conectividad e inténtalo nuevamente."
+      "Factus no devolvió una respuesta interpretable. Revisa la conectividad e inténtalo nuevamente.",
     );
   }
 
   const record = result as Record<string, unknown>;
   if (!record.data || typeof record.data !== "object") {
     throw new FactusClientUnavailableError(
-      "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual."
+      "La consulta a Factus devolvió una estructura inesperada. Se requiere revisión manual.",
     );
   }
 
   const nested = record.data as Record<string, unknown>;
   const candidate =
-    nested.bill && typeof nested.bill === "object" ? (nested.bill as Record<string, unknown>) : nested;
+    nested.bill && typeof nested.bill === "object"
+      ? (nested.bill as Record<string, unknown>)
+      : nested;
 
   if (!isFactusBillLike(candidate)) {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió los datos de la factura solicitada. Se requiere revisión manual."
+      "Factus no devolvió los datos de la factura solicitada. Se requiere revisión manual.",
     );
   }
 
@@ -491,7 +554,10 @@ export interface FactusFileDownload {
   base64: string;
 }
 
-async function downloadInvoiceFile(number: string, kind: InvoiceFileKind): Promise<FactusFileDownload> {
+async function downloadInvoiceFile(
+  number: string,
+  kind: InvoiceFileKind,
+): Promise<FactusFileDownload> {
   const path =
     kind === "pdf"
       ? `/v2/bills/${encodeURIComponent(number)}/download-pdf`
@@ -502,12 +568,13 @@ async function downloadInvoiceFile(number: string, kind: InvoiceFileKind): Promi
 
   if (!result || typeof result !== "object") {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió una descarga interpretable. Revisa la conectividad e inténtalo nuevamente."
+      "Factus no devolvió una descarga interpretable. Revisa la conectividad e inténtalo nuevamente.",
     );
   }
 
   const nested =
-    (result as Record<string, unknown>).data && typeof (result as Record<string, unknown>).data === "object"
+    (result as Record<string, unknown>).data &&
+    typeof (result as Record<string, unknown>).data === "object"
       ? ((result as Record<string, unknown>).data as Record<string, unknown>)
       : null;
 
@@ -516,21 +583,28 @@ async function downloadInvoiceFile(number: string, kind: InvoiceFileKind): Promi
 
   if (typeof raw !== "string" || raw.trim() === "") {
     throw new FactusClientUnavailableError(
-      "Factus no devolvió el archivo solicitado. Se requiere revisión manual."
+      "Factus no devolvió el archivo solicitado. Se requiere revisión manual.",
     );
   }
 
-  const fileName = typeof nested?.file_name === "string" && nested.file_name.trim() ? nested.file_name : number;
+  const fileName =
+    typeof nested?.file_name === "string" && nested.file_name.trim()
+      ? nested.file_name
+      : number;
 
   return { file_name: fileName, base64: raw };
 }
 
 /** Descarga el PDF de una factura validada (Base64 + nombre de archivo). */
-export async function getInvoicePdf(number: string): Promise<FactusFileDownload> {
+export async function getInvoicePdf(
+  number: string,
+): Promise<FactusFileDownload> {
   return downloadInvoiceFile(number, "pdf");
 }
 
 /** Descarga el XML electrónico de una factura validada (Base64 + nombre de archivo). */
-export async function getInvoiceXml(number: string): Promise<FactusFileDownload> {
+export async function getInvoiceXml(
+  number: string,
+): Promise<FactusFileDownload> {
   return downloadInvoiceFile(number, "xml");
 }

@@ -4,10 +4,18 @@ import { requireApiAuth } from "@/lib/security/api-auth";
 import { sanitizeString } from "@/lib/security/sanitize";
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
 import { toCents, toMoneyString, eq } from "@/lib/factus/money";
-import { parseSaleItems, computeOrderFigures, OrderLine } from "@/lib/factus/order";
+import {
+  parseSaleItems,
+  computeOrderFigures,
+  OrderLine,
+} from "@/lib/factus/order";
 import { canonicalPresentation } from "@/lib/factus/presentation";
 import { resolvePaymentData } from "@/lib/factus/payment";
-import { ValidationError, AppError, handleApiError } from "@/lib/security/safe-error";
+import {
+  ValidationError,
+  AppError,
+  handleApiError,
+} from "@/lib/security/safe-error";
 
 interface Order {
   id: number;
@@ -52,6 +60,34 @@ function toDateOnly(value: unknown): string | null {
   return match ? match[0] : iso.slice(0, 10);
 }
 
+type ParsedOrder = Omit<Order, "items" | "date" | "payment_due_date"> & {
+  items: { id: string; qty: number }[];
+  date: string | null;
+  payment_due_date: string | null;
+};
+
+function parseOrderItems(raw: unknown): { id: string; qty: number }[] {
+  if (raw === null || raw === undefined) return [];
+  try {
+    if (typeof raw === "string") {
+      return JSON.parse(raw) as { id: string; qty: number }[];
+    }
+    return raw as { id: string; qty: number }[];
+  } catch {
+    return [];
+  }
+}
+
+function mapParsedOrder(o: Order): ParsedOrder {
+  return {
+    ...o,
+    date: toIsoString(o.date),
+    payment_due_date: toDateOnly(o.payment_due_date),
+    items: parseOrderItems(o.items),
+    total: Number(o.total) || 0,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireApiAuth(request);
   if (auth instanceof NextResponse) return auth;
@@ -59,10 +95,15 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-    const pageSize = Math.min(50, Math.max(1, Number(url.searchParams.get("pageSize")) || 10));
+    const pageSize = Math.min(
+      50,
+      Math.max(1, Number(url.searchParams.get("pageSize")) || 10),
+    );
     const offset = (page - 1) * pageSize;
 
-    const [countRow] = await queryMany<any>("SELECT COUNT(*) AS total FROM orders");
+    const [countRow] = await queryMany<any>(
+      "SELECT COUNT(*) AS total FROM orders",
+    );
     const total = Number(countRow?.total) || 0;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -72,31 +113,25 @@ export async function GET(request: NextRequest) {
        FROM orders
        ORDER BY id DESC
        LIMIT ? OFFSET ?`,
-      [pageSize, offset]
+      [pageSize, offset],
     );
 
-    const parsedOrders = orders.map(o => {
-      let items: { id: string; qty: number }[] = [];
-    try {
-      if (o.items) {
-        items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
-      }
-    } catch {
-      items = [];
-    }
-      return {
-        ...o,
-        date: toIsoString(o.date),
-        payment_due_date: toDateOnly(o.payment_due_date),
-        items,
-        total: Number(o.total) || 0
-      };
-    });
+    const parsedOrders = orders.map(mapParsedOrder);
 
-    return NextResponse.json({ sales: parsedOrders, pagination: { page, pageSize, total, totalPages } });
+    return NextResponse.json({
+      sales: parsedOrders,
+      pagination: { page, pageSize, total, totalPages },
+    });
   } catch (error) {
     const { error: message, statusCode } = handleApiError(error);
-    return NextResponse.json({ error: message, sales: [], pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 } }, { status: statusCode });
+    return NextResponse.json(
+      {
+        error: message,
+        sales: [],
+        pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
+      },
+      { status: statusCode },
+    );
   }
 }
 
@@ -125,7 +160,11 @@ export async function POST(request: NextRequest) {
     const lines: OrderLine[] = parseSaleItems(body?.items);
 
     let clientTotalCents: bigint | null = null;
-    if (body?.total !== undefined && body?.total !== null && body?.total !== "") {
+    if (
+      body?.total !== undefined &&
+      body?.total !== null &&
+      body?.total !== ""
+    ) {
       try {
         clientTotalCents = toCents(body.total as string | number);
       } catch {
@@ -134,15 +173,15 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await withTransaction(async (conn: PoolConnection) => {
-      const itemIds = [...new Set(lines.map(l => l.productId))];
+      const itemIds = [...new Set(lines.map((l) => l.productId))];
 
       const [products] = await conn.execute<ProductRow[]>(
         `SELECT id, name, stock, price, presentation, tax_rate
-         FROM products WHERE id IN (${itemIds.map(() => '?').join(',')}) FOR UPDATE`,
-        itemIds
+         FROM products WHERE id IN (${itemIds.map(() => "?").join(",")}) FOR UPDATE`,
+        itemIds,
       );
 
-      const productMap = new Map(products.map(p => [p.id, p]));
+      const productMap = new Map(products.map((p) => [p.id, p]));
 
       const stockErrors: string[] = [];
       for (const line of lines) {
@@ -152,15 +191,22 @@ export async function POST(request: NextRequest) {
           continue;
         }
         if (product.stock < line.qty) {
-          stockErrors.push(`Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${line.qty}`);
+          stockErrors.push(
+            `Stock insuficiente para ${product.name}: disponible ${product.stock}, solicitado ${line.qty}`,
+          );
         }
       }
 
       if (stockErrors.length > 0) {
-        throw new ValidationError("Stock insuficiente: " + stockErrors.join("; "));
+        throw new ValidationError(
+          "Stock insuficiente: " + stockErrors.join("; "),
+        );
       }
 
-      const productsById: Record<number, { price: string; taxRate: string | null }> = {};
+      const productsById: Record<
+        number,
+        { price: string; taxRate: string | null }
+      > = {};
       for (const p of products) {
         productsById[p.id] = { price: p.price, taxRate: p.tax_rate };
       }
@@ -168,27 +214,38 @@ export async function POST(request: NextRequest) {
       const figures = computeOrderFigures(lines, productsById);
 
       // Autoridad del precio: el cliente DEBE cuadrar con el total recalculado server-side.
-      if (clientTotalCents !== null && !eq(figures.totalCents, clientTotalCents)) {
-        throw new ValidationError("El total enviado no coincide con el total calculado por el servidor");
+      if (
+        clientTotalCents !== null &&
+        !eq(figures.totalCents, clientTotalCents)
+      ) {
+        throw new ValidationError(
+          "El total enviado no coincide con el total calculado por el servidor",
+        );
       }
 
       const totalNumber = Number(toMoneyString(figures.totalCents));
       const subtotalNumber =
-        figures.subtotalCents === null ? null : Number(toMoneyString(figures.subtotalCents));
+        figures.subtotalCents === null
+          ? null
+          : Number(toMoneyString(figures.subtotalCents));
       const taxNumber =
-        figures.taxCents === null ? null : Number(toMoneyString(figures.taxCents));
+        figures.taxCents === null
+          ? null
+          : Number(toMoneyString(figures.taxCents));
 
       // Snapshot histórico inmutable: precio REAL server-side, presentación canónica.
-      const itemsJson = JSON.stringify(lines.map(line => {
-        const product = productMap.get(line.productId)!;
-        return {
-          id: String(product.id),
-          qty: line.qty,
-          price: Number(toMoneyString(figures.unitPrices.get(product.id)!)),
-          name: product.name,
-          presentation: canonicalPresentation(product.presentation),
-        };
-      }));
+      const itemsJson = JSON.stringify(
+        lines.map((line) => {
+          const product = productMap.get(line.productId)!;
+          return {
+            id: String(product.id),
+            qty: line.qty,
+            price: Number(toMoneyString(figures.unitPrices.get(product.id)!)),
+            name: product.name,
+            presentation: canonicalPresentation(product.presentation),
+          };
+        }),
+      );
 
       const [insertResult] = await conn.execute<RowDataPacket[]>(
         `INSERT INTO orders (customer_name, total, items, status, subtotal, tax_total, discount_total, payment_form, payment_method_code, payment_reference, payment_due_date)
@@ -204,7 +261,7 @@ export async function POST(request: NextRequest) {
           payment.paymentMethodCode,
           payment.paymentReference,
           payment.paymentDueDate,
-        ]
+        ],
       );
 
       const orderId = (insertResult as any).insertId;
@@ -216,19 +273,22 @@ export async function POST(request: NextRequest) {
 
         await conn.execute(
           `UPDATE products SET stock = stock - ? WHERE id = ?`,
-          [line.qty, product.id]
+          [line.qty, product.id],
         );
 
         await conn.execute(
           `INSERT INTO inventory_movements (product_id, type, quantity, reason) VALUES (?, 'salida', ?, ?)`,
-          [product.id, line.qty, `Venta #${orderId} - ${customer}`]
+          [product.id, line.qty, `Venta #${orderId} - ${customer}`],
         );
 
         const newStock = product.stock - line.qty;
         if (newStock <= LOW_STOCK_THRESHOLD && newStock >= 0) {
           await conn.execute(
             `INSERT INTO notifications (type, product_id, message) VALUES ('stock_low', ?, ?)`,
-            [product.id, `Stock bajo: ${product.name} tiene solo ${newStock} unidades disponibles`]
+            [
+              product.id,
+              `Stock bajo: ${product.name} tiene solo ${newStock} unidades disponibles`,
+            ],
           );
           lowStockProducts.push({
             name: product.name,
@@ -238,7 +298,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return { orderId, totalItems: lines.length, total: totalNumber, lowStockProducts };
+      return {
+        orderId,
+        totalItems: lines.length,
+        total: totalNumber,
+        lowStockProducts,
+      };
     });
 
     if (result.lowStockProducts && result.lowStockProducts.length > 0) {
@@ -252,7 +317,7 @@ export async function POST(request: NextRequest) {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${resendApiKey}`
+                Authorization: `Bearer ${resendApiKey}`,
               },
               body: JSON.stringify({
                 from: "Café Creencia <onboarding@resend.dev>",
@@ -265,7 +330,7 @@ export async function POST(request: NextRequest) {
                       <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0;">
                         <p style="margin: 0 0 10px;"><strong>Producto:</strong> ${lowStock.name}</p>
                         <p style="margin: 0 0 10px;"><strong>Stock actual:</strong> <span style="color: #d32f2f; font-weight: bold;">${lowStock.stock} unidades</span></p>
-                        <p style="margin: 0 0 10px;"><strong>Presentación:</strong> ${lowStock.presentation || '500g'}</p>
+                        <p style="margin: 0 0 10px;"><strong>Presentación:</strong> ${lowStock.presentation || "500g"}</p>
                       </div>
                       <p>Esta alerta se generó automáticamente después de la <strong>Venta #${result.orderId}</strong>.</p>
                       <p style="color: #666; font-size: 12px; margin-top: 30px;">
@@ -273,14 +338,16 @@ export async function POST(request: NextRequest) {
                       </p>
                     </body>
                   </html>
-                `
-              })
+                `,
+              }),
             });
           } catch (emailError) {
             console.error("Error sending email:", emailError);
           }
         } else {
-          console.log(`[EMAIL SIMULADO] Alerta de stock para ${adminEmail}: ${lowStock.name} tiene solo ${lowStock.stock} unidades`);
+          console.log(
+            `[EMAIL SIMULADO] Alerta de stock para ${adminEmail}: ${lowStock.name} tiene solo ${lowStock.stock} unidades`,
+          );
         }
       }
     }
@@ -290,13 +357,18 @@ export async function POST(request: NextRequest) {
       message: "Venta registrada correctamente",
       total: result.total,
     });
-
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
     }
 
     console.error("Error creating sale:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 },
+    );
   }
 }
