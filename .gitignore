@@ -46,3 +46,7 @@ agy2-pprojects/
 # Local scratch / dev helpers
 test.json
 start-dev.ps1
+
+# SonarQube / SonarCloud
+.scannerwork/
+sonar-scanner-cache/
